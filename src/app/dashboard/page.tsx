@@ -14,6 +14,22 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!existingProfile) {
+    const { error: insertError } = await supabase
+      .from("profiles")
+      .insert({ id: user.id });
+
+    if (insertError) {
+      throw new Error(`Could not create profile: ${insertError.message}`);
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
       <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
