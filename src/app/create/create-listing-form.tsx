@@ -68,6 +68,21 @@ export function CreateListingForm() {
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-zinc-800 dark:text-zinc-200">
+          Auction ends
+        </span>
+        <input
+          type="datetime-local"
+          name="auction_ends_at"
+          className={inputClass}
+          aria-label="Auction end date and time"
+        />
+        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+          Required when listing type is Auction. Ignored for fixed price.
+        </span>
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium text-zinc-800 dark:text-zinc-200">
           Price (NOK)
         </span>
         <input
