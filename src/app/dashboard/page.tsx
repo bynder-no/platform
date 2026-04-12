@@ -73,6 +73,12 @@ export default async function DashboardPage() {
           Favorites
         </Link>
         <Link
+          href="/messages"
+          className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+        >
+          Messages
+        </Link>
+        <Link
           href="/create"
           className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
         >

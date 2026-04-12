@@ -146,3 +146,61 @@ export async function toggleFavorite(
 
   redirect(`/listings/${listingId}`);
 }
+
+export type ContactSellerState = { error: string } | null;
+
+export async function sendListingMessage(
+  _prev: ContactSellerState,
+  formData: FormData,
+): Promise<ContactSellerState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  const body = String(formData.get("body") ?? "").trim();
+
+  if (!listingId) {
+    return { error: "Listing is required." };
+  }
+
+  if (!body) {
+    return { error: "Message cannot be empty." };
+  }
+
+  const { data: listing, error: listingFetchError } = await supabase
+    .from("listings")
+    .select("seller_id")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (listingFetchError) {
+    return { error: listingFetchError.message };
+  }
+
+  if (!listing) {
+    return { error: "Listing not found." };
+  }
+
+  if (user.id === listing.seller_id) {
+    return { error: "You cannot message yourself." };
+  }
+
+  const { error: insertError } = await supabase.from("messages").insert({
+    sender_id: user.id,
+    recipient_id: listing.seller_id,
+    listing_id: listingId,
+    body,
+  });
+
+  if (insertError) {
+    return { error: insertError.message };
+  }
+
+  redirect(`/listings/${listingId}`);
+}
