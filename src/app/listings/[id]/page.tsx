@@ -42,6 +42,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
     throw new Error(`Could not load seller: ${sellerError.message}`);
   }
 
+  const sellerUsername = seller?.username?.trim() || null;
   const sellerLabel =
     seller?.display_name?.trim() ||
     seller?.username?.trim() ||
@@ -118,7 +119,16 @@ export default async function ListingDetailPage({ params }: PageProps) {
               Seller
             </dt>
             <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
-              {sellerLabel}
+              {sellerUsername ? (
+                <Link
+                  href={`/u/${encodeURIComponent(sellerUsername)}`}
+                  className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                >
+                  {sellerLabel}
+                </Link>
+              ) : (
+                sellerLabel
+              )}
             </dd>
           </div>
         ) : null}
