@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
+import { MessageReplyForm } from "./message-reply-form";
+
 export const dynamic = "force-dynamic";
 
 function profileLabel(
@@ -145,6 +147,7 @@ export default async function MessagesPage() {
                       ? new Date(msg.created_at).toLocaleString()
                       : "—"}
                   </p>
+                  <MessageReplyForm parentMessageId={msg.id} />
                 </li>
               );
             })}
