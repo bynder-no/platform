@@ -11,7 +11,11 @@ const buttonClass =
   "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
 
 type PageProps = {
-  searchParams: Promise<{ q?: string | string[]; type?: string | string[] }>;
+  searchParams: Promise<{
+    q?: string | string[];
+    type?: string | string[];
+    sort?: string | string[];
+  }>;
 };
 
 export default async function HomePage({ searchParams }: PageProps) {
@@ -37,6 +41,22 @@ export default async function HomePage({ searchParams }: PageProps) {
       ? typeParam
       : null;
 
+  const rawSort = sp.sort;
+  const sortParam =
+    typeof rawSort === "string"
+      ? rawSort.trim()
+      : Array.isArray(rawSort) && rawSort[0]
+        ? String(rawSort[0]).trim()
+        : "";
+
+  const listingSort =
+    sortParam === "newest" ||
+    sortParam === "oldest" ||
+    sortParam === "price_asc" ||
+    sortParam === "price_desc"
+      ? sortParam
+      : "newest";
+
   const supabase = await createClient();
 
   let query = supabase
@@ -52,9 +72,17 @@ export default async function HomePage({ searchParams }: PageProps) {
     query = query.ilike("title", `%${q}%`);
   }
 
-  const { data: listings, error } = await query.order("created_at", {
-    ascending: false,
-  });
+  if (listingSort === "oldest") {
+    query = query.order("created_at", { ascending: true });
+  } else if (listingSort === "price_asc") {
+    query = query.order("price_nok", { ascending: true });
+  } else if (listingSort === "price_desc") {
+    query = query.order("price_nok", { ascending: false });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
+
+  const { data: listings, error } = await query;
 
   if (error) {
     throw new Error(`Could not load listings: ${error.message}`);
@@ -62,20 +90,38 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   const rows = listings ?? [];
 
-  const clearSearchHref = listingType ? `/?type=${listingType}` : "/";
+  const listingsHref = (overrides: {
+    q?: string | null;
+    type?: string | null;
+    sort?: string | null;
+  }) => {
+    const p = new URLSearchParams();
+    const qv = overrides.q !== undefined ? overrides.q : q;
+    const tv = overrides.type !== undefined ? overrides.type : listingType;
+    const sv =
+      (overrides.sort !== undefined ? overrides.sort : listingSort) ??
+      "newest";
+    if (qv) p.set("q", qv);
+    if (tv) p.set("type", tv);
+    p.set("sort", sv);
+    return `/?${p.toString()}`;
+  };
 
-  const allTypeHref = q ? `/?q=${encodeURIComponent(q)}` : "/";
-  const fixedPriceTypeHref = q
-    ? `/?q=${encodeURIComponent(q)}&type=fixed_price`
-    : "/?type=fixed_price";
-  const auctionTypeHref = q
-    ? `/?q=${encodeURIComponent(q)}&type=auction`
-    : "/?type=auction";
+  const clearSearchHref = listingsHref({ q: null });
 
-  const typeFilterLinkClass = (active: boolean) =>
+  const allTypeHref = listingsHref({ type: null });
+  const fixedPriceTypeHref = listingsHref({ type: "fixed_price" });
+  const auctionTypeHref = listingsHref({ type: "auction" });
+
+  const newestSortHref = listingsHref({ sort: "newest" });
+  const oldestSortHref = listingsHref({ sort: "oldest" });
+  const priceAscSortHref = listingsHref({ sort: "price_asc" });
+  const priceDescSortHref = listingsHref({ sort: "price_desc" });
+
+  const filterLinkClass = (active: boolean) =>
     active
-      ? "font-semibold text-zinc-900 underline underline-offset-2 dark:text-zinc-50"
-      : "font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100";
+      ? "font-semibold text-zinc-900 underline decoration-2 underline-offset-2 dark:text-zinc-50"
+      : "font-medium text-zinc-700 underline-offset-2 hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100";
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
@@ -105,40 +151,89 @@ export default async function HomePage({ searchParams }: PageProps) {
         {listingType ? (
           <input type="hidden" name="type" value={listingType} />
         ) : null}
+        <input type="hidden" name="sort" value={listingSort} />
         <button type="submit" className={buttonClass}>
           Search
         </button>
       </form>
 
-      <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <Link
-          href={allTypeHref}
-          className={typeFilterLinkClass(!listingType)}
-          aria-current={!listingType ? "page" : undefined}
-        >
-          All
-        </Link>
-        <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-          ·
-        </span>
-        <Link
-          href={fixedPriceTypeHref}
-          className={typeFilterLinkClass(listingType === "fixed_price")}
-          aria-current={listingType === "fixed_price" ? "page" : undefined}
-        >
-          Fixed price
-        </Link>
-        <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-          ·
-        </span>
-        <Link
-          href={auctionTypeHref}
-          className={typeFilterLinkClass(listingType === "auction")}
-          aria-current={listingType === "auction" ? "page" : undefined}
-        >
-          Auction
-        </Link>
-      </p>
+      <div className="mt-3 space-y-2">
+        <nav aria-label="Listing type">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <Link
+              href={allTypeHref}
+              className={filterLinkClass(!listingType)}
+              aria-current={!listingType ? "page" : undefined}
+            >
+              All
+            </Link>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              href={fixedPriceTypeHref}
+              className={filterLinkClass(listingType === "fixed_price")}
+              aria-current={listingType === "fixed_price" ? "page" : undefined}
+            >
+              Fixed price
+            </Link>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              href={auctionTypeHref}
+              className={filterLinkClass(listingType === "auction")}
+              aria-current={listingType === "auction" ? "page" : undefined}
+            >
+              Auction
+            </Link>
+          </p>
+        </nav>
+
+        <nav aria-label="Sort listings">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <Link
+              href={newestSortHref}
+              className={filterLinkClass(listingSort === "newest")}
+              aria-current={listingSort === "newest" ? "page" : undefined}
+            >
+              Newest
+            </Link>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              href={oldestSortHref}
+              className={filterLinkClass(listingSort === "oldest")}
+              aria-current={listingSort === "oldest" ? "page" : undefined}
+            >
+              Oldest
+            </Link>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              href={priceAscSortHref}
+              className={filterLinkClass(listingSort === "price_asc")}
+              aria-current={listingSort === "price_asc" ? "page" : undefined}
+              aria-label="Sort by price, lowest first"
+            >
+              Price ↑
+            </Link>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              href={priceDescSortHref}
+              className={filterLinkClass(listingSort === "price_desc")}
+              aria-current={listingSort === "price_desc" ? "page" : undefined}
+              aria-label="Sort by price, highest first"
+            >
+              Price ↓
+            </Link>
+          </p>
+        </nav>
+      </div>
 
       {q ? (
         <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
