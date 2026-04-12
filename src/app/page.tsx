@@ -10,6 +10,7 @@ export default async function HomePage() {
   const { data: listings, error } = await supabase
     .from("listings")
     .select("id, title, type, price_nok, status, created_at")
+    .eq("status", "active")
     .order("created_at", { ascending: false });
 
   if (error) {

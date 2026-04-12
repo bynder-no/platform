@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { PublishDraftForm } from "./publish-draft-form";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -93,21 +94,26 @@ export default async function DashboardPage() {
                 >
                   {row.title}
                 </Link>
-                <span className="text-zinc-600 dark:text-zinc-400">
-                  {row.type === "auction"
-                    ? "Auction"
-                    : row.type === "fixed_price"
-                      ? "Fixed price"
+                <div className="flex flex-col gap-2 sm:items-end">
+                  <span className="text-zinc-600 dark:text-zinc-400">
+                    {row.type === "auction"
+                      ? "Auction"
+                      : row.type === "fixed_price"
+                        ? "Fixed price"
+                        : "—"}
+                    <span className="mx-2 text-zinc-400">·</span>
+                    {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
+                    <span className="mx-2 text-zinc-400">·</span>
+                    {row.status}
+                    <span className="mx-2 text-zinc-400">·</span>
+                    {row.created_at
+                      ? new Date(row.created_at).toLocaleString()
                       : "—"}
-                  <span className="mx-2 text-zinc-400">·</span>
-                  {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
-                  <span className="mx-2 text-zinc-400">·</span>
-                  {row.status}
-                  <span className="mx-2 text-zinc-400">·</span>
-                  {row.created_at
-                    ? new Date(row.created_at).toLocaleString()
-                    : "—"}
-                </span>
+                  </span>
+                  {row.status === "draft" ? (
+                    <PublishDraftForm listingId={row.id} />
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>

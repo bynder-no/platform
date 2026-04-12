@@ -12,11 +12,14 @@ type PageProps = {
 export default async function ListingDetailPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, price_nok, location, description, created_at, seller_id, type",
+      "title, price_nok, description, created_at, seller_id, type, status",
     )
     .eq("id", id)
     .maybeSingle();
@@ -26,6 +29,13 @@ export default async function ListingDetailPage({ params }: PageProps) {
   }
 
   if (!listing) {
+    notFound();
+  }
+
+  if (
+    listing.status === "draft" &&
+    (!user || user.id !== listing.seller_id)
+  ) {
     notFound();
   }
 
@@ -76,14 +86,6 @@ export default async function ListingDetailPage({ params }: PageProps) {
           </dt>
           <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
             {listing.price_nok != null ? `${listing.price_nok} NOK` : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
-            Location
-          </dt>
-          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
-            {listing.location?.trim() || "—"}
           </dd>
         </div>
         <div>
