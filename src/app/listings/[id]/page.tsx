@@ -123,6 +123,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
   const showContactSeller = Boolean(user && user.id !== listing.seller_id);
 
+  const nowMs = Date.now();
   const auctionEndMs = listing.auction_ends_at
     ? new Date(listing.auction_ends_at).getTime()
     : null;
@@ -132,7 +133,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
       listing.status === "active" &&
       auctionEndMs !== null &&
       !Number.isNaN(auctionEndMs) &&
-      auctionEndMs > Date.now() &&
+      auctionEndMs > nowMs &&
       user.id !== listing.seller_id,
   );
 
