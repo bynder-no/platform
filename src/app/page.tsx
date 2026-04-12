@@ -11,7 +11,7 @@ const buttonClass =
   "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
 
 type PageProps = {
-  searchParams: Promise<{ q?: string | string[] }>;
+  searchParams: Promise<{ q?: string | string[]; type?: string | string[] }>;
 };
 
 export default async function HomePage({ searchParams }: PageProps) {
@@ -24,12 +24,29 @@ export default async function HomePage({ searchParams }: PageProps) {
         ? String(rawQ[0]).trim()
         : "";
 
+  const rawType = sp.type;
+  const typeParam =
+    typeof rawType === "string"
+      ? rawType.trim()
+      : Array.isArray(rawType) && rawType[0]
+        ? String(rawType[0]).trim()
+        : "";
+
+  const listingType =
+    typeParam === "auction" || typeParam === "fixed_price"
+      ? typeParam
+      : null;
+
   const supabase = await createClient();
 
   let query = supabase
     .from("listings")
     .select("id, title, type, price_nok, status, created_at")
     .eq("status", "active");
+
+  if (listingType) {
+    query = query.eq("type", listingType);
+  }
 
   if (q) {
     query = query.ilike("title", `%${q}%`);
@@ -44,6 +61,21 @@ export default async function HomePage({ searchParams }: PageProps) {
   }
 
   const rows = listings ?? [];
+
+  const clearSearchHref = listingType ? `/?type=${listingType}` : "/";
+
+  const allTypeHref = q ? `/?q=${encodeURIComponent(q)}` : "/";
+  const fixedPriceTypeHref = q
+    ? `/?q=${encodeURIComponent(q)}&type=fixed_price`
+    : "/?type=fixed_price";
+  const auctionTypeHref = q
+    ? `/?q=${encodeURIComponent(q)}&type=auction`
+    : "/?type=auction";
+
+  const typeFilterLinkClass = (active: boolean) =>
+    active
+      ? "font-semibold text-zinc-900 underline underline-offset-2 dark:text-zinc-50"
+      : "font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100";
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
@@ -70,16 +102,49 @@ export default async function HomePage({ searchParams }: PageProps) {
           placeholder="Search by title"
           className={inputClass}
         />
+        {listingType ? (
+          <input type="hidden" name="type" value={listingType} />
+        ) : null}
         <button type="submit" className={buttonClass}>
           Search
         </button>
       </form>
 
+      <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+        <Link
+          href={allTypeHref}
+          className={typeFilterLinkClass(!listingType)}
+          aria-current={!listingType ? "page" : undefined}
+        >
+          All
+        </Link>
+        <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+          ·
+        </span>
+        <Link
+          href={fixedPriceTypeHref}
+          className={typeFilterLinkClass(listingType === "fixed_price")}
+          aria-current={listingType === "fixed_price" ? "page" : undefined}
+        >
+          Fixed price
+        </Link>
+        <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+          ·
+        </span>
+        <Link
+          href={auctionTypeHref}
+          className={typeFilterLinkClass(listingType === "auction")}
+          aria-current={listingType === "auction" ? "page" : undefined}
+        >
+          Auction
+        </Link>
+      </p>
+
       {q ? (
         <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
           {`Showing results for "${q}"`}{" "}
           <Link
-            href="/"
+            href={clearSearchHref}
             className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
           >
             Clear
@@ -112,11 +177,11 @@ export default async function HomePage({ searchParams }: PageProps) {
         {rows.length === 0 ? (
           <div className="text-sm text-zinc-600 dark:text-zinc-400">
             <p className="font-medium text-zinc-800 dark:text-zinc-200">
-              {q ? "No matching listings" : "No listings yet"}
+              {q || listingType ? "No matching listings" : "No listings yet"}
             </p>
             <p className="mt-2">
-              {q
-                ? "Try a different search or clear the field and search again."
+              {q || listingType
+                ? "Try a different search or listing type."
                 : "The feed is empty. Check back later."}
             </p>
           </div>
