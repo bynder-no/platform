@@ -204,3 +204,100 @@ export async function sendListingMessage(
 
   redirect(`/listings/${listingId}`);
 }
+
+export type PlaceBidState = { error: string } | null;
+
+export async function placeBid(
+  _prev: PlaceBidState,
+  formData: FormData,
+): Promise<PlaceBidState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  const amountRaw = String(formData.get("amount_nok") ?? "").trim();
+
+  if (!listingId) {
+    return { error: "Listing is required." };
+  }
+
+  const amount = Number(amountRaw);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return { error: "Enter a valid bid amount greater than 0." };
+  }
+
+  const { data: listing, error: listingFetchError } = await supabase
+    .from("listings")
+    .select("seller_id, type, status, auction_ends_at")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (listingFetchError) {
+    return { error: listingFetchError.message };
+  }
+
+  if (!listing) {
+    return { error: "Listing not found." };
+  }
+
+  if (listing.type !== "auction") {
+    return { error: "Bidding is only open for auctions." };
+  }
+
+  if (listing.status !== "active") {
+    return { error: "Bidding is not open for this listing." };
+  }
+
+  if (user.id === listing.seller_id) {
+    return { error: "You cannot bid on your own listing." };
+  }
+
+  if (!listing.auction_ends_at) {
+    return { error: "This auction has no end time." };
+  }
+
+  if (new Date(listing.auction_ends_at).getTime() <= Date.now()) {
+    return { error: "This auction has ended." };
+  }
+
+  const { data: topBid, error: topBidError } = await supabase
+    .from("bids")
+    .select("amount_nok")
+    .eq("listing_id", listingId)
+    .order("amount_nok", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (topBidError) {
+    return { error: topBidError.message };
+  }
+
+  const highestNok =
+    topBid?.amount_nok != null && Number.isFinite(Number(topBid.amount_nok))
+      ? Number(topBid.amount_nok)
+      : 0;
+
+  if (highestNok > 0 && amount <= highestNok) {
+    return {
+      error: "Your bid must be higher than the current highest bid.",
+    };
+  }
+
+  const { error: insertError } = await supabase.from("bids").insert({
+    listing_id: listingId,
+    bidder_id: user.id,
+    amount_nok: amount,
+  });
+
+  if (insertError) {
+    return { error: insertError.message };
+  }
+
+  redirect(`/listings/${listingId}`);
+}
