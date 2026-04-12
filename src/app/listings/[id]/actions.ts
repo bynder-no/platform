@@ -259,11 +259,12 @@ export async function placeBid(
   }
 
   if (!listing.auction_ends_at) {
-    return { error: "This auction has no end time." };
+    return { error: "Auction is not open." };
   }
 
-  if (new Date(listing.auction_ends_at).getTime() <= Date.now()) {
-    return { error: "This auction has ended." };
+  const endsAtMs = new Date(listing.auction_ends_at).getTime();
+  if (!Number.isFinite(endsAtMs) || endsAtMs <= Date.now()) {
+    return { error: "Auction has ended." };
   }
 
   const { data: topBid, error: topBidError } = await supabase
