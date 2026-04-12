@@ -123,17 +123,10 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
   const showContactSeller = Boolean(user && user.id !== listing.seller_id);
 
-  const nowMs = Date.now();
-  const auctionEndMs = listing.auction_ends_at
-    ? new Date(listing.auction_ends_at).getTime()
-    : null;
   const showPlaceBid = Boolean(
     user &&
       listing.type === "auction" &&
       listing.status === "active" &&
-      auctionEndMs !== null &&
-      !Number.isNaN(auctionEndMs) &&
-      auctionEndMs > nowMs &&
       user.id !== listing.seller_id,
   );
 
