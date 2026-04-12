@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -43,6 +44,14 @@ export default async function DashboardPage() {
       </p>
       <p className="mt-2 font-mono text-xs text-zinc-500 dark:text-zinc-500">
         {user.id}
+      </p>
+      <p className="mt-8">
+        <Link
+          href="/create"
+          className="text-sm font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+        >
+          Create a listing
+        </Link>
       </p>
     </div>
   );
