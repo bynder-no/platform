@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
+import { ContactSellerForm } from "./contact-seller-form";
 import { FavoriteButton } from "./favorite-button";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,8 @@ export default async function ListingDetailPage({ params }: PageProps) {
     user &&
     listing.status === "draft" &&
     user.id === listing.seller_id;
+
+  const showContactSeller = Boolean(user && user.id !== listing.seller_id);
 
   let isFavorite = false;
   if (user) {
@@ -179,6 +182,15 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 sellerLabel
               )}
             </p>
+          </section>
+        ) : null}
+
+        {showContactSeller ? (
+          <section aria-labelledby="listing-contact-heading">
+            <h2 id="listing-contact-heading" className={sectionLabelClass}>
+              Contact seller
+            </h2>
+            <ContactSellerForm listingId={id} />
           </section>
         ) : null}
       </div>
