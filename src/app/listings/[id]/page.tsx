@@ -53,72 +53,105 @@ export default async function ListingDetailPage({ params }: PageProps) {
     listing.status === "draft" &&
     user.id === listing.seller_id;
 
+  const typeLabel =
+    listing.type === "auction"
+      ? "Auction"
+      : listing.type === "fixed_price"
+        ? "Fixed price"
+        : "—";
+
+  const sectionLabelClass =
+    "text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
+
+  const navLinkClass =
+    "text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300";
+
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
-      <div className="flex items-baseline justify-between gap-4">
-        <Link
-          href="/dashboard"
-          className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-        >
-          Dashboard
-        </Link>
+      <nav
+        aria-label="Listing page"
+        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
+      >
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <Link href="/" className={navLinkClass}>
+            Listings
+          </Link>
+          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            ·
+          </span>
+          <Link href="/dashboard" className={navLinkClass}>
+            Dashboard
+          </Link>
+        </p>
         {showEdit ? (
-          <Link
-            href={`/listings/${id}/edit`}
-            className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-          >
+          <Link href={`/listings/${id}/edit`} className={navLinkClass}>
             Edit
           </Link>
         ) : null}
-      </div>
+      </nav>
 
-      <h1 className="mt-6 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-        {listing.title}
-      </h1>
+      <header className="mt-10 border-b border-zinc-200 pb-8 dark:border-zinc-700">
+        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50">
+          {listing.title}
+        </h1>
+      </header>
 
-      <dl className="mt-8 space-y-4 text-sm">
-        <div>
-          <dt className="font-medium text-zinc-800 dark:text-zinc-200">Type</dt>
-          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
-            {listing.type === "auction"
-              ? "Auction"
-              : listing.type === "fixed_price"
-                ? "Fixed price"
-                : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
+      <div className="mt-8 space-y-10 text-sm">
+        <section aria-labelledby="listing-price-heading">
+          <h2 id="listing-price-heading" className={sectionLabelClass}>
             Price
-          </dt>
-          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
-            {listing.price_nok != null ? `${listing.price_nok} NOK` : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
+          </h2>
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50 tabular-nums">
+            {listing.price_nok != null ? (
+              <>
+                <span>{listing.price_nok}</span>
+                <span className="ml-1.5 text-base font-medium text-zinc-500 dark:text-zinc-400">
+                  NOK
+                </span>
+              </>
+            ) : (
+              "—"
+            )}
+          </p>
+        </section>
+
+        <section aria-labelledby="listing-type-heading">
+          <h2 id="listing-type-heading" className={sectionLabelClass}>
+            Type
+          </h2>
+          <p className="mt-3">
+            <span className="inline-block rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-sm font-semibold text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100">
+              {typeLabel}
+            </span>
+          </p>
+        </section>
+
+        <section aria-labelledby="listing-description-heading">
+          <h2 id="listing-description-heading" className={sectionLabelClass}>
             Description
-          </dt>
-          <dd className="mt-1 whitespace-pre-wrap text-zinc-600 dark:text-zinc-400">
+          </h2>
+          <p className="mt-3 whitespace-pre-wrap leading-relaxed text-zinc-600 dark:text-zinc-400">
             {listing.description?.trim() || "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
+          </p>
+        </section>
+
+        <section aria-labelledby="listing-listed-heading">
+          <h2 id="listing-listed-heading" className={sectionLabelClass}>
             Listed
-          </dt>
-          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
+          </h2>
+          <p className="mt-3 text-zinc-700 dark:text-zinc-300">
             {listing.created_at
               ? new Date(listing.created_at).toLocaleString()
               : "—"}
-          </dd>
-        </div>
+          </p>
+        </section>
+
         {sellerLabel ? (
-          <div>
-            <dt className="font-medium text-zinc-800 dark:text-zinc-200">
+          <section aria-labelledby="listing-seller-heading">
+            <h2 id="listing-seller-heading" className={sectionLabelClass}>
               Seller
-            </dt>
-            <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
+            </h2>
+            <p className="mt-3 text-zinc-700 dark:text-zinc-300">
               {sellerUsername ? (
                 <Link
                   href={`/u/${encodeURIComponent(sellerUsername)}`}
@@ -129,10 +162,10 @@ export default async function ListingDetailPage({ params }: PageProps) {
               ) : (
                 sellerLabel
               )}
-            </dd>
-          </div>
+            </p>
+          </section>
         ) : null}
-      </dl>
+      </div>
     </div>
   );
 }
