@@ -2,7 +2,6 @@
 
 import { type FormEvent, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -12,10 +11,10 @@ const inputClass =
 const buttonClass =
   "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
 
-export default function LoginPage() {
-  const router = useRouter();
+export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -24,33 +23,37 @@ export default function LoginPage() {
     e.preventDefault();
     setMessage(null);
     setError(null);
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
     setLoading(true);
 
     const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
     });
 
     setLoading(false);
 
-    if (signInError) {
-      setError(signInError.message);
+    if (signUpError) {
+      setError(signUpError.message);
       return;
     }
 
-    setMessage("Signed in. Redirecting…");
-    router.refresh();
-    router.replace("/dashboard");
+    setMessage("Account created. You can sign in once your email is confirmed.");
   }
 
   return (
     <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-16">
       <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-        Sign in
+        Sign up
       </h1>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        Sign in with your email and password.
+        Create an account with email and password.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
@@ -77,8 +80,9 @@ export default function LoginPage() {
           <input
             type="password"
             name="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             required
+            minLength={6}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className={inputClass}
@@ -86,18 +90,35 @@ export default function LoginPage() {
           />
         </label>
 
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            Confirm password
+          </span>
+          <input
+            type="password"
+            name="confirmPassword"
+            autoComplete="new-password"
+            required
+            minLength={6}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className={inputClass}
+            placeholder="••••••••"
+          />
+        </label>
+
         <button type="submit" disabled={loading} className={buttonClass}>
-          {loading ? "Signing in…" : "Sign in"}
+          {loading ? "Creating account…" : "Sign up"}
         </button>
       </form>
 
       <p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
-        Need an account?{" "}
+        Already have an account?{" "}
         <Link
-          href="/signup"
+          href="/login"
           className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
         >
-          Sign up
+          Sign in
         </Link>
       </p>
 
