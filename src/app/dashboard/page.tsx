@@ -67,6 +67,12 @@ export default async function DashboardPage() {
           Profile
         </Link>
         <Link
+          href="/favorites"
+          className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+        >
+          Favorites
+        </Link>
+        <Link
           href="/create"
           className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
         >

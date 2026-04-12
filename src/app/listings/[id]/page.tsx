@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
+import { FavoriteButton } from "./favorite-button";
+
 export const dynamic = "force-dynamic";
 
 type PageProps = {
@@ -53,6 +55,17 @@ export default async function ListingDetailPage({ params }: PageProps) {
     listing.status === "draft" &&
     user.id === listing.seller_id;
 
+  let isFavorite = false;
+  if (user) {
+    const { data: favoriteRow } = await supabase
+      .from("favorites")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("listing_id", id)
+      .maybeSingle();
+    isFavorite = Boolean(favoriteRow);
+  }
+
   const typeLabel =
     listing.type === "auction"
       ? "Auction"
@@ -94,6 +107,9 @@ export default async function ListingDetailPage({ params }: PageProps) {
         <h1 className="text-2xl font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50">
           {listing.title}
         </h1>
+        {user ? (
+          <FavoriteButton listingId={id} isFavorite={isFavorite} />
+        ) : null}
       </header>
 
       <div className="mt-8 space-y-10 text-sm">

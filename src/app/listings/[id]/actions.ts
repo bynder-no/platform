@@ -91,3 +91,58 @@ export async function deleteDraftListing(
 
   redirect("/dashboard");
 }
+
+export type FavoriteState = { error: string } | null;
+
+export async function toggleFavorite(
+  _prev: FavoriteState,
+  formData: FormData,
+): Promise<FavoriteState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  if (!listingId) {
+    return { error: "Listing is required." };
+  }
+
+  const { data: existing, error: fetchError } = await supabase
+    .from("favorites")
+    .select("id")
+    .eq("user_id", user.id)
+    .eq("listing_id", listingId)
+    .maybeSingle();
+
+  if (fetchError) {
+    return { error: fetchError.message };
+  }
+
+  if (existing) {
+    const { error: deleteError } = await supabase
+      .from("favorites")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("listing_id", listingId);
+
+    if (deleteError) {
+      return { error: deleteError.message };
+    }
+  } else {
+    const { error: insertError } = await supabase.from("favorites").insert({
+      user_id: user.id,
+      listing_id: listingId,
+    });
+
+    if (insertError) {
+      return { error: insertError.message };
+    }
+  }
+
+  redirect(`/listings/${listingId}`);
+}
