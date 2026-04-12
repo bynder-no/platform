@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
+import { ProfileEditForm } from "./profile-edit-form";
+
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
@@ -53,6 +55,9 @@ export default async function ProfilePage() {
 
   const rows = listings ?? [];
 
+  const defaultDisplayName = profile?.display_name?.trim() ?? "";
+  const defaultUsername = profile?.username?.trim() ?? "";
+
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
       <div className="flex items-baseline justify-between gap-4">
@@ -67,24 +72,10 @@ export default async function ProfilePage() {
         </Link>
       </div>
 
-      <dl className="mt-8 space-y-4 text-sm">
-        <div>
-          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
-            Display name
-          </dt>
-          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
-            {profile?.display_name?.trim() || "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
-            Username
-          </dt>
-          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
-            {profile?.username?.trim() || "—"}
-          </dd>
-        </div>
-      </dl>
+      <ProfileEditForm
+        defaultDisplayName={defaultDisplayName}
+        defaultUsername={defaultUsername}
+      />
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
