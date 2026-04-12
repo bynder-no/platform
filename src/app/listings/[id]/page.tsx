@@ -15,7 +15,9 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
   const { data: listing, error: listingError } = await supabase
     .from("listings")
-    .select("title, price_nok, location, description, created_at, seller_id")
+    .select(
+      "title, price_nok, location, description, created_at, seller_id, type",
+    )
     .eq("id", id)
     .maybeSingle();
 
@@ -58,6 +60,16 @@ export default async function ListingDetailPage({ params }: PageProps) {
       </h1>
 
       <dl className="mt-8 space-y-4 text-sm">
+        <div>
+          <dt className="font-medium text-zinc-800 dark:text-zinc-200">Type</dt>
+          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
+            {listing.type === "auction"
+              ? "Auction"
+              : listing.type === "fixed_price"
+                ? "Fixed price"
+                : "—"}
+          </dd>
+        </div>
         <div>
           <dt className="font-medium text-zinc-800 dark:text-zinc-200">
             Price

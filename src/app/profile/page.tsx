@@ -43,7 +43,7 @@ export default async function ProfilePage() {
 
   const { data: listings, error: listingsError } = await supabase
     .from("listings")
-    .select("id, title, price_nok, status, created_at")
+    .select("id, title, price_nok, status, created_at, type")
     .eq("seller_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -108,6 +108,12 @@ export default async function ProfilePage() {
                   {row.title}
                 </Link>
                 <span className="text-zinc-600 dark:text-zinc-400">
+                  {row.type === "auction"
+                    ? "Auction"
+                    : row.type === "fixed_price"
+                      ? "Fixed price"
+                      : "—"}
+                  <span className="mx-2 text-zinc-400">·</span>
                   {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
                   <span className="mx-2 text-zinc-400">·</span>
                   {row.status}
