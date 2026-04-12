@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function ProfilePage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -31,6 +31,16 @@ export default async function DashboardPage() {
     }
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("display_name, username")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profileError) {
+    throw new Error(`Could not load profile: ${profileError.message}`);
+  }
+
   const { data: listings, error: listingsError } = await supabase
     .from("listings")
     .select("id, title, price_nok, status, created_at")
@@ -45,32 +55,36 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
-      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-        Dashboard
-      </h1>
-      <p className="mt-6 text-sm text-zinc-600 dark:text-zinc-400">
-        Signed in as{" "}
-        <span className="font-medium text-zinc-900 dark:text-zinc-100">
-          {user.email ?? "—"}
-        </span>
-      </p>
-      <p className="mt-2 font-mono text-xs text-zinc-500 dark:text-zinc-500">
-        {user.id}
-      </p>
-      <p className="mt-8 flex flex-wrap gap-x-4 gap-y-2 text-sm">
-        <Link
-          href="/profile"
-          className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-        >
+      <div className="flex items-baseline justify-between gap-4">
+        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
           Profile
-        </Link>
+        </h1>
         <Link
-          href="/create"
-          className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+          href="/dashboard"
+          className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
         >
-          Create a listing
+          Dashboard
         </Link>
-      </p>
+      </div>
+
+      <dl className="mt-8 space-y-4 text-sm">
+        <div>
+          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
+            Display name
+          </dt>
+          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
+            {profile?.display_name?.trim() || "—"}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
+            Username
+          </dt>
+          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
+            {profile?.username?.trim() || "—"}
+          </dd>
+        </div>
+      </dl>
 
       <section className="mt-10">
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
@@ -78,7 +92,7 @@ export default async function DashboardPage() {
         </h2>
         {rows.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-            No listings yet. Create one to see it here.
+            No listings yet.
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
