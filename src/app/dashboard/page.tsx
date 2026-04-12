@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { DeleteDraftForm } from "./delete-draft-form";
 import { PublishDraftForm } from "./publish-draft-form";
 import { createClient } from "@/lib/supabase/server";
 
@@ -119,6 +120,7 @@ export default async function DashboardPage() {
                         Edit
                       </Link>
                       <PublishDraftForm listingId={row.id} />
+                      <DeleteDraftForm listingId={row.id} />
                     </div>
                   ) : null}
                 </div>
