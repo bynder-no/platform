@@ -87,9 +87,12 @@ export default async function DashboardPage() {
                 key={row.id}
                 className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
               >
-                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                <Link
+                  href={`/listings/${row.id}`}
+                  className="font-medium text-zinc-900 dark:text-zinc-100"
+                >
                   {row.title}
-                </span>
+                </Link>
                 <span className="text-zinc-600 dark:text-zinc-400">
                   {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
                   <span className="mx-2 text-zinc-400">·</span>
