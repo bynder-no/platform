@@ -71,7 +71,7 @@ export default async function HomePage({ searchParams }: PageProps) {
 
   let query = supabase
     .from("listings")
-    .select("id, title, type, price_nok, status, created_at")
+    .select("id, title, type, price_nok, status, created_at, auction_ends_at")
     .eq("status", "active");
 
   if (listingType) {
@@ -344,6 +344,13 @@ export default async function HomePage({ searchParams }: PageProps) {
                     {row.created_at
                       ? new Date(row.created_at).toLocaleString()
                       : "—"}
+                    {rawType === "auction" && row.auction_ends_at ? (
+                      <>
+                        <span className="mx-2 text-zinc-400">·</span>
+                        Ends{" "}
+                        {new Date(row.auction_ends_at).toLocaleString()}
+                      </>
+                    ) : null}
                   </span>
                 </li>
               );

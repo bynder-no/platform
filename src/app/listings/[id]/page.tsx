@@ -29,7 +29,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, price_nok, description, created_at, seller_id, type, status",
+      "title, price_nok, description, created_at, seller_id, type, status, auction_ends_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -152,6 +152,19 @@ export default async function ListingDetailPage({ params }: PageProps) {
             </span>
           </p>
         </section>
+
+        {listing.type === "auction" ? (
+          <section aria-labelledby="listing-auction-ends-heading">
+            <h2 id="listing-auction-ends-heading" className={sectionLabelClass}>
+              Auction ends
+            </h2>
+            <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+              {listing.auction_ends_at
+                ? new Date(listing.auction_ends_at).toLocaleString()
+                : "—"}
+            </p>
+          </section>
+        ) : null}
 
         <section aria-labelledby="listing-description-heading">
           <h2 id="listing-description-heading" className={sectionLabelClass}>

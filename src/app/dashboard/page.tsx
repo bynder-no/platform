@@ -43,7 +43,7 @@ export default async function DashboardPage() {
 
   const { data: listings, error: listingsError } = await supabase
     .from("listings")
-    .select("id, title, price_nok, status, created_at, type")
+    .select("id, title, price_nok, status, created_at, type, auction_ends_at")
     .eq("seller_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -115,6 +115,13 @@ export default async function DashboardPage() {
                     {row.created_at
                       ? new Date(row.created_at).toLocaleString()
                       : "—"}
+                    {row.type === "auction" && row.auction_ends_at ? (
+                      <>
+                        <span className="mx-2 text-zinc-400">·</span>
+                        Ends{" "}
+                        {new Date(row.auction_ends_at).toLocaleString()}
+                      </>
+                    ) : null}
                   </span>
                   {row.status === "draft" ? (
                     <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
