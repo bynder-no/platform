@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
+import {
+  pageBodyGapClass,
+  pageHeaderClass,
+  pageShellClass,
+  pageTitleClass,
+} from "@/lib/page-layout";
 
 export const dynamic = "force-dynamic";
 
@@ -55,20 +62,13 @@ export default async function FavoritesPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
-      <div className="flex items-baseline justify-between gap-4">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Favorites
-        </h1>
-        <Link
-          href="/dashboard"
-          className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-        >
-          Dashboard
-        </Link>
-      </div>
+    <div className={pageShellClass}>
+      <header className={pageHeaderClass}>
+        <h1 className={pageTitleClass}>Favorites</h1>
+        <SignedInNavLinks />
+      </header>
 
-      <section className="mt-10">
+      <section className={pageBodyGapClass}>
         {rows.length === 0 ? (
           <div className="text-sm text-zinc-600 dark:text-zinc-400">
             <p className="font-medium text-zinc-800 dark:text-zinc-200">

@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
+import {
+  pageBodyGapClass,
+  pageHeaderClass,
+  pageShellClass,
+  pageTitleClass,
+} from "@/lib/page-layout";
 
 import { ContactSellerForm } from "./contact-seller-form";
 import { FavoriteButton } from "./favorite-button";
@@ -83,39 +90,40 @@ export default async function ListingDetailPage({ params }: PageProps) {
     "text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300";
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
-      <nav
-        aria-label="Listing page"
-        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
-      >
-        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <Link href="/" className={navLinkClass}>
-            Listings
-          </Link>
-          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-            ·
-          </span>
-          <Link href="/dashboard" className={navLinkClass}>
-            Dashboard
-          </Link>
-        </p>
-        {showEdit ? (
-          <Link href={`/listings/${id}/edit`} className={navLinkClass}>
-            Edit
-          </Link>
-        ) : null}
-      </nav>
-
-      <header className="mt-10 border-b border-zinc-200 pb-8 dark:border-zinc-700">
-        <h1 className="text-2xl font-semibold leading-tight tracking-tight text-zinc-900 dark:text-zinc-50">
-          {listing.title}
-        </h1>
+    <div className={pageShellClass}>
+      <header className={pageHeaderClass}>
+        <h1 className={pageTitleClass}>{listing.title}</h1>
         {user ? (
           <FavoriteButton listingId={id} isFavorite={isFavorite} />
         ) : null}
+        <nav
+          aria-label="Listing page"
+          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
+        >
+          {user ? (
+            <SignedInNavLinks />
+          ) : (
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <Link href="/" className={navLinkClass}>
+                Home
+              </Link>
+              <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+                ·
+              </span>
+              <Link href="/dashboard" className={navLinkClass}>
+                Dashboard
+              </Link>
+            </p>
+          )}
+          {showEdit ? (
+            <Link href={`/listings/${id}/edit`} className={navLinkClass}>
+              Edit
+            </Link>
+          ) : null}
+        </nav>
       </header>
 
-      <div className="mt-8 space-y-10 text-sm">
+      <div className={`${pageBodyGapClass} space-y-10 text-sm`}>
         <section aria-labelledby="listing-price-heading">
           <h2 id="listing-price-heading" className={sectionLabelClass}>
             Price

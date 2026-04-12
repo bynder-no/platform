@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
+import {
+  pageBodyGapClass,
+  pageHeaderClass,
+  pageShellClass,
+  pageTitleClass,
+} from "@/lib/page-layout";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +24,9 @@ export default async function PublicProfilePage({ params }: PageProps) {
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -46,20 +56,24 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const rows = listings ?? [];
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
-      <div className="flex items-baseline justify-between gap-4">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Profile
-        </h1>
-        <Link
-          href="/"
-          className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-        >
-          Home
-        </Link>
-      </div>
+    <div className={pageShellClass}>
+      <header className={pageHeaderClass}>
+        <h1 className={pageTitleClass}>Profile</h1>
+        {user ? (
+          <SignedInNavLinks />
+        ) : (
+          <p className="text-sm">
+            <Link
+              href="/"
+              className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+            >
+              Home
+            </Link>
+          </p>
+        )}
+      </header>
 
-      <dl className="mt-8 space-y-4 text-sm">
+      <dl className={`${pageBodyGapClass} space-y-4 text-sm`}>
         <div>
           <dt className="font-medium text-zinc-800 dark:text-zinc-200">
             Display name
@@ -78,7 +92,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
         </div>
       </dl>
 
-      <section className="mt-10">
+      <section className={pageBodyGapClass}>
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
           Active listings
         </h2>
