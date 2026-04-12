@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { signOut } from "@/app/auth/actions";
+
 const navLinkClass =
   "text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300";
 
@@ -42,6 +44,17 @@ export function SignedInNavLinks({ className }: SignedInNavLinksProps) {
       <Link href="/profile" className={navLinkClass}>
         Profile
       </Link>
+      <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+        ·
+      </span>
+      <form action={signOut} className="inline">
+        <button
+          type="submit"
+          className={`${navLinkClass} cursor-pointer border-0 bg-transparent p-0`}
+        >
+          Logout
+        </button>
+      </form>
     </nav>
   );
 }
