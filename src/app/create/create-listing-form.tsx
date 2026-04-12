@@ -40,6 +40,32 @@ export function CreateListingForm() {
         />
       </label>
 
+      <fieldset className="flex flex-col gap-2 text-sm">
+        <legend className="font-medium text-zinc-800 dark:text-zinc-200">
+          Listing type
+        </legend>
+        <label className="flex cursor-pointer items-center gap-2 text-zinc-800 dark:text-zinc-200">
+          <input
+            type="radio"
+            name="type"
+            value="fixed_price"
+            defaultChecked
+            required
+            className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+          />
+          <span>Fixed price</span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-zinc-800 dark:text-zinc-200">
+          <input
+            type="radio"
+            name="type"
+            value="auction"
+            className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+          />
+          <span>Auction</span>
+        </label>
+      </fieldset>
+
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-zinc-800 dark:text-zinc-200">
           Price (NOK)

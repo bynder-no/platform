@@ -22,9 +22,14 @@ export async function createListing(
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const priceRaw = String(formData.get("price_nok") ?? "").trim();
+  const listingType = String(formData.get("type") ?? "").trim();
 
   if (!title) {
     return { error: "Title is required." };
+  }
+
+  if (listingType !== "fixed_price" && listingType !== "auction") {
+    return { error: "Select a valid listing type." };
   }
 
   const priceNok = Number(priceRaw);
@@ -39,6 +44,7 @@ export async function createListing(
     price_nok: priceNok,
     image_urls: [],
     status: "draft",
+    type: listingType,
   });
 
   if (error) {
