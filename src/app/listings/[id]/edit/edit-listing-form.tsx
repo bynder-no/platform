@@ -30,7 +30,7 @@ export function EditListingForm({
   const isAuction = defaultType === "auction";
 
   return (
-    <form action={formAction} className="mt-8 flex flex-col gap-4">
+    <form action={formAction} className="mt-10 flex flex-col gap-4">
       <input type="hidden" name="listing_id" value={listingId} />
 
       <label className="flex flex-col gap-1 text-sm">

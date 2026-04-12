@@ -1,6 +1,13 @@
 import Link from "next/link";
 
+import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
+import {
+  pageBodyGapClass,
+  pageHeaderClass,
+  pageShellClass,
+  pageTitleClass,
+} from "@/lib/page-layout";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +65,9 @@ export default async function HomePage({ searchParams }: PageProps) {
       : "newest";
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   let query = supabase
     .from("listings")
@@ -124,19 +134,20 @@ export default async function HomePage({ searchParams }: PageProps) {
       : "font-medium text-zinc-700 underline-offset-2 hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100";
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-16">
-      <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-        Listings
-      </h1>
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        Public feed of all listings.
-      </p>
+    <div className={pageShellClass}>
+      <header className={pageHeaderClass}>
+        <div className="space-y-2">
+          <h1 className={pageTitleClass}>Listings</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Public feed of all listings.
+          </p>
+        </div>
 
-      <form
-        method="get"
-        action="/"
-        className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center"
-      >
+        <form
+          method="get"
+          action="/"
+          className="flex flex-col gap-2 sm:flex-row sm:items-center"
+        >
         <label className="sr-only" htmlFor="listing-search-q">
           Search listings by title
         </label>
@@ -155,9 +166,9 @@ export default async function HomePage({ searchParams }: PageProps) {
         <button type="submit" className={buttonClass}>
           Search
         </button>
-      </form>
+        </form>
 
-      <div className="mt-3 space-y-2">
+        <div className="space-y-2">
         <nav aria-label="Listing type">
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             <Link
@@ -233,42 +244,62 @@ export default async function HomePage({ searchParams }: PageProps) {
             </Link>
           </p>
         </nav>
-      </div>
+        </div>
 
-      {q ? (
-        <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-          {`Showing results for "${q}"`}{" "}
+        {q ? (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            {`Showing results for "${q}"`}{" "}
+            <Link
+              href={clearSearchHref}
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+            >
+              Clear
+            </Link>
+          </p>
+        ) : null}
+
+        {user ? (
+          <SignedInNavLinks />
+        ) : (
+          <nav className="flex flex-wrap gap-x-3 gap-y-2 text-sm">
           <Link
-            href={clearSearchHref}
+            href="/"
             className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
           >
-            Clear
+            Home
           </Link>
-        </p>
-      ) : null}
+          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            ·
+          </span>
+          <Link
+            href="/login"
+            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+          >
+            Login
+          </Link>
+          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            ·
+          </span>
+          <Link
+            href="/signup"
+            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+          >
+            Signup
+          </Link>
+          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            ·
+          </span>
+          <Link
+            href="/dashboard"
+            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+          >
+            Dashboard
+          </Link>
+          </nav>
+        )}
+      </header>
 
-      <nav className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-sm">
-        <Link
-          href="/login"
-          className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-        >
-          Login
-        </Link>
-        <Link
-          href="/signup"
-          className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-        >
-          Signup
-        </Link>
-        <Link
-          href="/dashboard"
-          className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-        >
-          Dashboard
-        </Link>
-      </nav>
-
-      <section className="mt-10">
+      <section className={pageBodyGapClass}>
         {rows.length === 0 ? (
           <div className="text-sm text-zinc-600 dark:text-zinc-400">
             <p className="font-medium text-zinc-800 dark:text-zinc-200">

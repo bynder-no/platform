@@ -22,7 +22,7 @@ export function ProfileEditForm({
   const [state, formAction, pending] = useActionState(updateProfile, null);
 
   return (
-    <form action={formAction} className="mt-8 flex flex-col gap-4">
+    <form action={formAction} className="mt-10 flex flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-zinc-800 dark:text-zinc-200">
           Display name
