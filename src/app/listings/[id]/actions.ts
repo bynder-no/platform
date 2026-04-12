@@ -43,3 +43,51 @@ export async function publishListing(
 
   redirect(`/listings/${listingId}`);
 }
+
+export type DeleteListingState = { error: string } | null;
+
+export async function deleteDraftListing(
+  _prev: DeleteListingState,
+  formData: FormData,
+): Promise<DeleteListingState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  if (!listingId) {
+    return { error: "Listing is required." };
+  }
+
+  const { data: listing, error: fetchError } = await supabase
+    .from("listings")
+    .select("id")
+    .eq("id", listingId)
+    .eq("seller_id", user.id)
+    .eq("status", "draft")
+    .maybeSingle();
+
+  if (fetchError) {
+    return { error: fetchError.message };
+  }
+
+  if (!listing) {
+    return { error: "Could not delete this listing." };
+  }
+
+  const { error: deleteError } = await supabase
+    .from("listings")
+    .delete()
+    .eq("id", listingId);
+
+  if (deleteError) {
+    return { error: deleteError.message };
+  }
+
+  redirect("/dashboard");
+}
