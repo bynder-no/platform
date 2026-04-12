@@ -14,6 +14,20 @@ import { MessageReplyForm } from "./message-reply-form";
 
 export const dynamic = "force-dynamic";
 
+type MessageRow = {
+  id: string;
+  body: string;
+  created_at: string | null;
+  listing_id: string;
+  sender_id: string;
+  recipient_id: string;
+};
+
+function threadKey(m: MessageRow) {
+  const [a, b] = [m.sender_id, m.recipient_id].sort();
+  return `${m.listing_id}|${a}|${b}`;
+}
+
 function profileLabel(
   p:
     | { display_name: string | null; username: string | null }
@@ -44,7 +58,34 @@ export default async function MessagesPage() {
     throw new Error(`Could not load messages: ${messagesError.message}`);
   }
 
-  const messages = messageRows ?? [];
+  const messages = (messageRows ?? []) as MessageRow[];
+
+  const groupMap = new Map<string, MessageRow[]>();
+  for (const m of messages) {
+    const key = threadKey(m);
+    const list = groupMap.get(key);
+    if (list) {
+      list.push(m);
+    } else {
+      groupMap.set(key, [m]);
+    }
+  }
+
+  const threads = [...groupMap.entries()].map(([key, msgs]) => {
+    const sorted = [...msgs].sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (ta !== tb) return ta - tb;
+      return a.id.localeCompare(b.id);
+    });
+    const last = sorted[sorted.length - 1];
+    const lastAt = last?.created_at
+      ? new Date(last.created_at).getTime()
+      : 0;
+    return { key, messages: sorted, lastAt };
+  });
+
+  threads.sort((a, b) => b.lastAt - a.lastAt);
 
   const listingIds = [...new Set(messages.map((m) => m.listing_id))];
   const profileIds = [
@@ -107,47 +148,64 @@ export default async function MessagesPage() {
             </p>
           </div>
         ) : (
-          <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-            {messages.map((msg) => {
-              const listing = listingById.get(msg.listing_id);
+          <ul className="mt-4 space-y-10 text-sm">
+            {threads.map(({ key, messages: threadMessages }) => {
+              const first = threadMessages[0];
+              const latest = threadMessages[threadMessages.length - 1];
+              const listing = listingById.get(first.listing_id);
               const listingTitle = listing?.title?.trim() || "Listing";
-              const sender = profileById.get(msg.sender_id);
-              const recipient = profileById.get(msg.recipient_id);
-              const senderName = profileLabel(sender);
-              const recipientName = profileLabel(recipient);
-              const isOutgoing = msg.sender_id === user.id;
-              const contextLine = isOutgoing
-                ? `You → ${recipientName}`
-                : `${senderName} → you`;
+              const otherId =
+                first.sender_id === user.id
+                  ? first.recipient_id
+                  : first.sender_id;
+              const otherProfile = profileById.get(otherId);
+              const otherName = profileLabel(otherProfile);
 
               return (
-                <li
-                  key={msg.id}
-                  className="flex flex-col gap-2 px-3 py-4 text-sm"
-                >
-                  <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                    {contextLine}
-                  </p>
-                  <p>
-                    <span className="text-zinc-500 dark:text-zinc-400">
-                      Listing:{" "}
-                    </span>
-                    <Link
-                      href={`/listings/${msg.listing_id}`}
-                      className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-                    >
-                      {listingTitle}
-                    </Link>
-                  </p>
-                  <p className="whitespace-pre-wrap leading-relaxed text-zinc-700 dark:text-zinc-300">
-                    {msg.body}
-                  </p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {msg.created_at
-                      ? new Date(msg.created_at).toLocaleString()
-                      : "—"}
-                  </p>
-                  <MessageReplyForm parentMessageId={msg.id} />
+                <li key={key} className="space-y-3">
+                  <div className="space-y-1">
+                    <p>
+                      <Link
+                        href={`/listings/${first.listing_id}`}
+                        className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                      >
+                        {listingTitle}
+                      </Link>
+                    </p>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      With {otherName}
+                    </p>
+                  </div>
+                  <ul className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                    {threadMessages.map((msg) => {
+                      const sender = profileById.get(msg.sender_id);
+                      const senderName = profileLabel(sender);
+                      const isOutgoing = msg.sender_id === user.id;
+                      const speaker = isOutgoing ? "You" : senderName;
+                      const when = msg.created_at
+                        ? new Date(msg.created_at).toLocaleString()
+                        : "—";
+
+                      return (
+                        <li key={msg.id} className="space-y-1">
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {speaker}
+                            <span className="text-zinc-300 dark:text-zinc-600">
+                              {" "}
+                              ·{" "}
+                            </span>
+                            {when}
+                          </p>
+                          <p className="whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
+                            {msg.body}
+                          </p>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <div className="border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                    <MessageReplyForm parentMessageId={latest.id} />
+                  </div>
                 </li>
               );
             })}
