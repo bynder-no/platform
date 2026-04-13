@@ -27,14 +27,8 @@ type BidRow = {
   bidder_id: string;
 };
 
-function bidderLabel(
-  p:
-    | { display_name: string | null; username: string | null }
-    | undefined
-    | null,
-) {
-  if (!p) return "Member";
-  return p.display_name?.trim() || p.username?.trim() || "Member";
+function bidderPrivacyLabel(userId: string | undefined, bidderId: string) {
+  return userId && bidderId === userId ? "You" : "Another bidder";
 }
 
 export default async function ListingDetailPage({ params }: PageProps) {
@@ -92,30 +86,22 @@ export default async function ListingDetailPage({ params }: PageProps) {
     auctionBids = (bidRows ?? []) as BidRow[];
   }
 
-  const bidProfileById = new Map<
-    string,
-    { display_name: string | null; username: string | null }
-  >();
-  if (auctionBids.length > 0) {
-    const bidderIds = [...new Set(auctionBids.map((b) => b.bidder_id))];
-    const { data: bidProfiles, error: bidProfilesError } = await supabase
-      .from("profiles")
-      .select("id, display_name, username")
-      .in("id", bidderIds);
-
-    if (bidProfilesError) {
-      throw new Error(`Could not load bidder profiles: ${bidProfilesError.message}`);
-    }
-
-    for (const row of bidProfiles ?? []) {
-      bidProfileById.set(row.id, row);
+  let highestBidNok = 0;
+  let leadingBidRow: BidRow | null = null;
+  for (const b of auctionBids) {
+    const n = Number(b.amount_nok);
+    if (!Number.isFinite(n)) continue;
+    if (n > highestBidNok) {
+      highestBidNok = n;
+      leadingBidRow = b;
+    } else if (n === highestBidNok && leadingBidRow) {
+      const tNew = b.created_at ? new Date(b.created_at).getTime() : -1;
+      const tOld = leadingBidRow.created_at
+        ? new Date(leadingBidRow.created_at).getTime()
+        : -1;
+      if (tNew > tOld) leadingBidRow = b;
     }
   }
-
-  const highestBidNok = auctionBids.reduce((max, b) => {
-    const n = Number(b.amount_nok);
-    return Number.isFinite(n) && n > max ? n : max;
-  }, 0);
 
   const sellerUsername = seller?.username?.trim() || null;
   const sellerLabel =
@@ -246,24 +232,35 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <h2 id="listing-auction-bids-heading" className={sectionLabelClass}>
               Bids
             </h2>
-            <p className="mt-3 text-zinc-700 dark:text-zinc-300">
-              <span className="text-zinc-500 dark:text-zinc-400">
-                Current highest:{" "}
-              </span>
-              {highestBidNok > 0 ? (
-                <>
-                  {highestBidNok}
+            {highestBidNok > 0 && leadingBidRow ? (
+              <div className="mt-3 space-y-2 text-zinc-700 dark:text-zinc-300">
+                <p>
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    {auctionTimeEnded ? "Winning bid: " : "Current bid: "}
+                  </span>
+                  <span className="tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
+                    {highestBidNok}
+                  </span>
                   <span className="text-zinc-500 dark:text-zinc-400"> NOK</span>
-                </>
-              ) : (
-                "No bids yet"
-              )}
-            </p>
+                </p>
+                <p>
+                  <span className="text-zinc-500 dark:text-zinc-400">
+                    {auctionTimeEnded ? "Winner: " : "Leading bidder: "}
+                  </span>
+                  <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                    {bidderPrivacyLabel(user?.id, leadingBidRow.bidder_id)}
+                  </span>
+                </p>
+              </div>
+            ) : (
+              <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+                {auctionTimeEnded ? "No bids were placed" : "No bids yet"}
+              </p>
+            )}
             {auctionBids.length > 0 ? (
               <ul className="mt-4 space-y-2 border-t border-zinc-200 pt-4 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
                 {auctionBids.map((bid) => {
                   const amount = Number(bid.amount_nok);
-                  const label = bidderLabel(bidProfileById.get(bid.bidder_id));
                   const when = bid.created_at
                     ? new Date(bid.created_at).toLocaleString()
                     : "—";
@@ -274,7 +271,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
                         {Number.isFinite(amount) ? amount : "—"} NOK
                       </span>
                       <span className="text-zinc-300 dark:text-zinc-600"> · </span>
-                      {label}
+                      {bidderPrivacyLabel(user?.id, bid.bidder_id)}
                       <span className="text-zinc-300 dark:text-zinc-600"> · </span>
                       {when}
                     </li>
