@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
+import { MIN_BID_NOK } from "./bid-rules";
+
 export type PublishListingState = { error: string } | null;
 
 export async function publishListing(
@@ -227,9 +229,15 @@ export async function placeBid(
     return { error: "Listing is required." };
   }
 
+  if (!/^\d+$/.test(amountRaw)) {
+    return {
+      error: "Bid must be a whole number in NOK (decimals are not allowed).",
+    };
+  }
+
   const amount = Number(amountRaw);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return { error: "Enter a valid bid amount greater than 0." };
+  if (!Number.isSafeInteger(amount) || amount < 1) {
+    return { error: "Enter a valid whole-number bid in NOK." };
   }
 
   const { data: listing, error: listingFetchError } = await supabase
@@ -281,12 +289,18 @@ export async function placeBid(
 
   const highestNok =
     topBid?.amount_nok != null && Number.isFinite(Number(topBid.amount_nok))
-      ? Number(topBid.amount_nok)
+      ? Math.trunc(Number(topBid.amount_nok))
       : 0;
 
-  if (highestNok > 0 && amount <= highestNok) {
+  const minRequired =
+    highestNok > 0 ? highestNok + MIN_BID_NOK : MIN_BID_NOK;
+
+  if (amount < minRequired) {
+    if (highestNok === 0) {
+      return { error: "Minimum bid is 5 NOK." };
+    }
     return {
-      error: "Your bid must be higher than the current highest bid.",
+      error: `Your bid must be at least ${minRequired} NOK (5 NOK higher than the current highest bid).`,
     };
   }
 

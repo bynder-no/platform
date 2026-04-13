@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import type { ChangeEvent } from "react";
 
 import { placeBid } from "./actions";
 
@@ -10,12 +11,31 @@ const inputClass =
 const buttonClass =
   "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
 
+const helperListClass =
+  "list-inside list-disc space-y-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400";
+
 type PlaceBidFormProps = {
   listingId: string;
+  minBidNok: number;
 };
 
-export function PlaceBidForm({ listingId }: PlaceBidFormProps) {
+/** Whole NOK amounts only: leading digits, stops at the first non-digit (e.g. 12.5 → 12). */
+function integerNokFromInput(raw: string) {
+  const s = raw.trimStart();
+  const m = s.match(/^\d+/);
+  return m ? m[0] : "";
+}
+
+export function PlaceBidForm({ listingId, minBidNok }: PlaceBidFormProps) {
   const [state, formAction, pending] = useActionState(placeBid, null);
+  const helperId = "place-bid-rules";
+
+  function handleAmountChange(e: ChangeEvent<HTMLInputElement>) {
+    const next = integerNokFromInput(e.target.value);
+    if (e.target.value !== next) {
+      e.target.value = next;
+    }
+  }
 
   return (
     <form action={formAction} className="mt-3 flex flex-col gap-4">
@@ -25,15 +45,34 @@ export function PlaceBidForm({ listingId }: PlaceBidFormProps) {
           Your bid (NOK)
         </span>
         <input
-          type="number"
+          id="place-bid-amount"
+          type="text"
           name="amount_nok"
-          min={0.01}
-          step="0.01"
+          inputMode="numeric"
+          autoComplete="off"
           required
+          aria-describedby={helperId}
           className={inputClass}
-          placeholder="0.00"
+          placeholder={String(minBidNok)}
+          onChange={handleAmountChange}
         />
       </label>
+      <div id={helperId} className="space-y-2">
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          Minimum for your next bid:{" "}
+          <span className="tabular-nums font-medium text-zinc-700 dark:text-zinc-300">
+            {minBidNok} NOK
+          </span>
+        </p>
+        <ul className={helperListClass}>
+          <li>Bids must be whole numbers (no decimals).</li>
+          <li>Minimum first bid is 5 NOK.</li>
+          <li>
+            If there are already bids, each new bid must be at least 5 NOK above
+            the current highest bid.
+          </li>
+        </ul>
+      </div>
       <button type="submit" disabled={pending} className={buttonClass}>
         {pending ? "Placing…" : "Place bid"}
       </button>

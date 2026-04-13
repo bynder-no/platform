@@ -10,6 +10,7 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 
+import { MIN_BID_NOK } from "./bid-rules";
 import { ContactSellerForm } from "./contact-seller-form";
 import { FavoriteButton } from "./favorite-button";
 import { PlaceBidForm } from "./place-bid-form";
@@ -327,7 +328,12 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <h2 id="listing-bid-heading" className={sectionLabelClass}>
               Place a bid
             </h2>
-            <PlaceBidForm listingId={id} />
+            <PlaceBidForm
+              listingId={id}
+              minBidNok={
+                highestBidNok > 0 ? highestBidNok + MIN_BID_NOK : MIN_BID_NOK
+              }
+            />
           </section>
         ) : null}
 
