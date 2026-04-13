@@ -221,9 +221,13 @@ export default async function ListingDetailPage({ params }: PageProps) {
               Auction ends
             </h2>
             <p className="mt-3 text-zinc-700 dark:text-zinc-300">
-              {listing.auction_ends_at
-                ? new Date(listing.auction_ends_at).toLocaleString()
-                : "—"}
+              {listing.auction_ends_at ? (
+                <time dateTime={String(listing.auction_ends_at)}>
+                  {new Date(listing.auction_ends_at).toLocaleString()}
+                </time>
+              ) : (
+                "—"
+              )}
             </p>
           </section>
         ) : null}

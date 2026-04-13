@@ -1,10 +1,11 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
-import { MIN_BID_NOK } from "./bid-rules";
+import { ANTI_SNIPE_WINDOW_MS, MIN_BID_NOK } from "./bid-rules";
 
 export type PublishListingState = { error: string } | null;
 
@@ -314,5 +315,17 @@ export async function placeBid(
     return { error: insertError.message };
   }
 
+  const remainingMs = endsAtMs - Date.now();
+  if (remainingMs > 0 && remainingMs < ANTI_SNIPE_WINDOW_MS) {
+    const { error: snipeError } = await supabase.rpc("extend_auction_anti_snipe", {
+      p_listing_id: listingId,
+    });
+
+    if (snipeError) {
+      return { error: snipeError.message };
+    }
+  }
+
+  revalidatePath(`/listings/${listingId}`);
   redirect(`/listings/${listingId}`);
 }
