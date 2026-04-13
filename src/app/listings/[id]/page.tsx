@@ -10,7 +10,7 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 
-import { MIN_BID_NOK } from "./actions";
+import { MIN_BID_NOK } from "./bid-rules";
 import { ContactSellerForm } from "./contact-seller-form";
 import { FavoriteButton } from "./favorite-button";
 import { PlaceBidForm } from "./place-bid-form";

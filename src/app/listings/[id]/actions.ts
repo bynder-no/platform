@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
+import { MIN_BID_NOK } from "./bid-rules";
+
 export type PublishListingState = { error: string } | null;
 
 export async function publishListing(
@@ -206,8 +208,6 @@ export async function sendListingMessage(
 }
 
 export type PlaceBidState = { error: string } | null;
-
-export const MIN_BID_NOK = 5;
 
 export async function placeBid(
   _prev: PlaceBidState,
