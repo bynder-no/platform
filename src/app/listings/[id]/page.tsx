@@ -60,6 +60,13 @@ export default async function ListingDetailPage({ params }: PageProps) {
     notFound();
   }
 
+  const nowMs = new Date().getTime();
+  let auctionTimeEnded = false;
+  if (listing.type === "auction" && listing.auction_ends_at) {
+    const endMs = new Date(listing.auction_ends_at).getTime();
+    auctionTimeEnded = Number.isFinite(endMs) && endMs <= nowMs;
+  }
+
   const { data: seller, error: sellerError } = await supabase
     .from("profiles")
     .select("display_name, username")
@@ -127,8 +134,11 @@ export default async function ListingDetailPage({ params }: PageProps) {
     user &&
       listing.type === "auction" &&
       listing.status === "active" &&
+      !auctionTimeEnded &&
       user.id !== listing.seller_id,
   );
+
+  const showAuctionEndedNotice = listing.type === "auction" && auctionTimeEnded;
 
   let isFavorite = false;
   if (user) {
@@ -321,6 +331,15 @@ export default async function ListingDetailPage({ params }: PageProps) {
               Place a bid
             </h2>
             <PlaceBidForm listingId={id} />
+          </section>
+        ) : null}
+
+        {showAuctionEndedNotice ? (
+          <section aria-labelledby="listing-auction-ended-heading">
+            <h2 id="listing-auction-ended-heading" className={sectionLabelClass}>
+              Bidding
+            </h2>
+            <p className="mt-3 text-zinc-700 dark:text-zinc-300">Auction ended</p>
           </section>
         ) : null}
 
