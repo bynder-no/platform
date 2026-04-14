@@ -47,7 +47,8 @@ export async function createListing(
   const description = String(formData.get("description") ?? "").trim();
   const priceRaw = String(formData.get("price_nok") ?? "").trim();
   const listingType = String(formData.get("type") ?? "").trim();
-  const auctionEndsRaw = String(formData.get("auction_ends_at") ?? "").trim();
+  const auctionEndDateRaw = String(formData.get("auction_end_date") ?? "").trim();
+  const auctionEndTimeRaw = String(formData.get("auction_end_time") ?? "").trim();
   const minBidIncrementRaw = String(
     formData.get("min_bid_increment_nok") ?? "",
   ).trim();
@@ -64,12 +65,14 @@ export async function createListing(
   if (listingType !== "fixed_price" && listingType !== "auction") {
     return { error: "Select a valid listing type." };
   }
-
-  const parsedPrice = parseWholeNumber(priceRaw, "Price (NOK)", 5);
-  if (parsedPrice.error || parsedPrice.value == null) {
-    return { error: parsedPrice.error ?? "Enter a valid price in NOK." };
+  let priceNok: number | null = null;
+  if (listingType === "fixed_price") {
+    const parsedPrice = parseWholeNumber(priceRaw, "Price (NOK)", 5);
+    if (parsedPrice.error || parsedPrice.value == null) {
+      return { error: parsedPrice.error ?? "Enter a valid price in NOK." };
+    }
+    priceNok = parsedPrice.value;
   }
-  const priceNok = parsedPrice.value;
 
   let auctionEndsAt: string | null = null;
   let minBidIncrementNok: number | null = null;
@@ -77,10 +80,16 @@ export async function createListing(
   let contactThresholdPercent: number | null = null;
   let useReserve = false;
   if (listingType === "auction") {
-    if (!auctionEndsRaw) {
+    if (!auctionEndDateRaw || !auctionEndTimeRaw) {
       return { error: "Auction end date and time is required." };
     }
-    const parsed = new Date(auctionEndsRaw);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(auctionEndDateRaw)) {
+      return { error: "Enter a valid auction end date." };
+    }
+    if (!/^\d{2}:\d{2}$/.test(auctionEndTimeRaw)) {
+      return { error: "Enter a valid auction end time." };
+    }
+    const parsed = new Date(`${auctionEndDateRaw}T${auctionEndTimeRaw}`);
     if (Number.isNaN(parsed.getTime())) {
       return { error: "Enter a valid auction end date and time." };
     }
@@ -98,6 +107,7 @@ export async function createListing(
       return { error: parsedIncrement.error ?? "Minimum bid increment is required." };
     }
     minBidIncrementNok = parsedIncrement.value;
+    priceNok = parsedIncrement.value;
 
     if (useReservePrice) {
       const parsedReserve = parseWholeNumber(
