@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { createListing } from "./actions";
 
@@ -12,6 +12,9 @@ const buttonClass =
 
 export function CreateListingForm() {
   const [state, formAction, pending] = useActionState(createListing, null);
+  const [listingType, setListingType] = useState<"fixed_price" | "auction">(
+    "fixed_price",
+  );
 
   return (
     <form action={formAction} className="mt-10 flex flex-col gap-4">
@@ -49,7 +52,8 @@ export function CreateListingForm() {
             type="radio"
             name="type"
             value="fixed_price"
-            defaultChecked
+            checked={listingType === "fixed_price"}
+            onChange={() => setListingType("fixed_price")}
             required
             className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
           />
@@ -60,6 +64,8 @@ export function CreateListingForm() {
             type="radio"
             name="type"
             value="auction"
+            checked={listingType === "auction"}
+            onChange={() => setListingType("auction")}
             className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
           />
           <span>Auction</span>
@@ -80,6 +86,26 @@ export function CreateListingForm() {
           Required when listing type is Auction. Ignored for fixed price.
         </span>
       </label>
+
+      {listingType === "auction" ? (
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            Minimum bid increase (NOK)
+          </span>
+          <input
+            type="number"
+            name="min_bid_increment_nok"
+            min={5}
+            step={1}
+            required
+            className={inputClass}
+            placeholder="5"
+          />
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            Whole numbers only, at least 5 NOK.
+          </span>
+        </label>
+      ) : null}
 
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-zinc-800 dark:text-zinc-200">
