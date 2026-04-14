@@ -24,6 +24,9 @@ export async function createListing(
   const priceRaw = String(formData.get("price_nok") ?? "").trim();
   const listingType = String(formData.get("type") ?? "").trim();
   const auctionEndsRaw = String(formData.get("auction_ends_at") ?? "").trim();
+  const minBidIncrementRaw = String(
+    formData.get("min_bid_increment_nok") ?? "",
+  ).trim();
 
   if (!title) {
     return { error: "Title is required." };
@@ -39,6 +42,7 @@ export async function createListing(
   }
 
   let auctionEndsAt: string | null = null;
+  let minBidIncrementNok: number | null = null;
   if (listingType === "auction") {
     if (!auctionEndsRaw) {
       return { error: "Auction end date and time is required." };
@@ -51,6 +55,17 @@ export async function createListing(
       return { error: "Auction end time must be in the future." };
     }
     auctionEndsAt = parsed.toISOString();
+
+    if (!/^\d+$/.test(minBidIncrementRaw)) {
+      return {
+        error: "Minimum bid increase must be a whole number in NOK.",
+      };
+    }
+    const inc = Number(minBidIncrementRaw);
+    if (!Number.isSafeInteger(inc) || inc < 5) {
+      return { error: "Minimum bid increase must be at least 5 NOK." };
+    }
+    minBidIncrementNok = inc;
   }
 
   const { error } = await supabase.from("listings").insert({
@@ -62,6 +77,7 @@ export async function createListing(
     status: "draft",
     type: listingType,
     auction_ends_at: auctionEndsAt,
+    min_bid_increment_nok: minBidIncrementNok,
   });
 
   if (error) {
