@@ -16,6 +16,7 @@ type EditListingFormProps = {
   defaultDescription: string;
   defaultPriceNok: number;
   defaultType: string;
+  defaultAuctionStartsAt: string | null;
   defaultAuctionEndsAt: string | null;
   defaultMinBidIncrementNok: number | null;
   defaultReservePriceNok: number | null;
@@ -40,6 +41,7 @@ export function EditListingForm({
   defaultDescription,
   defaultPriceNok,
   defaultType,
+  defaultAuctionStartsAt,
   defaultAuctionEndsAt,
   defaultMinBidIncrementNok,
   defaultReservePriceNok,
@@ -62,6 +64,10 @@ export function EditListingForm({
   const [contactThresholdPercent, setContactThresholdPercent] = useState(
     defaultContactThresholdPercent != null ? defaultContactThresholdPercent : 50,
   );
+  const defaultAuctionStartsLocal = useMemo(
+    () => toLocalDateAndTime(defaultAuctionStartsAt),
+    [defaultAuctionStartsAt],
+  );
   const defaultAuctionEndsLocal = useMemo(
     () => toLocalDateAndTime(defaultAuctionEndsAt),
     [defaultAuctionEndsAt],
@@ -77,8 +83,10 @@ export function EditListingForm({
     }
     return options;
   }, []);
-  const hasPrefillTime = timeOptions.includes(defaultAuctionEndsLocal.time);
-  const defaultTimeValue = hasPrefillTime ? defaultAuctionEndsLocal.time : "";
+  const hasPrefillStartTime = timeOptions.includes(defaultAuctionStartsLocal.time);
+  const defaultStartTimeValue = hasPrefillStartTime ? defaultAuctionStartsLocal.time : "";
+  const hasPrefillEndTime = timeOptions.includes(defaultAuctionEndsLocal.time);
+  const defaultEndTimeValue = hasPrefillEndTime ? defaultAuctionEndsLocal.time : "";
   const contactOpensAtNok = reservePriceNok
     ? Math.ceil((Number(reservePriceNok) * contactThresholdPercent) / 100)
     : null;
@@ -147,6 +155,47 @@ export function EditListingForm({
         <>
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Startdato
+            </span>
+            <input
+              type="date"
+              name="auction_start_date"
+              required
+              defaultValue={defaultAuctionStartsLocal.date}
+              className={inputClass}
+              aria-label="Startdato"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Starttid
+            </span>
+            <select
+              name="auction_start_time"
+              required
+              className={inputClass}
+              aria-label="Starttid"
+              defaultValue={defaultStartTimeValue}
+            >
+              <option value="" disabled>
+                Velg klokkeslett
+              </option>
+              {!hasPrefillStartTime && defaultAuctionStartsLocal.time ? (
+                <option value={defaultAuctionStartsLocal.time}>
+                  {defaultAuctionStartsLocal.time}
+                </option>
+              ) : null}
+              {timeOptions.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
               Sluttdato
             </span>
             <input
@@ -161,19 +210,19 @@ export function EditListingForm({
 
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-zinc-800 dark:text-zinc-200">
-              Klokkeslett
+              Sluttid
             </span>
             <select
               name="auction_end_time"
               required
               className={inputClass}
-              aria-label="Klokkeslett"
-              defaultValue={defaultTimeValue}
+              aria-label="Sluttid"
+              defaultValue={defaultEndTimeValue}
             >
               <option value="" disabled>
                 Velg klokkeslett
               </option>
-              {!hasPrefillTime && defaultAuctionEndsLocal.time ? (
+              {!hasPrefillEndTime && defaultAuctionEndsLocal.time ? (
                 <option value={defaultAuctionEndsLocal.time}>
                   {defaultAuctionEndsLocal.time}
                 </option>
@@ -185,7 +234,7 @@ export function EditListingForm({
               ))}
             </select>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              Auksjonen avsluttes i norsk tid.
+              Auksjonen bruker norsk tid.
             </span>
           </label>
 

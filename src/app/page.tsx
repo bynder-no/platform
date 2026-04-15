@@ -74,6 +74,15 @@ export default async function HomePage({ searchParams }: PageProps) {
     .select("id, title, type, price_nok, status, created_at, auction_ends_at")
     .eq("status", "active");
 
+  const nowIso = new Date().toISOString();
+  query = query.or(
+    [
+      "type.eq.fixed_price",
+      "and(type.eq.auction,auction_starts_at.is.null)",
+      `and(type.eq.auction,auction_starts_at.lte.${nowIso})`,
+    ].join(","),
+  );
+
   if (listingType) {
     query = query.eq("type", listingType);
   }

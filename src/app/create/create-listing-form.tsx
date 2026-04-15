@@ -94,6 +94,41 @@ export function CreateListingForm() {
         <>
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Startdato
+            </span>
+            <input
+              type="date"
+              name="auction_start_date"
+              required
+              className={inputClass}
+              aria-label="Startdato"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+              Starttid
+            </span>
+            <select
+              name="auction_start_time"
+              required
+              className={inputClass}
+              aria-label="Starttid"
+              defaultValue=""
+            >
+              <option value="" disabled>
+                Velg klokkeslett
+              </option>
+              {timeOptions.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium text-zinc-800 dark:text-zinc-200">
               Sluttdato
             </span>
             <input
@@ -107,13 +142,13 @@ export function CreateListingForm() {
 
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-zinc-800 dark:text-zinc-200">
-              Klokkeslett
+              Sluttid
             </span>
             <select
               name="auction_end_time"
               required
               className={inputClass}
-              aria-label="Klokkeslett"
+              aria-label="Sluttid"
               defaultValue=""
             >
               <option value="" disabled>
@@ -126,7 +161,7 @@ export function CreateListingForm() {
               ))}
             </select>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              Auksjonen avsluttes i norsk tid.
+              Auksjonen bruker norsk tid.
             </span>
           </label>
 
