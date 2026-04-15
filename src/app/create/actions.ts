@@ -47,6 +47,12 @@ export async function createListing(
   const description = String(formData.get("description") ?? "").trim();
   const priceRaw = String(formData.get("price_nok") ?? "").trim();
   const listingType = String(formData.get("type") ?? "").trim();
+  const auctionStartDateRaw = String(
+    formData.get("auction_start_date") ?? "",
+  ).trim();
+  const auctionStartTimeRaw = String(
+    formData.get("auction_start_time") ?? "",
+  ).trim();
   const auctionEndDateRaw = String(formData.get("auction_end_date") ?? "").trim();
   const auctionEndTimeRaw = String(formData.get("auction_end_time") ?? "").trim();
   const minBidIncrementRaw = String(
@@ -74,14 +80,24 @@ export async function createListing(
     priceNok = parsedPrice.value;
   }
 
+  let auctionStartsAt: string | null = null;
   let auctionEndsAt: string | null = null;
   let minBidIncrementNok: number | null = null;
   let reservePriceNok: number | null = null;
   let contactThresholdPercent: number | null = null;
   let useReserve = false;
   if (listingType === "auction") {
+    if (!auctionStartDateRaw || !auctionStartTimeRaw) {
+      return { error: "Auction start date and time is required." };
+    }
     if (!auctionEndDateRaw || !auctionEndTimeRaw) {
       return { error: "Auction end date and time is required." };
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(auctionStartDateRaw)) {
+      return { error: "Enter a valid auction start date." };
+    }
+    if (!/^\d{2}:\d{2}$/.test(auctionStartTimeRaw)) {
+      return { error: "Enter a valid auction start time." };
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(auctionEndDateRaw)) {
       return { error: "Enter a valid auction end date." };
@@ -89,14 +105,19 @@ export async function createListing(
     if (!/^\d{2}:\d{2}$/.test(auctionEndTimeRaw)) {
       return { error: "Enter a valid auction end time." };
     }
-    const parsed = new Date(`${auctionEndDateRaw}T${auctionEndTimeRaw}`);
-    if (Number.isNaN(parsed.getTime())) {
+    const parsedStart = new Date(`${auctionStartDateRaw}T${auctionStartTimeRaw}`);
+    if (Number.isNaN(parsedStart.getTime())) {
+      return { error: "Enter a valid auction start date and time." };
+    }
+    const parsedEnd = new Date(`${auctionEndDateRaw}T${auctionEndTimeRaw}`);
+    if (Number.isNaN(parsedEnd.getTime())) {
       return { error: "Enter a valid auction end date and time." };
     }
-    if (parsed.getTime() <= Date.now()) {
-      return { error: "Auction end time must be in the future." };
+    if (parsedStart.getTime() >= parsedEnd.getTime()) {
+      return { error: "Auction start time must be before auction end time." };
     }
-    auctionEndsAt = parsed.toISOString();
+    auctionStartsAt = parsedStart.toISOString();
+    auctionEndsAt = parsedEnd.toISOString();
 
     const parsedIncrement = parseWholeNumber(
       minBidIncrementRaw,
@@ -147,6 +168,7 @@ export async function createListing(
     image_urls: [],
     status: "draft",
     type: listingType,
+    auction_starts_at: auctionStartsAt,
     auction_ends_at: auctionEndsAt,
     min_bid_increment_nok: minBidIncrementNok,
     use_reserve_price: useReserve,

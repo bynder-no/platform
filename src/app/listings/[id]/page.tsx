@@ -42,7 +42,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, price_nok, description, created_at, seller_id, type, status, auction_ends_at",
+      "title, price_nok, description, created_at, seller_id, type, status, auction_starts_at, auction_ends_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -56,6 +56,18 @@ export default async function ListingDetailPage({ params }: PageProps) {
   }
 
   const nowMs = new Date().getTime();
+
+  if (
+    listing.type === "auction" &&
+    listing.auction_starts_at &&
+    (!user || user.id !== listing.seller_id)
+  ) {
+    const startsAtMs = new Date(listing.auction_starts_at).getTime();
+    if (Number.isFinite(startsAtMs) && nowMs < startsAtMs) {
+      notFound();
+    }
+  }
+
   let auctionTimeEnded = false;
   if (listing.type === "auction" && listing.auction_ends_at) {
     const endMs = new Date(listing.auction_ends_at).getTime();
