@@ -131,7 +131,9 @@ export default async function DashboardPage() {
                       >
                         Edit
                       </Link>
-                      <PublishDraftForm listingId={row.id} />
+                      {row.type === "auction" ? null : (
+                        <PublishDraftForm listingId={row.id} />
+                      )}
                       <DeleteDraftForm listingId={row.id} />
                     </div>
                   ) : null}
