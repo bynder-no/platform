@@ -15,6 +15,9 @@ import { PublishDraftForm } from "./publish-draft-form";
 
 export const dynamic = "force-dynamic";
 
+/** Hide draft Edit/Delete from 1 minute before auction start through after start. */
+const AUCTION_EDIT_DELETE_LOCK_MS = 60 * 1000;
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
@@ -43,7 +46,7 @@ export default async function DashboardPage() {
 
   const { data: listings, error: listingsError } = await supabase
     .from("listings")
-    .select("id, title, price_nok, status, created_at, type, auction_ends_at")
+    .select("id, title, price_nok, status, created_at, type, auction_starts_at, auction_ends_at")
     .eq("seller_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -52,6 +55,8 @@ export default async function DashboardPage() {
   }
 
   const rows = listings ?? [];
+  const now = new Date();
+  const nowMs = now.getTime();
 
   return (
     <div className={pageShellClass}>
@@ -89,7 +94,18 @@ export default async function DashboardPage() {
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-            {rows.map((row) => (
+            {rows.map((row) => {
+              const startsAtMs =
+                row.type === "auction" && row.auction_starts_at
+                  ? new Date(row.auction_starts_at).getTime()
+                  : NaN;
+              const auctionEditDeleteLocked =
+                row.type === "auction" &&
+                row.auction_starts_at != null &&
+                Number.isFinite(startsAtMs) &&
+                nowMs >= startsAtMs - AUCTION_EDIT_DELETE_LOCK_MS;
+
+              return (
               <li
                 key={row.id}
                 className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
@@ -125,21 +141,26 @@ export default async function DashboardPage() {
                   </span>
                   {row.status === "draft" ? (
                     <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-                      <Link
-                        href={`/listings/${row.id}/edit`}
-                        className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-                      >
-                        Edit
-                      </Link>
-                      {row.type === "auction" ? null : (
-                        <PublishDraftForm listingId={row.id} />
+                      {auctionEditDeleteLocked ? null : (
+                        <>
+                          <Link
+                            href={`/listings/${row.id}/edit`}
+                            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                          >
+                            Edit
+                          </Link>
+                          {row.type === "auction" ? null : (
+                            <PublishDraftForm listingId={row.id} />
+                          )}
+                          <DeleteDraftForm listingId={row.id} />
+                        </>
                       )}
-                      <DeleteDraftForm listingId={row.id} />
                     </div>
                   ) : null}
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
         )}
       </section>
