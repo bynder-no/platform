@@ -55,7 +55,8 @@ export default async function DashboardPage() {
   }
 
   const rows = listings ?? [];
-  const nowMs = Date.now();
+  const now = new Date();
+  const nowMs = now.getTime();
 
   return (
     <div className={pageShellClass}>
