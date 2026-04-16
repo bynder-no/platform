@@ -17,6 +17,18 @@ type PageProps = {
   params: Promise<{ username: string }>;
 };
 
+function auctionStateLabelNo(
+  nowMs: number,
+  startsAt: string | null,
+  endsAt: string | null,
+): "Planlagt" | "Live" | "Avsluttet" {
+  const startsAtMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
+  const endsAtMs = endsAt ? new Date(endsAt).getTime() : Number.NaN;
+  if (Number.isFinite(startsAtMs) && nowMs < startsAtMs) return "Planlagt";
+  if (Number.isFinite(endsAtMs) && nowMs >= endsAtMs) return "Avsluttet";
+  return "Live";
+}
+
 export default async function PublicProfilePage({ params }: PageProps) {
   const { username: usernameParam } = await params;
   const username = decodeURIComponent(usernameParam).trim();
@@ -48,10 +60,12 @@ export default async function PublicProfilePage({ params }: PageProps) {
     console.error("publish_due_auctions:", publishDueError.message);
   }
 
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const nowMs = now.getTime();
   const { data: listings, error: listingsError } = await supabase
     .from("listings")
-    .select("id, title, price_nok, created_at, type")
+    .select("id, title, price_nok, created_at, type, auction_starts_at, auction_ends_at")
     .eq("seller_id", profile.id)
     .or(publicListingFeedOrFilter(nowIso))
     .order("created_at", { ascending: false });
@@ -118,6 +132,14 @@ export default async function PublicProfilePage({ params }: PageProps) {
                   : rawType === "fixed_price"
                     ? "Fixed price"
                     : "—";
+              const auctionStateLabel =
+                rawType === "auction"
+                  ? auctionStateLabelNo(
+                      nowMs,
+                      row.auction_starts_at ?? null,
+                      row.auction_ends_at ?? null,
+                    )
+                  : null;
 
               return (
                 <li
@@ -132,6 +154,14 @@ export default async function PublicProfilePage({ params }: PageProps) {
                   </Link>
                   <span className="text-zinc-600 dark:text-zinc-400">
                     {typeLabel}
+                    {auctionStateLabel ? (
+                      <>
+                        <span className="mx-2 text-zinc-400">·</span>
+                        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                          {auctionStateLabel}
+                        </span>
+                      </>
+                    ) : null}
                     <span className="mx-2 text-zinc-400">·</span>
                     {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
                     <span className="mx-2 text-zinc-400">·</span>
