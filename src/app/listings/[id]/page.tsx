@@ -10,7 +10,6 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 
-import { MIN_BID_NOK } from "./bid-rules";
 import { ContactSellerForm } from "./contact-seller-form";
 import { FavoriteButton } from "./favorite-button";
 import { PlaceBidForm } from "./place-bid-form";
@@ -39,10 +38,15 @@ export default async function ListingDetailPage({ params }: PageProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { error: publishDueError } = await supabase.rpc("publish_due_auctions");
+  if (publishDueError) {
+    console.error("publish_due_auctions:", publishDueError.message);
+  }
+
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, price_nok, description, created_at, seller_id, type, status, auction_starts_at, auction_ends_at",
+      "title, price_nok, min_bid_increment_nok, description, created_at, seller_id, type, status, auction_starts_at, auction_ends_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -57,21 +61,33 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
   const nowMs = new Date().getTime();
 
-  if (
-    listing.type === "auction" &&
-    listing.auction_starts_at &&
-    (!user || user.id !== listing.seller_id)
-  ) {
-    const startsAtMs = new Date(listing.auction_starts_at).getTime();
+  let auctionState: "scheduled" | "live" | "ended" | null = null;
+  if (listing.type === "auction") {
+    const startsAtMs = listing.auction_starts_at
+      ? new Date(listing.auction_starts_at).getTime()
+      : Number.NaN;
+    const endsAtMs = listing.auction_ends_at
+      ? new Date(listing.auction_ends_at).getTime()
+      : Number.NaN;
+
     if (Number.isFinite(startsAtMs) && nowMs < startsAtMs) {
-      notFound();
+      auctionState = "scheduled";
+    } else if (Number.isFinite(endsAtMs) && nowMs >= endsAtMs) {
+      auctionState = "ended";
+    } else {
+      auctionState = "live";
     }
   }
+  const auctionTimeEnded = auctionState === "ended";
+  const auctionTimeScheduled = auctionState === "scheduled";
+  const auctionTimeLive = auctionState === "live";
 
-  let auctionTimeEnded = false;
-  if (listing.type === "auction" && listing.auction_ends_at) {
-    const endMs = new Date(listing.auction_ends_at).getTime();
-    auctionTimeEnded = Number.isFinite(endMs) && endMs <= nowMs;
+  if (
+    listing.type === "auction" &&
+    auctionTimeScheduled &&
+    (!user || user.id !== listing.seller_id)
+  ) {
+    notFound();
   }
 
   const { data: seller, error: sellerError } = await supabase
@@ -132,12 +148,27 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const showPlaceBid = Boolean(
     user &&
       listing.type === "auction" &&
-      listing.status === "active" &&
-      !auctionTimeEnded &&
+      auctionTimeLive &&
       user.id !== listing.seller_id,
   );
 
   const showAuctionEndedNotice = listing.type === "auction" && auctionTimeEnded;
+
+  const listingPriceNok =
+    listing.price_nok != null && Number.isFinite(Number(listing.price_nok))
+      ? Math.trunc(Number(listing.price_nok))
+      : null;
+  const minBidIncrementNok =
+    listing.min_bid_increment_nok != null &&
+    Number.isFinite(Number(listing.min_bid_increment_nok))
+      ? Math.trunc(Number(listing.min_bid_increment_nok))
+      : null;
+  const minimumNextBidNok =
+    highestBidNok > 0
+      ? minBidIncrementNok != null
+        ? highestBidNok + minBidIncrementNok
+        : null
+      : listingPriceNok;
 
   let isFavorite = false;
   if (user) {
@@ -203,7 +234,14 @@ export default async function ListingDetailPage({ params }: PageProps) {
             Price
           </h2>
           <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50 tabular-nums">
-            {listing.price_nok != null ? (
+            {listing.type === "auction" ? (
+              <>
+                <span>{highestBidNok > 0 ? highestBidNok : 0}</span>
+                <span className="ml-1.5 text-base font-medium text-zinc-500 dark:text-zinc-400">
+                  NOK
+                </span>
+              </>
+            ) : listing.price_nok != null ? (
               <>
                 <span>{listing.price_nok}</span>
                 <span className="ml-1.5 text-base font-medium text-zinc-500 dark:text-zinc-400">
@@ -346,10 +384,22 @@ export default async function ListingDetailPage({ params }: PageProps) {
             </h2>
             <PlaceBidForm
               listingId={id}
-              minBidNok={
-                highestBidNok > 0 ? highestBidNok + MIN_BID_NOK : MIN_BID_NOK
-              }
+              minBidNok={minimumNextBidNok}
             />
+          </section>
+        ) : null}
+
+        {auctionTimeScheduled ? (
+          <section aria-labelledby="listing-auction-scheduled-heading">
+            <h2
+              id="listing-auction-scheduled-heading"
+              className={sectionLabelClass}
+            >
+              Bidding
+            </h2>
+            <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+              Auction has not started yet
+            </p>
           </section>
         ) : null}
 

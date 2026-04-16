@@ -16,7 +16,7 @@ const helperListClass =
 
 type PlaceBidFormProps = {
   listingId: string;
-  minBidNok: number;
+  minBidNok: number | null;
 };
 
 /** Whole NOK amounts only: leading digits, stops at the first non-digit (e.g. 12.5 → 12). */
@@ -53,24 +53,27 @@ export function PlaceBidForm({ listingId, minBidNok }: PlaceBidFormProps) {
           required
           aria-describedby={helperId}
           className={inputClass}
-          placeholder={String(minBidNok)}
+          placeholder={minBidNok != null ? String(minBidNok) : ""}
           onChange={handleAmountChange}
         />
       </label>
       <div id={helperId} className="space-y-2">
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          Minimum for your next bid:{" "}
-          <span className="tabular-nums font-medium text-zinc-700 dark:text-zinc-300">
-            {minBidNok} NOK
-          </span>
+          {minBidNok != null ? (
+            <>
+              Minimum for your next bid:{" "}
+              <span className="tabular-nums font-medium text-zinc-700 dark:text-zinc-300">
+                {minBidNok} NOK
+              </span>
+            </>
+          ) : (
+            "Could not calculate the minimum bid right now."
+          )}
         </p>
         <ul className={helperListClass}>
           <li>Bids must be whole numbers (no decimals).</li>
-          <li>Minimum first bid is 5 NOK.</li>
-          <li>
-            If there are already bids, each new bid must be at least 5 NOK above
-            the current highest bid.
-          </li>
+          <li>First bid starts at the listing start price.</li>
+          <li>Next bids must be at least highest bid + listing increment.</li>
         </ul>
       </div>
       <button type="submit" disabled={pending} className={buttonClass}>
