@@ -366,3 +366,168 @@ export async function placeBid(
   revalidatePath(`/listings/${listingId}`);
   redirect(`/listings/${listingId}`);
 }
+
+export type DealDecisionState = { error: string } | null;
+
+export async function setListingDealDecision(
+  _prev: DealDecisionState,
+  formData: FormData,
+): Promise<DealDecisionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  const role = String(formData.get("role") ?? "").trim();
+  const decisionRaw = String(formData.get("decision") ?? "").trim();
+
+  if (!listingId) {
+    return { error: "Annonse mangler." };
+  }
+  if (role !== "seller" && role !== "bidder") {
+    return { error: "Ugyldig rolle." };
+  }
+  if (decisionRaw !== "deal" && decisionRaw !== "no_deal") {
+    return { error: "Ugyldig valg." };
+  }
+  const decision = decisionRaw as "deal" | "no_deal";
+
+  const { data: listing, error: listingErr } = await supabase
+    .from("listings")
+    .select(
+      "seller_id, type, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+    )
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (listingErr) {
+    return { error: listingErr.message };
+  }
+  if (!listing) {
+    return { error: "Annonsen finnes ikke." };
+  }
+  if (listing.type !== "auction") {
+    return { error: "Kun for auksjoner." };
+  }
+
+  const endsAtMs = listing.auction_ends_at
+    ? new Date(listing.auction_ends_at).getTime()
+    : Number.NaN;
+  if (!Number.isFinite(endsAtMs) || Date.now() < endsAtMs) {
+    return { error: "Auksjonen er ikke avsluttet." };
+  }
+
+  const { data: bidRows, error: bidsErr } = await supabase
+    .from("bids")
+    .select("amount_nok, created_at, bidder_id")
+    .eq("listing_id", listingId)
+    .order("created_at", { ascending: true });
+
+  if (bidsErr) {
+    return { error: bidsErr.message };
+  }
+
+  const bids = bidRows ?? [];
+  let highestBidNok = 0;
+  let leadingBidRow: { bidder_id: string; amount_nok: unknown; created_at: string | null } | null =
+    null;
+  for (const b of bids) {
+    const n = Number(b.amount_nok);
+    if (!Number.isFinite(n)) continue;
+    if (!leadingBidRow || n > highestBidNok) {
+      highestBidNok = n;
+      leadingBidRow = b;
+    } else if (n === highestBidNok && leadingBidRow) {
+      const tNew = b.created_at ? new Date(b.created_at).getTime() : -1;
+      const tOld = leadingBidRow.created_at
+        ? new Date(leadingBidRow.created_at).getTime()
+        : -1;
+      if (tNew > tOld) leadingBidRow = b;
+    }
+  }
+
+  const hasAuctionBids = bids.length > 0;
+  if (!leadingBidRow) {
+    return { error: "Ingen vinnerbud funnet." };
+  }
+
+  let contactUnlocked = false;
+  if (!listing.use_reserve_price) {
+    contactUnlocked = hasAuctionBids;
+  } else {
+    const reserveNok = listing.reserve_price_nok;
+    const pct = listing.contact_threshold_percent;
+    if (
+      reserveNok != null &&
+      pct != null &&
+      Number.isFinite(Number(reserveNok)) &&
+      Number.isFinite(Number(pct))
+    ) {
+      const contactOpensAtNok = Math.ceil(
+        (Number(reserveNok) * Number(pct)) / 100,
+      );
+      contactUnlocked = highestBidNok >= contactOpensAtNok;
+    }
+  }
+
+  if (!contactUnlocked) {
+    return { error: "Kontakt er ikke åpnet." };
+  }
+
+  if (role === "seller") {
+    if (user.id !== listing.seller_id) {
+      return { error: "Bare selger kan svare som selger." };
+    }
+  } else {
+    if (user.id !== leadingBidRow.bidder_id) {
+      return { error: "Bare høyeste budgiver kan svare som budgiver." };
+    }
+  }
+
+  const { data: existingDeal, error: dealSelectErr } = await supabase
+    .from("listing_deals")
+    .select("listing_id")
+    .eq("listing_id", listingId)
+    .maybeSingle();
+
+  if (dealSelectErr) {
+    return { error: dealSelectErr.message };
+  }
+
+  if (!existingDeal) {
+    const { error: insertErr } = await supabase.from("listing_deals").insert({
+      listing_id: listingId,
+      seller_decision: "pending",
+      bidder_decision: "pending",
+    });
+    if (
+      insertErr &&
+      insertErr.code !== "23505" &&
+      !insertErr.message.toLowerCase().includes("duplicate")
+    ) {
+      return { error: insertErr.message };
+    }
+  }
+
+  const patch =
+    role === "seller"
+      ? { seller_decision: decision }
+      : { bidder_decision: decision };
+
+  const { error: updateErr } = await supabase
+    .from("listing_deals")
+    .update(patch)
+    .eq("listing_id", listingId);
+
+  if (updateErr) {
+    return { error: updateErr.message };
+  }
+
+  revalidatePath(`/listings/${listingId}`);
+  redirect(`/listings/${listingId}`);
+}
