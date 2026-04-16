@@ -10,6 +10,7 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 
+import { AuctionDealPanel } from "./auction-deal-panel";
 import { ContactSellerForm } from "./contact-seller-form";
 import { FavoriteButton } from "./favorite-button";
 import { PlaceBidForm } from "./place-bid-form";
@@ -46,7 +47,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, price_nok, min_bid_increment_nok, description, created_at, seller_id, type, status, auction_starts_at, auction_ends_at",
+      "title, price_nok, min_bid_increment_nok, description, created_at, seller_id, type, status, auction_starts_at, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
     )
     .eq("id", id)
     .maybeSingle();
@@ -143,7 +144,121 @@ export default async function ListingDetailPage({ params }: PageProps) {
     listing.status === "draft" &&
     user.id === listing.seller_id;
 
-  const showContactSeller = Boolean(user && user.id !== listing.seller_id);
+  const hasAuctionBids = listing.type === "auction" && auctionBids.length > 0;
+
+  let contactUnlockedPostAuction = false;
+  if (listing.type === "auction" && auctionTimeEnded) {
+    if (!listing.use_reserve_price) {
+      contactUnlockedPostAuction = hasAuctionBids;
+    } else {
+      const reserveNok = listing.reserve_price_nok;
+      const pct = listing.contact_threshold_percent;
+      if (
+        reserveNok != null &&
+        pct != null &&
+        Number.isFinite(Number(reserveNok)) &&
+        Number.isFinite(Number(pct))
+      ) {
+        const contactOpensAtNok = Math.ceil(
+          (Number(reserveNok) * Number(pct)) / 100,
+        );
+        contactUnlockedPostAuction = highestBidNok >= contactOpensAtNok;
+      }
+    }
+  }
+
+  const auctionEndedContactMessage =
+    listing.type === "auction" && auctionTimeEnded
+      ? !hasAuctionBids
+        ? "Ingen bud mottatt"
+        : !contactUnlockedPostAuction
+          ? "Auksjonen er avsluttet uten åpnet kontakt"
+          : "Kontakt er åpnet mellom selger og høyeste budgiver"
+      : null;
+
+  const showContactSeller = Boolean(
+    user &&
+      (listing.type !== "auction"
+        ? user.id !== listing.seller_id
+        : !auctionTimeEnded
+          ? user.id !== listing.seller_id
+          : contactUnlockedPostAuction &&
+            (user.id === listing.seller_id ||
+              (leadingBidRow != null &&
+                user.id === leadingBidRow.bidder_id))),
+  );
+
+  const eligibleForAuctionDeal =
+    listing.type === "auction" &&
+    auctionTimeEnded &&
+    contactUnlockedPostAuction &&
+    leadingBidRow != null &&
+    user &&
+    (user.id === listing.seller_id || user.id === leadingBidRow.bidder_id);
+
+  const listingIdForDeal =
+    typeof id === "string" && id.trim() !== "" ? id.trim() : "";
+  const listingSellerIdForDeal =
+    listing.seller_id != null && String(listing.seller_id).trim() !== ""
+      ? String(listing.seller_id).trim()
+      : "";
+  const winningBidderIdForDeal =
+    leadingBidRow != null &&
+    leadingBidRow.bidder_id != null &&
+    String(leadingBidRow.bidder_id).trim() !== ""
+      ? String(leadingBidRow.bidder_id).trim()
+      : "";
+
+  const dealInsertIdsReady =
+    listingIdForDeal !== "" &&
+    listingSellerIdForDeal !== "" &&
+    winningBidderIdForDeal !== "";
+
+  let dealRow: { seller_decision: string; bidder_decision: string } | null =
+    null;
+  if (eligibleForAuctionDeal) {
+    const { data: existingDeal, error: dealLoadErr } = await supabase
+      .from("listing_deals")
+      .select("seller_decision, bidder_decision")
+      .eq("listing_id", id)
+      .maybeSingle();
+
+    if (dealLoadErr) {
+      console.error("listing_deals:", dealLoadErr.message);
+    } else if (existingDeal) {
+      dealRow = existingDeal;
+    } else if (dealInsertIdsReady) {
+      const { data: insertedDeal, error: insertDealErr } = await supabase
+        .from("listing_deals")
+        .insert({
+          listing_id: listingIdForDeal,
+          seller_id: listingSellerIdForDeal,
+          bidder_id: winningBidderIdForDeal,
+          seller_decision: "pending",
+          bidder_decision: "pending",
+        })
+        .select("seller_decision, bidder_decision")
+        .maybeSingle();
+
+      if (insertDealErr) {
+        const dup =
+          insertDealErr.code === "23505" ||
+          insertDealErr.message.toLowerCase().includes("duplicate");
+        if (dup) {
+          const { data: raceDeal } = await supabase
+            .from("listing_deals")
+            .select("seller_decision, bidder_decision")
+            .eq("listing_id", id)
+            .maybeSingle();
+          dealRow = raceDeal ?? null;
+        } else {
+          console.error("listing_deals insert:", insertDealErr.message);
+        }
+      } else {
+        dealRow = insertedDeal;
+      }
+    }
+  }
 
   const showPlaceBid = Boolean(
     user &&
@@ -415,12 +530,14 @@ export default async function ListingDetailPage({ params }: PageProps) {
           </section>
         ) : null}
 
-        {showAuctionEndedNotice ? (
+        {showAuctionEndedNotice && auctionEndedContactMessage ? (
           <section aria-labelledby="listing-auction-ended-heading">
             <h2 id="listing-auction-ended-heading" className={sectionLabelClass}>
               Bidding
             </h2>
-            <p className="mt-3 text-zinc-700 dark:text-zinc-300">Avsluttet</p>
+            <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+              {auctionEndedContactMessage}
+            </p>
           </section>
         ) : null}
 
@@ -430,6 +547,28 @@ export default async function ListingDetailPage({ params }: PageProps) {
               Contact seller
             </h2>
             <ContactSellerForm listingId={id} />
+          </section>
+        ) : null}
+
+        {eligibleForAuctionDeal && dealRow ? (
+          <section aria-labelledby="listing-deal-heading">
+            <h2 id="listing-deal-heading" className={sectionLabelClass}>
+              Handel
+            </h2>
+            <AuctionDealPanel
+              listingId={id}
+              sellerDecision={dealRow.seller_decision}
+              bidderDecision={dealRow.bidder_decision}
+              showSellerButtons={
+                user!.id === listing.seller_id &&
+                dealRow.seller_decision === "pending"
+              }
+              showBidderButtons={
+                leadingBidRow != null &&
+                user!.id === leadingBidRow.bidder_id &&
+                dealRow.bidder_decision === "pending"
+              }
+            />
           </section>
         ) : null}
       </div>
