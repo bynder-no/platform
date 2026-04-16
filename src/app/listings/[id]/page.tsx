@@ -188,6 +188,15 @@ export default async function ListingDetailPage({ params }: PageProps) {
         ? "Fixed price"
         : "—";
 
+  const auctionStateLabelNo: "Planlagt" | "Live" | "Avsluttet" | null =
+    listing.type === "auction" && auctionState != null
+      ? auctionState === "scheduled"
+        ? "Planlagt"
+        : auctionState === "ended"
+          ? "Avsluttet"
+          : "Live"
+      : null;
+
   const sectionLabelClass =
     "text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
 
@@ -258,10 +267,15 @@ export default async function ListingDetailPage({ params }: PageProps) {
           <h2 id="listing-type-heading" className={sectionLabelClass}>
             Type
           </h2>
-          <p className="mt-3">
+          <p className="mt-3 flex flex-wrap items-center gap-2">
             <span className="inline-block rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-sm font-semibold text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100">
               {typeLabel}
             </span>
+            {auctionStateLabelNo ? (
+              <span className="inline-block rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm font-semibold text-zinc-800 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100">
+                {auctionStateLabelNo}
+              </span>
+            ) : null}
           </p>
         </section>
 
@@ -397,9 +411,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
             >
               Bidding
             </h2>
-            <p className="mt-3 text-zinc-700 dark:text-zinc-300">
-              Auction has not started yet
-            </p>
+            <p className="mt-3 text-zinc-700 dark:text-zinc-300">Planlagt</p>
           </section>
         ) : null}
 
@@ -408,7 +420,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <h2 id="listing-auction-ended-heading" className={sectionLabelClass}>
               Bidding
             </h2>
-            <p className="mt-3 text-zinc-700 dark:text-zinc-300">Auction ended</p>
+            <p className="mt-3 text-zinc-700 dark:text-zinc-300">Avsluttet</p>
           </section>
         ) : null}
 

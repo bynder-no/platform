@@ -18,6 +18,18 @@ export const dynamic = "force-dynamic";
 /** Hide draft Edit/Delete from 1 minute before auction start through after start. */
 const AUCTION_EDIT_DELETE_LOCK_MS = 60 * 1000;
 
+function auctionTimingLabelNo(
+  nowMs: number,
+  startsAt: string | null,
+  endsAt: string | null,
+): "Planlagt" | "Live" | "Avsluttet" {
+  const startsAtMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
+  const endsAtMs = endsAt ? new Date(endsAt).getTime() : Number.NaN;
+  if (Number.isFinite(startsAtMs) && nowMs < startsAtMs) return "Planlagt";
+  if (Number.isFinite(endsAtMs) && nowMs >= endsAtMs) return "Avsluttet";
+  return "Live";
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
@@ -123,6 +135,18 @@ export default async function DashboardPage() {
                       : row.type === "fixed_price"
                         ? "Fixed price"
                         : "—"}
+                    {row.type === "auction" ? (
+                      <>
+                        <span className="mx-2 text-zinc-400">·</span>
+                        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                          {auctionTimingLabelNo(
+                            nowMs,
+                            row.auction_starts_at,
+                            row.auction_ends_at,
+                          )}
+                        </span>
+                      </>
+                    ) : null}
                     <span className="mx-2 text-zinc-400">·</span>
                     {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
                     <span className="mx-2 text-zinc-400">·</span>
