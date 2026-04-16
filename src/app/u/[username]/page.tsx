@@ -9,6 +9,7 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -42,19 +43,17 @@ export default async function PublicProfilePage({ params }: PageProps) {
     notFound();
   }
 
+  const { error: publishDueError } = await supabase.rpc("publish_due_auctions");
+  if (publishDueError) {
+    console.error("publish_due_auctions:", publishDueError.message);
+  }
+
   const nowIso = new Date().toISOString();
   const { data: listings, error: listingsError } = await supabase
     .from("listings")
     .select("id, title, price_nok, created_at, type")
     .eq("seller_id", profile.id)
-    .eq("status", "active")
-    .or(
-      [
-        "type.eq.fixed_price",
-        "and(type.eq.auction,auction_starts_at.is.null)",
-        `and(type.eq.auction,auction_starts_at.lte.${nowIso})`,
-      ].join(","),
-    )
+    .or(publicListingFeedOrFilter(nowIso))
     .order("created_at", { ascending: false });
 
   if (listingsError) {

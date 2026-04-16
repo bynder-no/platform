@@ -8,6 +8,7 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
 
 export const dynamic = "force-dynamic";
 
@@ -69,19 +70,16 @@ export default async function HomePage({ searchParams }: PageProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { error: publishDueError } = await supabase.rpc("publish_due_auctions");
+  if (publishDueError) {
+    console.error("publish_due_auctions:", publishDueError.message);
+  }
+
+  const nowIso = new Date().toISOString();
   let query = supabase
     .from("listings")
     .select("id, title, type, price_nok, status, created_at, auction_ends_at")
-    .eq("status", "active");
-
-  const nowIso = new Date().toISOString();
-  query = query.or(
-    [
-      "type.eq.fixed_price",
-      "and(type.eq.auction,auction_starts_at.is.null)",
-      `and(type.eq.auction,auction_starts_at.lte.${nowIso})`,
-    ].join(","),
-  );
+    .or(publicListingFeedOrFilter(nowIso));
 
   if (listingType) {
     query = query.eq("type", listingType);

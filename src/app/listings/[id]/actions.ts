@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
-import { ANTI_SNIPE_WINDOW_MS, MIN_BID_NOK } from "./bid-rules";
+import { ANTI_SNIPE_WINDOW_MS } from "./bid-rules";
 
 export type PublishListingState = { error: string } | null;
 
@@ -241,9 +241,16 @@ export async function placeBid(
     return { error: "Enter a valid whole-number bid in NOK." };
   }
 
+  const { error: publishDueError } = await supabase.rpc("publish_due_auctions");
+  if (publishDueError) {
+    return { error: publishDueError.message };
+  }
+
   const { data: listing, error: listingFetchError } = await supabase
     .from("listings")
-    .select("seller_id, type, status, auction_ends_at")
+    .select(
+      "seller_id, type, status, price_nok, min_bid_increment_nok, auction_starts_at, auction_ends_at",
+    )
     .eq("id", listingId)
     .maybeSingle();
 
@@ -259,21 +266,27 @@ export async function placeBid(
     return { error: "Bidding is only open for auctions." };
   }
 
-  if (listing.status !== "active") {
-    return { error: "Bidding is not open for this listing." };
-  }
-
   if (user.id === listing.seller_id) {
     return { error: "You cannot bid on your own listing." };
   }
 
-  if (!listing.auction_ends_at) {
+  if (!listing.auction_starts_at || !listing.auction_ends_at) {
     return { error: "Auction is not open." };
   }
 
+  const startsAtMs = new Date(listing.auction_starts_at).getTime();
   const endsAtMs = new Date(listing.auction_ends_at).getTime();
-  if (!Number.isFinite(endsAtMs) || endsAtMs <= Date.now()) {
-    return { error: "Auction has ended." };
+  if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs)) {
+    return { error: "Auction is not open." };
+  }
+
+  const nowMs = Date.now();
+  if (nowMs < startsAtMs) {
+    return { error: "Auksjonen har ikke startet ennå." };
+  }
+
+  if (nowMs >= endsAtMs) {
+    return { error: "Auksjonen er avsluttet." };
   }
 
   const { data: topBid, error: topBidError } = await supabase
@@ -288,20 +301,44 @@ export async function placeBid(
     return { error: topBidError.message };
   }
 
-  const highestNok =
+  const highestNokRaw =
     topBid?.amount_nok != null && Number.isFinite(Number(topBid.amount_nok))
       ? Math.trunc(Number(topBid.amount_nok))
-      : 0;
+      : null;
+
+  const startPriceNok =
+    listing.price_nok != null && Number.isFinite(Number(listing.price_nok))
+      ? Math.trunc(Number(listing.price_nok))
+      : null;
+  if (startPriceNok == null || startPriceNok < 1) {
+    return { error: "Auksjonen mangler gyldig startpris." };
+  }
+
+  const minBidIncrementNok =
+    listing.min_bid_increment_nok != null &&
+    Number.isFinite(Number(listing.min_bid_increment_nok))
+      ? Math.trunc(Number(listing.min_bid_increment_nok))
+      : null;
+  if (minBidIncrementNok == null || minBidIncrementNok < 1) {
+    return {
+      error:
+        "Auksjonen mangler gyldig minste budøkning. Prøv igjen senere eller kontakt support.",
+    };
+  }
 
   const minRequired =
-    highestNok > 0 ? highestNok + MIN_BID_NOK : MIN_BID_NOK;
+    highestNokRaw == null
+      ? startPriceNok
+      : highestNokRaw + minBidIncrementNok;
 
   if (amount < minRequired) {
-    if (highestNok === 0) {
-      return { error: "Minimum bid is 5 NOK." };
+    if (highestNokRaw == null) {
+      return {
+        error: `Første bud må være minst ${startPriceNok} NOK.`,
+      };
     }
     return {
-      error: `Your bid must be at least ${minRequired} NOK (5 NOK higher than the current highest bid).`,
+      error: `Budet ditt må være minst ${minRequired} NOK.`,
     };
   }
 
