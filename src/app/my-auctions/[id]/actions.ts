@@ -33,6 +33,35 @@ function leadingBidderId(bids: BidRow[]): string | null {
   return leading?.bidder_id ?? null;
 }
 
+async function maybeSetDealCompletedAt(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  listingId: string,
+): Promise<void> {
+  const { data: row, error: selErr } = await supabase
+    .from("listing_deals")
+    .select("buyer_received_card, seller_received_payment, completed_at")
+    .eq("listing_id", listingId)
+    .maybeSingle();
+
+  if (selErr || !row) {
+    return;
+  }
+  if (
+    row.buyer_received_card !== true ||
+    row.seller_received_payment !== true ||
+    row.completed_at != null
+  ) {
+    return;
+  }
+
+  const completedAt = new Date().toISOString();
+  await supabase
+    .from("listing_deals")
+    .update({ completed_at: completedAt })
+    .eq("listing_id", listingId)
+    .is("completed_at", null);
+}
+
 export async function sendListingDealMessage(
   _prev: DealChatState,
   formData: FormData,
@@ -107,6 +136,190 @@ export async function sendListingDealMessage(
   if (insertErr) {
     return { error: insertErr.message };
   }
+
+  revalidatePath(`/my-auctions/${listingId}`);
+  redirect(`/my-auctions/${listingId}`);
+}
+
+export type ReceivedCardState = { error: string } | null;
+
+export async function markBuyerReceivedCard(
+  _prev: ReceivedCardState,
+  formData: FormData,
+): Promise<ReceivedCardState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  if (!listingId) {
+    return { error: "Annonse mangler." };
+  }
+
+  const { data: listing, error: listingErr } = await supabase
+    .from("listings")
+    .select("seller_id, type, auction_ends_at")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (listingErr) {
+    return { error: listingErr.message };
+  }
+  if (!listing || listing.type !== "auction") {
+    return { error: "Annonsen finnes ikke." };
+  }
+
+  const endsAtMs = listing.auction_ends_at
+    ? new Date(listing.auction_ends_at).getTime()
+    : Number.NaN;
+  const now = new Date();
+  const nowMs = now.getTime();
+  if (!Number.isFinite(endsAtMs) || nowMs < endsAtMs) {
+    return { error: "Auksjonen er ikke avsluttet." };
+  }
+
+  const { data: bidRows, error: bidsErr } = await supabase
+    .from("bids")
+    .select("amount_nok, created_at, bidder_id")
+    .eq("listing_id", listingId)
+    .order("created_at", { ascending: true });
+
+  if (bidsErr) {
+    return { error: bidsErr.message };
+  }
+
+  const bids = (bidRows ?? []) as BidRow[];
+  const leaderId = leadingBidderId(bids);
+  if (leaderId == null || user.id !== leaderId) {
+    return { error: "Bare høyeste budgiver kan gjøre dette." };
+  }
+
+  const { data: deal, error: dealErr } = await supabase
+    .from("listing_deals")
+    .select("seller_decision, bidder_decision, buyer_received_card")
+    .eq("listing_id", listingId)
+    .maybeSingle();
+
+  if (dealErr) {
+    return { error: dealErr.message };
+  }
+  if (!deal) {
+    return { error: "Handel finnes ikke." };
+  }
+  if (deal.seller_decision !== "deal" || deal.bidder_decision !== "deal") {
+    return { error: "Handelen er ikke godkjent av begge parter." };
+  }
+  if (deal.buyer_received_card === true) {
+    return { error: "Allerede registrert." };
+  }
+
+  const { error: updErr } = await supabase
+    .from("listing_deals")
+    .update({
+      buyer_received_card: true,
+    })
+    .eq("listing_id", listingId)
+    .eq("seller_decision", "deal")
+    .eq("bidder_decision", "deal")
+    .eq("buyer_received_card", false);
+
+  if (updErr) {
+    return { error: updErr.message };
+  }
+
+  await maybeSetDealCompletedAt(supabase, listingId);
+
+  revalidatePath(`/my-auctions/${listingId}`);
+  redirect(`/my-auctions/${listingId}`);
+}
+
+export type SellerPaymentState = { error: string } | null;
+
+export async function markSellerReceivedPayment(
+  _prev: SellerPaymentState,
+  formData: FormData,
+): Promise<SellerPaymentState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  if (!listingId) {
+    return { error: "Annonse mangler." };
+  }
+
+  const { data: listing, error: listingErr } = await supabase
+    .from("listings")
+    .select("seller_id, type, auction_ends_at")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (listingErr) {
+    return { error: listingErr.message };
+  }
+  if (!listing || listing.type !== "auction") {
+    return { error: "Annonsen finnes ikke." };
+  }
+
+  if (user.id !== listing.seller_id) {
+    return { error: "Bare selger kan gjøre dette." };
+  }
+
+  const endsAtMs = listing.auction_ends_at
+    ? new Date(listing.auction_ends_at).getTime()
+    : Number.NaN;
+  const now = new Date();
+  const nowMs = now.getTime();
+  if (!Number.isFinite(endsAtMs) || nowMs < endsAtMs) {
+    return { error: "Auksjonen er ikke avsluttet." };
+  }
+
+  const { data: deal, error: dealErr } = await supabase
+    .from("listing_deals")
+    .select(
+      "seller_decision, bidder_decision, seller_received_payment",
+    )
+    .eq("listing_id", listingId)
+    .maybeSingle();
+
+  if (dealErr) {
+    return { error: dealErr.message };
+  }
+  if (!deal) {
+    return { error: "Handel finnes ikke." };
+  }
+  if (deal.seller_decision !== "deal" || deal.bidder_decision !== "deal") {
+    return { error: "Handelen er ikke godkjent av begge parter." };
+  }
+  if (deal.seller_received_payment === true) {
+    return { error: "Allerede registrert." };
+  }
+
+  const { error: updErr } = await supabase
+    .from("listing_deals")
+    .update({
+      seller_received_payment: true,
+    })
+    .eq("listing_id", listingId)
+    .eq("seller_decision", "deal")
+    .eq("bidder_decision", "deal")
+    .eq("seller_received_payment", false);
+
+  if (updErr) {
+    return { error: updErr.message };
+  }
+
+  await maybeSetDealCompletedAt(supabase, listingId);
 
   revalidatePath(`/my-auctions/${listingId}`);
   redirect(`/my-auctions/${listingId}`);

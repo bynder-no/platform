@@ -3,7 +3,10 @@ import { notFound, redirect } from "next/navigation";
 
 import { AuctionDealPanel } from "@/app/listings/[id]/auction-deal-panel";
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
+import { BuyerReceivedCardForm } from "./buyer-received-card-form";
 import { DealChatForm } from "./deal-chat-form";
+import { postDealFulfillmentStatusText } from "./deal-status";
+import { SellerReceivedPaymentForm } from "./seller-received-payment-form";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -168,19 +171,32 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     listingSellerIdForDeal !== "" &&
     winningBidderIdForDeal !== "";
 
-  let dealRow: { seller_decision: string; bidder_decision: string } | null =
-    null;
+  let dealRow: {
+    seller_decision: string;
+    bidder_decision: string;
+    buyer_received_card: boolean;
+    seller_received_payment: boolean;
+    completed_at: string | null;
+  } | null = null;
   if (eligibleForAuctionDeal) {
     const { data: existingDeal, error: dealLoadErr } = await supabase
       .from("listing_deals")
-      .select("seller_decision, bidder_decision")
+      .select(
+        "seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
+      )
       .eq("listing_id", id)
       .maybeSingle();
 
     if (dealLoadErr) {
       console.error("listing_deals:", dealLoadErr.message);
     } else if (existingDeal) {
-      dealRow = existingDeal;
+      dealRow = {
+        seller_decision: existingDeal.seller_decision,
+        bidder_decision: existingDeal.bidder_decision,
+        buyer_received_card: Boolean(existingDeal.buyer_received_card),
+        seller_received_payment: Boolean(existingDeal.seller_received_payment),
+        completed_at: existingDeal.completed_at ?? null,
+      };
     } else if (dealInsertIdsReady) {
       const { data: insertedDeal, error: insertDealErr } = await supabase
         .from("listing_deals")
@@ -191,7 +207,9 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
           seller_decision: "pending",
           bidder_decision: "pending",
         })
-        .select("seller_decision, bidder_decision")
+        .select(
+          "seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
+        )
         .maybeSingle();
 
       if (insertDealErr) {
@@ -201,18 +219,60 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
         if (dup) {
           const { data: raceDeal } = await supabase
             .from("listing_deals")
-            .select("seller_decision, bidder_decision")
+            .select(
+              "seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
+            )
             .eq("listing_id", id)
             .maybeSingle();
-          dealRow = raceDeal ?? null;
+          dealRow = raceDeal
+            ? {
+                seller_decision: raceDeal.seller_decision,
+                bidder_decision: raceDeal.bidder_decision,
+                buyer_received_card: Boolean(raceDeal.buyer_received_card),
+                seller_received_payment: Boolean(
+                  raceDeal.seller_received_payment,
+                ),
+                completed_at: raceDeal.completed_at ?? null,
+              }
+            : null;
         } else {
           console.error("listing_deals insert:", insertDealErr.message);
         }
-      } else {
-        dealRow = insertedDeal;
+      } else if (insertedDeal) {
+        dealRow = {
+          seller_decision: insertedDeal.seller_decision,
+          bidder_decision: insertedDeal.bidder_decision,
+          buyer_received_card: Boolean(insertedDeal.buyer_received_card),
+          seller_received_payment: Boolean(
+            insertedDeal.seller_received_payment,
+          ),
+          completed_at: insertedDeal.completed_at ?? null,
+        };
       }
     }
   }
+
+  const showReceivedCardButton =
+    eligibleForAuctionDeal &&
+    dealRow != null &&
+    isLeadingBidder &&
+    dealRow.seller_decision === "deal" &&
+    dealRow.bidder_decision === "deal" &&
+    dealRow.buyer_received_card === false;
+
+  const showSellerPaymentButton =
+    eligibleForAuctionDeal &&
+    dealRow != null &&
+    isSeller &&
+    dealRow.seller_decision === "deal" &&
+    dealRow.bidder_decision === "deal" &&
+    dealRow.seller_received_payment === false;
+
+  const showDealCompletedMessage =
+    eligibleForAuctionDeal &&
+    dealRow != null &&
+    dealRow.buyer_received_card === true &&
+    dealRow.seller_received_payment === true;
 
   return (
     <div className={pageShellClass}>
@@ -284,8 +344,63 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
                 dealRow.bidder_decision === "pending"
               }
             />
+            {dealRow.seller_decision === "deal" &&
+            dealRow.bidder_decision === "deal"
+              ? (() => {
+                  const viewer = isSeller ? "seller" : "bidder";
+                  const line = postDealFulfillmentStatusText(
+                    viewer,
+                    dealRow.seller_decision,
+                    dealRow.bidder_decision,
+                    dealRow.buyer_received_card,
+                    dealRow.seller_received_payment,
+                  );
+                  return line ? (
+                    <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+                      {line}
+                    </p>
+                  ) : null;
+                })()
+              : null}
           </section>
         ) : null}
+
+        {showDealCompletedMessage ? (
+          <section aria-labelledby="dealroom-completed-heading">
+            <h2
+              id="dealroom-completed-heading"
+              className={sectionLabelClass}
+            >
+              Fullført
+            </h2>
+            <p className="mt-2 text-zinc-700 dark:text-zinc-300">Fullført</p>
+          </section>
+        ) : (
+          <>
+            {showReceivedCardButton ? (
+              <section aria-labelledby="dealroom-received-card-heading">
+                <h2
+                  id="dealroom-received-card-heading"
+                  className={sectionLabelClass}
+                >
+                  Kort mottatt
+                </h2>
+                <BuyerReceivedCardForm listingId={id} />
+              </section>
+            ) : null}
+            {showSellerPaymentButton ? (
+              <section aria-labelledby="dealroom-received-payment-heading">
+                <h2
+                  id="dealroom-received-payment-heading"
+                  className={sectionLabelClass}
+                >
+                  Betaling mottatt
+                </h2>
+                <SellerReceivedPaymentForm listingId={id} />
+              </section>
+            ) : null}
+          </>
+        )}
 
         <section aria-labelledby="dealroom-chat-heading">
           <h2 id="dealroom-chat-heading" className={sectionLabelClass}>
