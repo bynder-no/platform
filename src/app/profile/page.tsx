@@ -42,7 +42,7 @@ export default async function ProfilePage() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("display_name, username")
+    .select("display_name, username, sales_count, purchases_count")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -65,6 +65,15 @@ export default async function ProfilePage() {
   const defaultDisplayName = profile?.display_name?.trim() ?? "";
   const defaultUsername = profile?.username?.trim() ?? "";
 
+  const salesCountRaw = Number(profile?.sales_count);
+  const purchasesCountRaw = Number(profile?.purchases_count);
+  const salesCount = Number.isFinite(salesCountRaw)
+    ? Math.max(0, Math.trunc(salesCountRaw))
+    : 0;
+  const purchasesCount = Number.isFinite(purchasesCountRaw)
+    ? Math.max(0, Math.trunc(purchasesCountRaw))
+    : 0;
+
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
@@ -76,6 +85,23 @@ export default async function ProfilePage() {
         defaultDisplayName={defaultDisplayName}
         defaultUsername={defaultUsername}
       />
+
+      <section className={pageBodyGapClass}>
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <span className="block">
+            Antall salg:{" "}
+            <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+              {salesCount}
+            </span>
+          </span>
+          <span className="mt-1 block">
+            Antall kjøp:{" "}
+            <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+              {purchasesCount}
+            </span>
+          </span>
+        </p>
+      </section>
 
       <section className={pageBodyGapClass}>
         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
