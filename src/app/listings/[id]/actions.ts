@@ -528,6 +528,17 @@ export async function setListingDealDecision(
     return { error: updateErr.message };
   }
 
+  const { error: dealStatsErr } = await supabase.rpc(
+    "apply_listing_deal_transaction_stats",
+    { p_listing_id: listingId },
+  );
+  if (dealStatsErr) {
+    console.error(
+      "apply_listing_deal_transaction_stats:",
+      dealStatsErr.message,
+    );
+  }
+
   revalidatePath(`/listings/${listingId}`);
   redirect(`/listings/${listingId}`);
 }
