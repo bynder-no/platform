@@ -148,7 +148,7 @@ export default async function MyAuctionsPage() {
   }
 
   const allIds = [...merged.keys()];
-  let bidsByListing = new Map<string, BidRow[]>();
+  const bidsByListing = new Map<string, BidRow[]>();
   if (allIds.length > 0) {
     const { data: allBids, error: allBidsErr } = await supabase
       .from("bids")

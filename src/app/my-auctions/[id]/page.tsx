@@ -60,7 +60,8 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     notFound();
   }
 
-  const nowMs = Date.now();
+  const now = new Date();
+  const nowMs = now.getTime();
   const endsAtMs = listing.auction_ends_at
     ? new Date(listing.auction_ends_at).getTime()
     : Number.NaN;
