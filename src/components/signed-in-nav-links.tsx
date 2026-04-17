@@ -29,6 +29,12 @@ export function SignedInNavLinks({ className }: SignedInNavLinksProps) {
       <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
         ·
       </span>
+      <Link href="/my-auctions" className={navLinkClass}>
+        Mine auksjoner
+      </Link>
+      <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+        ·
+      </span>
       <Link href="/favorites" className={navLinkClass}>
         Favorites
       </Link>

@@ -45,6 +45,52 @@ function leadingBidForListing(bids: BidRow[]): {
   };
 }
 
+type DealRowLite = {
+  listing_id: string;
+  seller_decision: string;
+  bidder_decision: string;
+  buyer_received_card: boolean;
+};
+
+/** Post-auction deal status for list display only (Norwegian). */
+function myAuctionsStatusLabel(
+  deal: DealRowLite | null | undefined,
+  userId: string,
+  listingSellerId: string,
+  leadingBidderId: string | null,
+): string {
+  if (!deal) {
+    return "Avsluttet";
+  }
+  const s = deal.seller_decision;
+  const b = deal.bidder_decision;
+  if (s === "no_deal" || b === "no_deal") {
+    return "Ingen deal";
+  }
+  if (s === "deal" && b === "deal") {
+    if (deal.buyer_received_card === true) {
+      return "Fullført";
+    }
+    if (userId === listingSellerId) {
+      return "Deal bekreftet – Mottaker venter på kort";
+    }
+    if (leadingBidderId != null && userId === leadingBidderId) {
+      return "Deal bekreftet – Du venter på ditt kort";
+    }
+    return "Deal bekreftet";
+  }
+  if (s === "pending" && b === "pending") {
+    return "Venter på svar";
+  }
+  if (
+    (s === "deal" && b === "pending") ||
+    (s === "pending" && b === "deal")
+  ) {
+    return "Venter på svar";
+  }
+  return "Venter på svar";
+}
+
 export default async function MyAuctionsPage() {
   const supabase = await createClient();
   const {
@@ -59,7 +105,7 @@ export default async function MyAuctionsPage() {
 
   const { data: sellerListings, error: sellerErr } = await supabase
     .from("listings")
-    .select("id, title, auction_ends_at")
+    .select("id, title, auction_ends_at, seller_id")
     .eq("type", "auction")
     .not("auction_ends_at", "is", null)
     .lte("auction_ends_at", nowIso)
@@ -87,13 +133,17 @@ export default async function MyAuctionsPage() {
     ),
   ].filter((id) => !sellerIds.has(id));
 
-  let bidderWinRows: { id: string; title: string | null; auction_ends_at: string | null }[] =
-    [];
+  let bidderWinRows: {
+    id: string;
+    title: string | null;
+    auction_ends_at: string | null;
+    seller_id: string;
+  }[] = [];
 
   if (bidListingIds.length > 0) {
     const { data: bidderCandidates, error: bidderListErr } = await supabase
       .from("listings")
-      .select("id, title, auction_ends_at")
+      .select("id, title, auction_ends_at, seller_id")
       .eq("type", "auction")
       .not("auction_ends_at", "is", null)
       .lte("auction_ends_at", nowIso)
@@ -132,16 +182,29 @@ export default async function MyAuctionsPage() {
         }
       }
 
-      bidderWinRows = (bidderCandidates ?? []).filter((l) => won.has(l.id));
+      bidderWinRows = (bidderCandidates ?? [])
+        .filter((l) => won.has(l.id))
+        .map((l) => ({
+          ...l,
+          seller_id: String(l.seller_id ?? ""),
+        }));
     }
   }
 
   const merged = new Map<
     string,
-    { id: string; title: string | null; auction_ends_at: string | null }
+    {
+      id: string;
+      title: string | null;
+      auction_ends_at: string | null;
+      seller_id: string;
+    }
   >();
   for (const l of sellerListings ?? []) {
-    merged.set(l.id, l);
+    merged.set(l.id, {
+      ...l,
+      seller_id: String(l.seller_id ?? ""),
+    });
   }
   for (const l of bidderWinRows) {
     merged.set(l.id, l);
@@ -149,6 +212,7 @@ export default async function MyAuctionsPage() {
 
   const allIds = [...merged.keys()];
   const bidsByListing = new Map<string, BidRow[]>();
+  const dealsByListing = new Map<string, DealRowLite>();
   if (allIds.length > 0) {
     const { data: allBids, error: allBidsErr } = await supabase
       .from("bids")
@@ -166,6 +230,28 @@ export default async function MyAuctionsPage() {
       const arr = bidsByListing.get(lid) ?? [];
       arr.push(b as BidRow);
       bidsByListing.set(lid, arr);
+    }
+
+    const { data: dealRows, error: dealsErr } = await supabase
+      .from("listing_deals")
+      .select(
+        "listing_id, seller_decision, bidder_decision, buyer_received_card",
+      )
+      .in("listing_id", allIds);
+
+    if (dealsErr) {
+      throw new Error(`Could not load deal rows: ${dealsErr.message}`);
+    }
+
+    for (const d of dealRows ?? []) {
+      const lid = d.listing_id;
+      if (!lid || typeof lid !== "string") continue;
+      dealsByListing.set(lid, {
+        listing_id: lid,
+        seller_decision: String(d.seller_decision ?? ""),
+        bidder_decision: String(d.bidder_decision ?? ""),
+        buyer_received_card: Boolean(d.buyer_received_card),
+      });
     }
   }
 
@@ -190,8 +276,14 @@ export default async function MyAuctionsPage() {
         ) : (
           <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
             {rows.map((row) => {
-              const { highestNok } = leadingBidForListing(
+              const { highestNok, leadingBidderId } = leadingBidForListing(
                 bidsByListing.get(row.id) ?? [],
+              );
+              const statusLabel = myAuctionsStatusLabel(
+                dealsByListing.get(row.id),
+                user.id,
+                row.seller_id,
+                leadingBidderId,
               );
               return (
                 <li
@@ -209,8 +301,8 @@ export default async function MyAuctionsPage() {
                       </span>{" "}
                       NOK
                     </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-500">
-                      Avsluttet
+                    <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                      {statusLabel}
                     </p>
                   </div>
                   <Link
