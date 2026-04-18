@@ -31,6 +31,22 @@ type BidRow = {
 const sectionLabelClass =
   "text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
 
+/** Only literal `true` counts — avoids `Boolean("f")` / other truthy non-booleans. */
+function isPgBoolTrue(value: unknown): boolean {
+  return value === true;
+}
+
+function normalizeCompletedAtIso(value: unknown): string | null {
+  if (value == null) return null;
+  if (value instanceof Date) {
+    const t = value.getTime();
+    return Number.isNaN(t) ? null : value.toISOString();
+  }
+  const s = String(value).trim();
+  if (s === "" || s.toLowerCase() === "null") return null;
+  return s;
+}
+
 export default async function MyAuctionDealRoomPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
@@ -101,9 +117,11 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     }
   }
 
-  const isSeller = user.id === listing.seller_id;
+  const sellerIdNormalized = String(listing.seller_id ?? "").trim();
+  const isSeller = user.id === sellerIdNormalized;
   const isLeadingBidder =
-    leadingBidRow != null && user.id === leadingBidRow.bidder_id;
+    leadingBidRow != null &&
+    user.id === String(leadingBidRow.bidder_id ?? "").trim();
 
   if (!isSeller && !isLeadingBidder) {
     notFound();
@@ -193,9 +211,11 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
       dealRow = {
         seller_decision: existingDeal.seller_decision,
         bidder_decision: existingDeal.bidder_decision,
-        buyer_received_card: Boolean(existingDeal.buyer_received_card),
-        seller_received_payment: Boolean(existingDeal.seller_received_payment),
-        completed_at: existingDeal.completed_at ?? null,
+        buyer_received_card: isPgBoolTrue(existingDeal.buyer_received_card),
+        seller_received_payment: isPgBoolTrue(
+          existingDeal.seller_received_payment,
+        ),
+        completed_at: normalizeCompletedAtIso(existingDeal.completed_at),
       };
     } else if (dealInsertIdsReady) {
       const { data: insertedDeal, error: insertDealErr } = await supabase
@@ -228,11 +248,13 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
             ? {
                 seller_decision: raceDeal.seller_decision,
                 bidder_decision: raceDeal.bidder_decision,
-                buyer_received_card: Boolean(raceDeal.buyer_received_card),
-                seller_received_payment: Boolean(
+                buyer_received_card: isPgBoolTrue(
+                  raceDeal.buyer_received_card,
+                ),
+                seller_received_payment: isPgBoolTrue(
                   raceDeal.seller_received_payment,
                 ),
-                completed_at: raceDeal.completed_at ?? null,
+                completed_at: normalizeCompletedAtIso(raceDeal.completed_at),
               }
             : null;
         } else {
@@ -242,11 +264,13 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
         dealRow = {
           seller_decision: insertedDeal.seller_decision,
           bidder_decision: insertedDeal.bidder_decision,
-          buyer_received_card: Boolean(insertedDeal.buyer_received_card),
-          seller_received_payment: Boolean(
+          buyer_received_card: isPgBoolTrue(
+            insertedDeal.buyer_received_card,
+          ),
+          seller_received_payment: isPgBoolTrue(
             insertedDeal.seller_received_payment,
           ),
-          completed_at: insertedDeal.completed_at ?? null,
+          completed_at: normalizeCompletedAtIso(insertedDeal.completed_at),
         };
       }
     }
@@ -273,6 +297,23 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     dealRow != null &&
     dealRow.buyer_received_card === true &&
     dealRow.seller_received_payment === true;
+
+  const showRatingCta =
+    eligibleForAuctionDeal &&
+    dealRow != null &&
+    dealRow.seller_decision === "deal" &&
+    dealRow.bidder_decision === "deal" &&
+    dealRow.buyer_received_card === true &&
+    dealRow.seller_received_payment === true &&
+    dealRow.completed_at != null;
+
+  const ratingCtaLabel = isSeller ? "Rate kjøper" : "Rate selger";
+  const ratingHelperText = isSeller
+    ? "Handelen er fullført. Du kan nå rate kjøper."
+    : "Handelen er fullført. Du kan nå rate selger.";
+
+  const ratingCtaButtonClass =
+    "inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
 
   return (
     <div className={pageShellClass}>
@@ -335,7 +376,7 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
               sellerDecision={dealRow.seller_decision}
               bidderDecision={dealRow.bidder_decision}
               showSellerButtons={
-                user.id === listing.seller_id &&
+                user.id === sellerIdNormalized &&
                 dealRow.seller_decision === "pending"
               }
               showBidderButtons={
@@ -374,6 +415,26 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
               Fullført
             </h2>
             <p className="mt-2 text-zinc-700 dark:text-zinc-300">Fullført</p>
+            {showRatingCta ? (
+              <div className="mt-6 border-t border-zinc-200 pt-6 dark:border-zinc-700">
+                <h3 className={sectionLabelClass}>Vurdering</h3>
+                <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                  {ratingHelperText}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+                  Rating kommer snart — ingen vurdering lagres ennå.
+                </p>
+                <button
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  title="Rating er ikke tilgjengelig ennå"
+                  className={`${ratingCtaButtonClass} mt-3 cursor-not-allowed`}
+                >
+                  {ratingCtaLabel}
+                </button>
+              </div>
+            ) : null}
           </section>
         ) : (
           <>
