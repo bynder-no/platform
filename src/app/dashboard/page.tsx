@@ -49,12 +49,53 @@ function isAuctionTimeEnded(
   );
 }
 
+/** Live auction window: started and not yet ended (same instant boundaries as timing label). */
+function isAuctionLiveNow(
+  row: { type: string | null; auction_starts_at: string | null; auction_ends_at: string | null },
+  nowMs: number,
+): boolean {
+  if (row.type !== "auction") return false;
+  const startsAtMs = row.auction_starts_at
+    ? new Date(row.auction_starts_at).getTime()
+    : Number.NaN;
+  const endsAtMs = row.auction_ends_at
+    ? new Date(row.auction_ends_at).getTime()
+    : Number.NaN;
+  if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs)) return false;
+  return nowMs >= startsAtMs && nowMs < endsAtMs;
+}
+
+function formatAuctionTimeRemainingNo(endMs: number, nowMs: number): string {
+  const ms = endMs - nowMs;
+  if (ms <= 0) return "Avsluttet";
+  const totalMin = Math.floor(ms / 60_000);
+  if (totalMin < 60) return `${totalMin} min igjen`;
+  const hours = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
+  if (hours < 24) {
+    return mins > 0 ? `${hours} t ${mins} min igjen` : `${hours} t igjen`;
+  }
+  const days = Math.floor(hours / 24);
+  const h = hours % 24;
+  return h > 0 ? `${days} d ${h} t igjen` : `${days} d igjen`;
+}
+
+const TRACKED_LIVE_AUCTIONS_LIMIT = 4;
+
 type ListingRow = {
   id: string;
   title: string | null;
   price_nok: number | string | null;
   status: string | null;
   created_at: string | null;
+  type: string | null;
+  auction_starts_at: string | null;
+  auction_ends_at: string | null;
+};
+
+type TrackedAuctionListingRow = {
+  id: string;
+  title: string | null;
   type: string | null;
   auction_starts_at: string | null;
   auction_ends_at: string | null;
@@ -189,18 +230,115 @@ export default async function DashboardPage() {
       .filter((l): l is FavListingLite => Boolean(l));
   }
 
+  const { data: trackedBidRows, error: trackedBidsErr } = await supabase
+    .from("bids")
+    .select("listing_id")
+    .eq("bidder_id", user.id);
+
+  if (trackedBidsErr) {
+    throw new Error(`Could not load bids for tracking: ${trackedBidsErr.message}`);
+  }
+
+  const { data: trackedFavRows, error: trackedFavErr } = await supabase
+    .from("favorites")
+    .select("listing_id")
+    .eq("user_id", user.id);
+
+  if (trackedFavErr) {
+    throw new Error(
+      `Could not load favorites for tracking: ${trackedFavErr.message}`,
+    );
+  }
+
+  const trackedListingIdSet = new Set<string>();
+  for (const r of trackedBidRows ?? []) {
+    const lid = r.listing_id;
+    if (typeof lid === "string" && lid !== "") trackedListingIdSet.add(lid);
+  }
+  for (const r of trackedFavRows ?? []) {
+    const lid = r.listing_id;
+    if (typeof lid === "string" && lid !== "") trackedListingIdSet.add(lid);
+  }
+
+  let trackedLiveAuctions: TrackedAuctionListingRow[] = [];
+  let highestNokTrackedFollow = new Map<string, number>();
+
+  const trackedIds = [...trackedListingIdSet];
+  if (trackedIds.length > 0) {
+    const { data: trackedAuctionListings, error: trackedListErr } =
+      await supabase
+        .from("listings")
+        .select("id, title, type, auction_starts_at, auction_ends_at")
+        .in("id", trackedIds)
+        .eq("type", "auction");
+
+    if (trackedListErr) {
+      throw new Error(
+        `Could not load tracked auction listings: ${trackedListErr.message}`,
+      );
+    }
+
+    const liveTracked = (trackedAuctionListings ?? []).filter(
+      (l): l is TrackedAuctionListingRow =>
+        Boolean(l.id) &&
+        isAuctionLiveNow(
+          {
+            type: l.type,
+            auction_starts_at: l.auction_starts_at,
+            auction_ends_at: l.auction_ends_at,
+          },
+          nowMs,
+        ),
+    );
+
+    liveTracked.sort((a, b) => {
+      const ea = a.auction_ends_at
+        ? new Date(a.auction_ends_at).getTime()
+        : Number.POSITIVE_INFINITY;
+      const eb = b.auction_ends_at
+        ? new Date(b.auction_ends_at).getTime()
+        : Number.POSITIVE_INFINITY;
+      return ea - eb;
+    });
+
+    trackedLiveAuctions = liveTracked.slice(0, TRACKED_LIVE_AUCTIONS_LIMIT);
+
+    const trackedTopIds = trackedLiveAuctions.map((l) => l.id).filter(Boolean);
+    if (trackedTopIds.length > 0) {
+      const { data: trackedBidAmountRows, error: trackedBidAmtErr } =
+        await supabase
+          .from("bids")
+          .select("listing_id, amount_nok, created_at")
+          .in("listing_id", trackedTopIds);
+
+      if (trackedBidAmtErr) {
+        throw new Error(
+          `Could not load bids for followed auctions: ${trackedBidAmtErr.message}`,
+        );
+      }
+      highestNokTrackedFollow = highestNokByListingId(
+        (trackedBidAmountRows ?? []) as BidWithListingId[],
+      );
+    }
+  }
+
   const auctionCount = rows.filter((r) => r.type === "auction").length;
 
   const listingItem = (row: ListingRow) => {
-    const startsAtMs =
-      row.type === "auction" && row.auction_starts_at
-        ? new Date(row.auction_starts_at).getTime()
-        : NaN;
-    const auctionEditDeleteLocked =
+    let auctionEditDeleteLocked = false;
+    if (
       row.type === "auction" &&
-      row.auction_starts_at != null &&
-      Number.isFinite(startsAtMs) &&
-      nowMs >= startsAtMs - AUCTION_EDIT_DELETE_LOCK_MS;
+      row.status === "draft" &&
+      row.auction_starts_at != null
+    ) {
+      const startsAtMs = new Date(row.auction_starts_at).getTime();
+      if (Number.isFinite(startsAtMs)) {
+        if (startsAtMs > nowMs) {
+          auctionEditDeleteLocked =
+            nowMs >= startsAtMs - AUCTION_EDIT_DELETE_LOCK_MS;
+        }
+      }
+    }
 
     return (
       <li
@@ -302,6 +440,65 @@ export default async function DashboardPage() {
       </header>
 
       <div className={`${pageBodyGapClass} space-y-10`}>
+        <section aria-labelledby="dash-followed-auctions-heading">
+          <h2
+            id="dash-followed-auctions-heading"
+            className={sectionHeadingClass}
+          >
+            Auksjoner du følger
+          </h2>
+          {trackedLiveAuctions.length === 0 ? (
+            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+              Ingen pågående auksjoner her. Legg inn bud eller lagre som favoritt
+              for å se live auksjoner du følger.
+            </p>
+          ) : (
+            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+              {trackedLiveAuctions.map((row) => {
+                const endMs = row.auction_ends_at
+                  ? new Date(row.auction_ends_at).getTime()
+                  : Number.NaN;
+                const endLabel = row.auction_ends_at
+                  ? new Date(row.auction_ends_at).toLocaleString()
+                  : "—";
+                const remaining = Number.isFinite(endMs)
+                  ? formatAuctionTimeRemainingNo(endMs, nowMs)
+                  : "—";
+                const high =
+                  highestNokTrackedFollow.get(row.id) ?? 0;
+                return (
+                  <li
+                    key={row.id}
+                    className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+                  >
+                    <Link
+                      href={`/listings/${row.id}`}
+                      className="font-medium text-zinc-900 dark:text-zinc-100"
+                    >
+                      {row.title?.trim() || "—"}
+                    </Link>
+                    <div className="flex flex-col gap-1 sm:items-end">
+                      <span className="text-zinc-600 dark:text-zinc-400">
+                        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                          Live
+                        </span>
+                        <span className="mx-2 text-zinc-400">·</span>
+                        <span className="tabular-nums">
+                          {high} NOK
+                        </span>
+                        <span className="mx-2 text-zinc-400">·</span>
+                        Slutter {endLabel}
+                        <span className="mx-2 text-zinc-400">·</span>
+                        {remaining}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
         <section aria-labelledby="dash-active-heading">
           <h2 id="dash-active-heading" className={sectionHeadingClass}>
             Mine aktive annonser
