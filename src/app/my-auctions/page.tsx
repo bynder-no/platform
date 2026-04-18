@@ -50,7 +50,33 @@ type DealRowLite = {
   seller_decision: string;
   bidder_decision: string;
   buyer_received_card: boolean;
+  seller_received_payment: boolean;
+  completed_at: string | null;
 };
+
+function isPgBoolTrue(value: unknown): boolean {
+  return value === true;
+}
+
+function normalizeCompletedAtIso(value: unknown): string | null {
+  if (value == null) return null;
+  const s = String(value).trim();
+  if (s === "" || s.toLowerCase() === "null") return null;
+  return s;
+}
+
+function isFullyCompletedAuctionDeal(
+  deal: DealRowLite | null | undefined,
+): boolean {
+  if (!deal) return false;
+  return (
+    deal.seller_decision === "deal" &&
+    deal.bidder_decision === "deal" &&
+    deal.buyer_received_card === true &&
+    deal.seller_received_payment === true &&
+    deal.completed_at != null
+  );
+}
 
 /** Post-auction deal status for list display only (Norwegian). */
 function myAuctionsStatusLabel(
@@ -235,7 +261,7 @@ export default async function MyAuctionsPage() {
     const { data: dealRows, error: dealsErr } = await supabase
       .from("listing_deals")
       .select(
-        "listing_id, seller_decision, bidder_decision, buyer_received_card",
+        "listing_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
       )
       .in("listing_id", allIds);
 
@@ -250,7 +276,9 @@ export default async function MyAuctionsPage() {
         listing_id: lid,
         seller_decision: String(d.seller_decision ?? ""),
         bidder_decision: String(d.bidder_decision ?? ""),
-        buyer_received_card: Boolean(d.buyer_received_card),
+        buyer_received_card: isPgBoolTrue(d.buyer_received_card),
+        seller_received_payment: isPgBoolTrue(d.seller_received_payment),
+        completed_at: normalizeCompletedAtIso(d.completed_at),
       });
     }
   }
@@ -260,6 +288,13 @@ export default async function MyAuctionsPage() {
     const tb = b.auction_ends_at ? new Date(b.auction_ends_at).getTime() : 0;
     return tb - ta;
   });
+
+  const completedRows = rows.filter((row) =>
+    isFullyCompletedAuctionDeal(dealsByListing.get(row.id)),
+  );
+  const ongoingRows = rows.filter(
+    (row) => !isFullyCompletedAuctionDeal(dealsByListing.get(row.id)),
+  );
 
   return (
     <div className={pageShellClass}>
@@ -274,47 +309,112 @@ export default async function MyAuctionsPage() {
             Ingen avsluttede auksjoner der du er selger eller høyeste budgiver.
           </p>
         ) : (
-          <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-            {rows.map((row) => {
-              const { highestNok, leadingBidderId } = leadingBidForListing(
-                bidsByListing.get(row.id) ?? [],
-              );
-              const statusLabel = myAuctionsStatusLabel(
-                dealsByListing.get(row.id),
-                user.id,
-                row.seller_id,
-                leadingBidderId,
-              );
-              return (
-                <li
-                  key={row.id}
-                  className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="space-y-1">
-                    <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {row.title?.trim() || "—"}
-                    </p>
-                    <p className="text-zinc-600 dark:text-zinc-400">
-                      Høyeste bud:{" "}
-                      <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
-                        {highestNok > 0 ? highestNok : 0}
-                      </span>{" "}
-                      NOK
-                    </p>
-                    <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                      {statusLabel}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/my-auctions/${row.id}`}
-                    className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                  >
-                    Gå til deal
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                Pågående
+              </h2>
+              {ongoingRows.length === 0 ? (
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  Ingen pågående handler
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                  {ongoingRows.map((row) => {
+                    const { highestNok, leadingBidderId } = leadingBidForListing(
+                      bidsByListing.get(row.id) ?? [],
+                    );
+                    const statusLabel = myAuctionsStatusLabel(
+                      dealsByListing.get(row.id),
+                      user.id,
+                      row.seller_id,
+                      leadingBidderId,
+                    );
+                    return (
+                      <li
+                        key={row.id}
+                        className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="space-y-1">
+                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                            {row.title?.trim() || "—"}
+                          </p>
+                          <p className="text-zinc-600 dark:text-zinc-400">
+                            Høyeste bud:{" "}
+                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                              {highestNok > 0 ? highestNok : 0}
+                            </span>{" "}
+                            NOK
+                          </p>
+                          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                            {statusLabel}
+                          </p>
+                        </div>
+                        <Link
+                          href={`/my-auctions/${row.id}`}
+                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                          Gå til deal
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                Fullførte
+              </h2>
+              {completedRows.length === 0 ? (
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  Ingen fullførte handler
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                  {completedRows.map((row) => {
+                    const { highestNok, leadingBidderId } = leadingBidForListing(
+                      bidsByListing.get(row.id) ?? [],
+                    );
+                    const statusLabel = myAuctionsStatusLabel(
+                      dealsByListing.get(row.id),
+                      user.id,
+                      row.seller_id,
+                      leadingBidderId,
+                    );
+                    return (
+                      <li
+                        key={row.id}
+                        className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="space-y-1">
+                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                            {row.title?.trim() || "—"}
+                          </p>
+                          <p className="text-zinc-600 dark:text-zinc-400">
+                            Høyeste bud:{" "}
+                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                              {highestNok > 0 ? highestNok : 0}
+                            </span>{" "}
+                            NOK
+                          </p>
+                          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                            {statusLabel}
+                          </p>
+                        </div>
+                        <Link
+                          href={`/my-auctions/${row.id}`}
+                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                          Gå til deal
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
         )}
       </section>
     </div>

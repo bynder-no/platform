@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { AuctionDealPanel } from "@/app/listings/[id]/auction-deal-panel";
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { BuyerReceivedCardForm } from "./buyer-received-card-form";
+import { DealRatingForm } from "./deal-rating-form";
 import { DealChatForm } from "./deal-chat-form";
 import { postDealFulfillmentStatusText } from "./deal-status";
 import { SellerReceivedPaymentForm } from "./seller-received-payment-form";
@@ -307,13 +308,25 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     dealRow.seller_received_payment === true &&
     dealRow.completed_at != null;
 
-  const ratingCtaLabel = isSeller ? "Rate kjøper" : "Rate selger";
+  const ratingFieldsetLegend = isSeller ? "Rate kjøper" : "Rate selger";
   const ratingHelperText = isSeller
     ? "Handelen er fullført. Du kan nå rate kjøper."
     : "Handelen er fullført. Du kan nå rate selger.";
 
-  const ratingCtaButtonClass =
-    "inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-400";
+  let userHasRatedThisDeal = false;
+  if (showRatingCta) {
+    const { data: myRatingRow, error: myRatingErr } = await supabase
+      .from("deal_ratings")
+      .select("id")
+      .eq("listing_id", id)
+      .eq("from_user_id", user.id)
+      .maybeSingle();
+    if (myRatingErr) {
+      console.error("deal_ratings:", myRatingErr.message);
+    } else {
+      userHasRatedThisDeal = myRatingRow != null;
+    }
+  }
 
   return (
     <div className={pageShellClass}>
@@ -418,21 +431,17 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
             {showRatingCta ? (
               <div className="mt-6 border-t border-zinc-200 pt-6 dark:border-zinc-700">
                 <h3 className={sectionLabelClass}>Vurdering</h3>
-                <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-                  {ratingHelperText}
-                </p>
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-                  Rating kommer snart — ingen vurdering lagres ennå.
-                </p>
-                <button
-                  type="button"
-                  disabled
-                  aria-disabled="true"
-                  title="Rating er ikke tilgjengelig ennå"
-                  className={`${ratingCtaButtonClass} mt-3 cursor-not-allowed`}
-                >
-                  {ratingCtaLabel}
-                </button>
+                {userHasRatedThisDeal ? (
+                  <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                    Du har ratet denne handelen.
+                  </p>
+                ) : (
+                  <DealRatingForm
+                    listingId={id}
+                    intro={ratingHelperText}
+                    fieldsetLegend={ratingFieldsetLegend}
+                  />
+                )}
               </div>
             ) : null}
           </section>
