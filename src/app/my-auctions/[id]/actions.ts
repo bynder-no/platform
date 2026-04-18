@@ -324,3 +324,142 @@ export async function markSellerReceivedPayment(
   revalidatePath(`/my-auctions/${listingId}`);
   redirect(`/my-auctions/${listingId}`);
 }
+
+export type DealRatingState = { error: string } | null;
+
+export async function submitDealRating(
+  _prev: DealRatingState,
+  formData: FormData,
+): Promise<DealRatingState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  if (!listingId) {
+    return { error: "Annonse mangler." };
+  }
+
+  const scoreRaw = formData.get("score");
+  const scoreStr = String(scoreRaw ?? "").trim();
+  if (!/^[1-5]$/.test(scoreStr)) {
+    return { error: "Velg en poengsum fra 1 til 5." };
+  }
+  const score = Number(scoreStr);
+
+  const { data: listing, error: listingErr } = await supabase
+    .from("listings")
+    .select("seller_id, type, auction_ends_at")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (listingErr) {
+    return { error: listingErr.message };
+  }
+  if (!listing || listing.type !== "auction") {
+    return { error: "Annonsen finnes ikke." };
+  }
+
+  const endsAtMs = listing.auction_ends_at
+    ? new Date(listing.auction_ends_at).getTime()
+    : Number.NaN;
+  if (!Number.isFinite(endsAtMs) || Date.now() < endsAtMs) {
+    return { error: "Auksjonen er ikke avsluttet." };
+  }
+
+  const { data: bidRows, error: bidsErr } = await supabase
+    .from("bids")
+    .select("amount_nok, created_at, bidder_id")
+    .eq("listing_id", listingId)
+    .order("created_at", { ascending: true });
+
+  if (bidsErr) {
+    return { error: bidsErr.message };
+  }
+
+  const bids = (bidRows ?? []) as BidRow[];
+  const leaderId = leadingBidderId(bids);
+  const listingSellerId = String(listing.seller_id ?? "").trim();
+  if (leaderId == null) {
+    return { error: "Ingen tilgang." };
+  }
+  const leaderNorm = String(leaderId).trim();
+  const uid = user.id.trim();
+  const isSeller = uid === listingSellerId;
+  const isLeader = uid === leaderNorm;
+  if (!isSeller && !isLeader) {
+    return { error: "Ingen tilgang." };
+  }
+
+  const { data: deal, error: dealErr } = await supabase
+    .from("listing_deals")
+    .select(
+      "seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
+    )
+    .eq("listing_id", listingId)
+    .maybeSingle();
+
+  if (dealErr) {
+    return { error: dealErr.message };
+  }
+  if (
+    !deal ||
+    deal.seller_decision !== "deal" ||
+    deal.bidder_decision !== "deal" ||
+    deal.buyer_received_card !== true ||
+    deal.seller_received_payment !== true ||
+    deal.completed_at == null
+  ) {
+    return { error: "Handelen er ikke fullført." };
+  }
+
+  const dealSellerId = String(deal.seller_id ?? "").trim();
+  const dealBidderId = String(deal.bidder_id ?? "").trim();
+  if (dealSellerId !== listingSellerId || dealBidderId !== leaderNorm) {
+    return { error: "Ingen tilgang." };
+  }
+  if (uid !== dealSellerId && uid !== dealBidderId) {
+    return { error: "Ingen tilgang." };
+  }
+
+  const { data: existingRating, error: existingErr } = await supabase
+    .from("deal_ratings")
+    .select("id")
+    .eq("listing_id", listingId)
+    .eq("from_user_id", user.id)
+    .maybeSingle();
+
+  if (existingErr) {
+    return { error: existingErr.message };
+  }
+  if (existingRating) {
+    return { error: "Du har allerede ratet denne handelen." };
+  }
+
+  const toUserId = uid === dealSellerId ? dealBidderId : dealSellerId;
+
+  const { error: insertErr } = await supabase.from("deal_ratings").insert({
+    listing_id: listingId,
+    from_user_id: user.id,
+    to_user_id: toUserId,
+    score,
+  });
+
+  if (insertErr) {
+    if (
+      insertErr.code === "23505" ||
+      insertErr.message.toLowerCase().includes("duplicate")
+    ) {
+      return { error: "Du har allerede ratet denne handelen." };
+    }
+    return { error: insertErr.message };
+  }
+
+  revalidatePath(`/my-auctions/${listingId}`);
+  redirect(`/my-auctions/${listingId}`);
+}

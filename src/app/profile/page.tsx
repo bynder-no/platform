@@ -60,7 +60,27 @@ export default async function ProfilePage() {
     throw new Error(`Could not load listings: ${listingsError.message}`);
   }
 
+  const { data: ratingsReceived, error: ratingsError } = await supabase
+    .from("deal_ratings")
+    .select("score")
+    .eq("to_user_id", user.id);
+
+  if (ratingsError) {
+    throw new Error(`Could not load ratings: ${ratingsError.message}`);
+  }
+
   const rows = listings ?? [];
+
+  const ratingScores = (ratingsReceived ?? [])
+    .map((r) => Number(r.score))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5);
+  const ratingCount = ratingScores.length;
+  let ratingAverageDisplay: string | null = null;
+  if (ratingCount > 0) {
+    const sum = ratingScores.reduce((a, b) => a + b, 0);
+    const avg = sum / ratingCount;
+    ratingAverageDisplay = (Math.round(avg * 10) / 10).toFixed(1);
+  }
 
   const defaultDisplayName = profile?.display_name?.trim() ?? "";
   const defaultUsername = profile?.username?.trim() ?? "";
@@ -101,6 +121,27 @@ export default async function ProfilePage() {
             </span>
           </span>
         </p>
+      </section>
+
+      <section className={pageBodyGapClass}>
+        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+          Rating
+        </h2>
+        {ratingCount === 0 ? (
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            Ingen vurderinger ennå
+          </p>
+        ) : (
+          <div className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+              {ratingAverageDisplay} av 5
+            </p>
+            <p className="mt-1">
+              Basert på {ratingCount}{" "}
+              {ratingCount === 1 ? "vurdering" : "vurderinger"}
+            </p>
+          </div>
+        )}
       </section>
 
       <section className={pageBodyGapClass}>
