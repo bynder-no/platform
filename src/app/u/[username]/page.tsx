@@ -10,6 +10,10 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
+import {
+  highestNokByListingId,
+  type BidWithListingId,
+} from "@/lib/highest-bid-nok";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +79,22 @@ export default async function PublicProfilePage({ params }: PageProps) {
   }
 
   const rows = listings ?? [];
+
+  const listingIds = rows.map((r) => r.id).filter(Boolean);
+  let highestNokByListing = new Map<string, number>();
+  if (listingIds.length > 0) {
+    const { data: bidRows, error: bidsErr } = await supabase
+      .from("bids")
+      .select("listing_id, amount_nok, created_at")
+      .in("listing_id", listingIds);
+
+    if (bidsErr) {
+      throw new Error(`Could not load bids: ${bidsErr.message}`);
+    }
+    highestNokByListing = highestNokByListingId(
+      (bidRows ?? []) as BidWithListingId[],
+    );
+  }
 
   return (
     <div className={pageShellClass}>
@@ -163,7 +183,11 @@ export default async function PublicProfilePage({ params }: PageProps) {
                       </>
                     ) : null}
                     <span className="mx-2 text-zinc-400">·</span>
-                    {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
+                    {rawType === "auction"
+                      ? `${highestNokByListing.get(row.id) ?? 0} NOK`
+                      : row.price_nok != null
+                        ? `${row.price_nok} NOK`
+                        : "—"}
                     <span className="mx-2 text-zinc-400">·</span>
                     {row.created_at
                       ? new Date(row.created_at).toLocaleString()

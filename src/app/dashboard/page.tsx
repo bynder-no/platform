@@ -10,6 +10,11 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 
+import {
+  highestNokByListingId,
+  type BidWithListingId,
+} from "@/lib/highest-bid-nok";
+
 import { DeleteDraftForm } from "./delete-draft-form";
 import { PublishDraftForm } from "./publish-draft-form";
 
@@ -69,6 +74,25 @@ export default async function DashboardPage() {
   const rows = listings ?? [];
   const now = new Date();
   const nowMs = now.getTime();
+
+  const auctionIdsForBids = rows
+    .filter((r) => r.type === "auction")
+    .map((r) => r.id)
+    .filter(Boolean);
+  let highestNokByListing = new Map<string, number>();
+  if (auctionIdsForBids.length > 0) {
+    const { data: bidRows, error: bidsErr } = await supabase
+      .from("bids")
+      .select("listing_id, amount_nok, created_at")
+      .in("listing_id", auctionIdsForBids);
+
+    if (bidsErr) {
+      throw new Error(`Could not load bids: ${bidsErr.message}`);
+    }
+    highestNokByListing = highestNokByListingId(
+      (bidRows ?? []) as BidWithListingId[],
+    );
+  }
 
   return (
     <div className={pageShellClass}>
@@ -148,7 +172,11 @@ export default async function DashboardPage() {
                       </>
                     ) : null}
                     <span className="mx-2 text-zinc-400">·</span>
-                    {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
+                    {row.type === "auction"
+                      ? `${highestNokByListing.get(row.id) ?? 0} NOK`
+                      : row.price_nok != null
+                        ? `${row.price_nok} NOK`
+                        : "—"}
                     <span className="mx-2 text-zinc-400">·</span>
                     {row.status}
                     <span className="mx-2 text-zinc-400">·</span>
