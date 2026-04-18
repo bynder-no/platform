@@ -9,21 +9,20 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
+import {
+  highestNokByListingId,
+  type BidWithListingId,
+} from "@/lib/highest-bid-nok";
 
 export const dynamic = "force-dynamic";
 
-const inputClass =
-  "min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
-
-const buttonClass =
-  "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
-
-type PageProps = {
-  searchParams: Promise<{
-    q?: string | string[];
-    type?: string | string[];
-    sort?: string | string[];
-  }>;
+type ListingCardRow = {
+  id: string;
+  title: string | null;
+  type: string | null;
+  price_nok: number | string | null;
+  auction_starts_at: string | null;
+  auction_ends_at: string | null;
 };
 
 function auctionStateLabelNo(
@@ -38,45 +37,13 @@ function auctionStateLabelNo(
   return "Live";
 }
 
-export default async function HomePage({ searchParams }: PageProps) {
-  const sp = await searchParams;
-  const rawQ = sp.q;
-  const q =
-    typeof rawQ === "string"
-      ? rawQ.trim()
-      : Array.isArray(rawQ) && rawQ[0]
-        ? String(rawQ[0]).trim()
-        : "";
+function priceText(nok: number | string | null) {
+  if (nok == null) return "—";
+  const n = Number(nok);
+  return Number.isFinite(n) ? `${n} NOK` : "—";
+}
 
-  const rawType = sp.type;
-  const typeParam =
-    typeof rawType === "string"
-      ? rawType.trim()
-      : Array.isArray(rawType) && rawType[0]
-        ? String(rawType[0]).trim()
-        : "";
-
-  const listingType =
-    typeParam === "auction" || typeParam === "fixed_price"
-      ? typeParam
-      : null;
-
-  const rawSort = sp.sort;
-  const sortParam =
-    typeof rawSort === "string"
-      ? rawSort.trim()
-      : Array.isArray(rawSort) && rawSort[0]
-        ? String(rawSort[0]).trim()
-        : "";
-
-  const listingSort =
-    sortParam === "newest" ||
-    sortParam === "oldest" ||
-    sortParam === "price_asc" ||
-    sortParam === "price_desc"
-      ? sortParam
-      : "newest";
-
+export default async function HomePage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -90,313 +57,196 @@ export default async function HomePage({ searchParams }: PageProps) {
   const now = new Date();
   const nowIso = now.toISOString();
   const nowMs = now.getTime();
-  let query = supabase
+
+  const selectCols =
+    "id, title, type, price_nok, auction_starts_at, auction_ends_at, created_at";
+
+  const { data: auctionList, error: auctionErr } = await supabase
     .from("listings")
-    .select(
-      "id, title, type, price_nok, status, created_at, auction_starts_at, auction_ends_at",
-    )
-    .or(publicListingFeedOrFilter(nowIso));
+    .select(selectCols)
+    .or(publicListingFeedOrFilter(nowIso))
+    .eq("type", "auction")
+    .order("created_at", { ascending: false })
+    .limit(4);
 
-  if (listingType) {
-    query = query.eq("type", listingType);
+  if (auctionErr) {
+    throw new Error(`Could not load auction listings: ${auctionErr.message}`);
   }
 
-  if (q) {
-    query = query.ilike("title", `%${q}%`);
+  const { data: fixedList, error: fixedErr } = await supabase
+    .from("listings")
+    .select(selectCols)
+    .or(publicListingFeedOrFilter(nowIso))
+    .eq("type", "fixed_price")
+    .order("created_at", { ascending: false })
+    .limit(4);
+
+  if (fixedErr) {
+    throw new Error(`Could not load fixed price listings: ${fixedErr.message}`);
   }
 
-  if (listingSort === "oldest") {
-    query = query.order("created_at", { ascending: true });
-  } else if (listingSort === "price_asc") {
-    query = query.order("price_nok", { ascending: true });
-  } else if (listingSort === "price_desc") {
-    query = query.order("price_nok", { ascending: false });
-  } else {
-    query = query.order("created_at", { ascending: false });
+  const auctionRows = (auctionList ?? []) as ListingCardRow[];
+  const fixedRows = (fixedList ?? []) as ListingCardRow[];
+
+  const auctionIds = auctionRows.map((r) => r.id).filter(Boolean);
+  let auctionHighestNokById = new Map<string, number>();
+  if (auctionIds.length > 0) {
+    const { data: auctionBidRows, error: auctionBidsErr } = await supabase
+      .from("bids")
+      .select("listing_id, amount_nok, created_at")
+      .in("listing_id", auctionIds);
+
+    if (auctionBidsErr) {
+      throw new Error(`Could not load bids: ${auctionBidsErr.message}`);
+    }
+    auctionHighestNokById = highestNokByListingId(
+      (auctionBidRows ?? []) as BidWithListingId[],
+    );
   }
 
-  const { data: listings, error } = await query;
+  const cardClass =
+    "flex min-w-[11rem] max-w-[14rem] flex-1 shrink-0 flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
 
-  if (error) {
-    throw new Error(`Could not load listings: ${error.message}`);
-  }
-
-  const rows = listings ?? [];
-
-  const listingsHref = (overrides: {
-    q?: string | null;
-    type?: string | null;
-    sort?: string | null;
-  }) => {
-    const p = new URLSearchParams();
-    const qv = overrides.q !== undefined ? overrides.q : q;
-    const tv = overrides.type !== undefined ? overrides.type : listingType;
-    const sv =
-      (overrides.sort !== undefined ? overrides.sort : listingSort) ??
-      "newest";
-    if (qv) p.set("q", qv);
-    if (tv) p.set("type", tv);
-    p.set("sort", sv);
-    return `/?${p.toString()}`;
-  };
-
-  const clearSearchHref = listingsHref({ q: null });
-
-  const allTypeHref = listingsHref({ type: null });
-  const fixedPriceTypeHref = listingsHref({ type: "fixed_price" });
-  const auctionTypeHref = listingsHref({ type: "auction" });
-
-  const newestSortHref = listingsHref({ sort: "newest" });
-  const oldestSortHref = listingsHref({ sort: "oldest" });
-  const priceAscSortHref = listingsHref({ sort: "price_asc" });
-  const priceDescSortHref = listingsHref({ sort: "price_desc" });
-
-  const filterLinkClass = (active: boolean) =>
-    active
-      ? "font-semibold text-zinc-900 underline decoration-2 underline-offset-2 dark:text-zinc-50"
-      : "font-medium text-zinc-700 underline-offset-2 hover:text-zinc-900 hover:underline dark:text-zinc-400 dark:hover:text-zinc-100";
+  const sectionTitleClass =
+    "text-base font-semibold text-zinc-900 dark:text-zinc-50";
 
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <div className="space-y-2">
-          <h1 className={pageTitleClass}>Listings</h1>
+          <h1 className={pageTitleClass}>Hjem</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Public feed of all listings.
+            Nyeste auksjoner og fastprisannonser.
           </p>
         </div>
-
-        <form
-          method="get"
-          action="/"
-          className="flex flex-col gap-2 sm:flex-row sm:items-center"
-        >
-        <label className="sr-only" htmlFor="listing-search-q">
-          Search listings by title
-        </label>
-        <input
-          id="listing-search-q"
-          type="search"
-          name="q"
-          defaultValue={q}
-          placeholder="Search by title"
-          className={inputClass}
-        />
-        {listingType ? (
-          <input type="hidden" name="type" value={listingType} />
-        ) : null}
-        <input type="hidden" name="sort" value={listingSort} />
-        <button type="submit" className={buttonClass}>
-          Search
-        </button>
-        </form>
-
-        <div className="space-y-2">
-        <nav aria-label="Listing type">
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <Link
-              href={allTypeHref}
-              className={filterLinkClass(!listingType)}
-              aria-current={!listingType ? "page" : undefined}
-            >
-              All
-            </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-              ·
-            </span>
-            <Link
-              href={fixedPriceTypeHref}
-              className={filterLinkClass(listingType === "fixed_price")}
-              aria-current={listingType === "fixed_price" ? "page" : undefined}
-            >
-              Fixed price
-            </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-              ·
-            </span>
-            <Link
-              href={auctionTypeHref}
-              className={filterLinkClass(listingType === "auction")}
-              aria-current={listingType === "auction" ? "page" : undefined}
-            >
-              Auction
-            </Link>
-          </p>
-        </nav>
-
-        <nav aria-label="Sort listings">
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            <Link
-              href={newestSortHref}
-              className={filterLinkClass(listingSort === "newest")}
-              aria-current={listingSort === "newest" ? "page" : undefined}
-            >
-              Newest
-            </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-              ·
-            </span>
-            <Link
-              href={oldestSortHref}
-              className={filterLinkClass(listingSort === "oldest")}
-              aria-current={listingSort === "oldest" ? "page" : undefined}
-            >
-              Oldest
-            </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-              ·
-            </span>
-            <Link
-              href={priceAscSortHref}
-              className={filterLinkClass(listingSort === "price_asc")}
-              aria-current={listingSort === "price_asc" ? "page" : undefined}
-              aria-label="Sort by price, lowest first"
-            >
-              Price ↑
-            </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-              ·
-            </span>
-            <Link
-              href={priceDescSortHref}
-              className={filterLinkClass(listingSort === "price_desc")}
-              aria-current={listingSort === "price_desc" ? "page" : undefined}
-              aria-label="Sort by price, highest first"
-            >
-              Price ↓
-            </Link>
-          </p>
-        </nav>
-        </div>
-
-        {q ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            {`Showing results for "${q}"`}{" "}
-            <Link
-              href={clearSearchHref}
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-            >
-              Clear
-            </Link>
-          </p>
-        ) : null}
 
         {user ? (
           <SignedInNavLinks />
         ) : (
           <nav className="flex flex-wrap gap-x-3 gap-y-2 text-sm">
-          <Link
-            href="/"
-            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-          >
-            Home
-          </Link>
-          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-            ·
-          </span>
-          <Link
-            href="/login"
-            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-          >
-            Login
-          </Link>
-          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-            ·
-          </span>
-          <Link
-            href="/signup"
-            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-          >
-            Signup
-          </Link>
-          <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
-            ·
-          </span>
-          <Link
-            href="/dashboard"
-            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-          >
-            Dashboard
-          </Link>
+            <Link
+              href="/"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+            >
+              Hjem
+            </Link>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              href="/login"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+            >
+              Logg inn
+            </Link>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              href="/signup"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+            >
+              Registrer
+            </Link>
+            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              ·
+            </span>
+            <Link
+              href="/dashboard"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+            >
+              Dashboard
+            </Link>
           </nav>
         )}
       </header>
 
-      <section className={pageBodyGapClass}>
-        {rows.length === 0 ? (
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            <p className="font-medium text-zinc-800 dark:text-zinc-200">
-              {q || listingType ? "No matching listings" : "No listings yet"}
-            </p>
-            <p className="mt-2">
-              {q || listingType
-                ? "Try a different search or listing type."
-                : "The feed is empty. Check back later."}
-            </p>
+      <div className={`${pageBodyGapClass} space-y-10`}>
+        <section aria-labelledby="home-auctions-heading">
+          <div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
+            <h2 id="home-auctions-heading" className={sectionTitleClass}>
+              Nyeste auksjonsannonser
+            </h2>
+            <Link
+              href="/auctions"
+              className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+            >
+              Se alle
+            </Link>
           </div>
-        ) : (
-          <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-            {rows.map((row) => {
-              const rawType =
-                typeof row.type === "string" ? row.type.trim() : "";
-              const typeLabel =
-                rawType === "auction"
-                  ? "Auction"
-                  : rawType === "fixed_price"
-                    ? "Fixed price"
-                    : "—";
-              const auctionStateLabel =
-                rawType === "auction"
-                  ? auctionStateLabelNo(
-                      nowMs,
-                      row.auction_starts_at ?? null,
-                      row.auction_ends_at ?? null,
-                    )
-                  : null;
+          {auctionRows.length === 0 ? (
+            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+              Ingen auksjoner akkurat nå.
+            </p>
+          ) : (
+            <ul className="mt-4 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
+              {auctionRows.map((row) => {
+                const state = auctionStateLabelNo(
+                  nowMs,
+                  row.auction_starts_at ?? null,
+                  row.auction_ends_at ?? null,
+                );
+                const liveNok = auctionHighestNokById.get(row.id) ?? 0;
+                return (
+                  <li key={row.id}>
+                    <Link
+                      href={`/listings/${row.id}`}
+                      className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
+                    >
+                      <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
+                        {row.title?.trim() || "—"}
+                      </span>
+                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                        {state}
+                      </span>
+                      <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                        {liveNok} NOK
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
 
-              return (
-                <li
-                  key={row.id}
-                  className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
-                >
+        <section aria-labelledby="home-fixed-heading">
+          <div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
+            <h2 id="home-fixed-heading" className={sectionTitleClass}>
+              Nyeste fastprisannonser
+            </h2>
+            <Link
+              href="/fixed-price"
+              className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+            >
+              Se alle
+            </Link>
+          </div>
+          {fixedRows.length === 0 ? (
+            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+              Ingen fastprisannonser akkurat nå.
+            </p>
+          ) : (
+            <ul className="mt-4 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
+              {fixedRows.map((row) => (
+                <li key={row.id}>
                   <Link
                     href={`/listings/${row.id}`}
-                    className="font-medium text-zinc-900 dark:text-zinc-100"
+                    className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
                   >
-                    {row.title}
+                    <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
+                      {row.title?.trim() || "—"}
+                    </span>
+                    <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                      {priceText(row.price_nok)}
+                    </span>
                   </Link>
-                  <span className="text-zinc-600 dark:text-zinc-400">
-                    {typeLabel}
-                    {auctionStateLabel ? (
-                      <>
-                        <span className="mx-2 text-zinc-400">·</span>
-                        <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                          {auctionStateLabel}
-                        </span>
-                      </>
-                    ) : null}
-                    <span className="mx-2 text-zinc-400">·</span>
-                    {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
-                    <span className="mx-2 text-zinc-400">·</span>
-                    {row.status}
-                    <span className="mx-2 text-zinc-400">·</span>
-                    {row.created_at
-                      ? new Date(row.created_at).toLocaleString()
-                      : "—"}
-                    {rawType === "auction" && row.auction_ends_at ? (
-                      <>
-                        <span className="mx-2 text-zinc-400">·</span>
-                        Ends{" "}
-                        {new Date(row.auction_ends_at).toLocaleString()}
-                      </>
-                    ) : null}
-                  </span>
                 </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
