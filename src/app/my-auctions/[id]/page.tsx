@@ -48,6 +48,19 @@ function normalizeCompletedAtIso(value: unknown): string | null {
   return s;
 }
 
+function dealVenterActionHint(
+  viewerRole: "seller" | "bidder",
+  deal: { seller_decision: string; bidder_decision: string },
+): string {
+  const s = deal.seller_decision ?? "pending";
+  const b = deal.bidder_decision ?? "pending";
+  const mine = viewerRole === "seller" ? s : b;
+  const theirs = viewerRole === "seller" ? b : s;
+  if (mine === "pending") return "Gi ditt svar";
+  if (theirs === "pending") return "Venter på svar fra motpart";
+  return "Venter på svar fra motpart";
+}
+
 export default async function MyAuctionDealRoomPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
@@ -328,6 +341,15 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     }
   }
 
+  const handelOutcomeOverride =
+    eligibleForAuctionDeal &&
+    dealRow &&
+    dealRow.seller_decision !== "no_deal" &&
+    dealRow.bidder_decision !== "no_deal" &&
+    !(dealRow.seller_decision === "deal" && dealRow.bidder_decision === "deal")
+      ? dealVenterActionHint(isSeller ? "seller" : "bidder", dealRow)
+      : undefined;
+
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
@@ -387,6 +409,7 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
             <AuctionDealPanel
               listingId={id}
               returnToAfterDecision={`/my-auctions/${id}`}
+              outcomeTextOverride={handelOutcomeOverride}
               sellerDecision={dealRow.seller_decision}
               bidderDecision={dealRow.bidder_decision}
               showSellerButtons={

@@ -19,6 +19,8 @@ type AuctionDealPanelProps = {
   showBidderButtons: boolean;
   /** When set, server action redirects back here after Deal / No deal (must match listing id). */
   returnToAfterDecision?: string;
+  /** When set, replaces the default outcome line (e.g. personalized «Deal venter» copy in dealrom). */
+  outcomeTextOverride?: string;
 };
 
 export function AuctionDealPanel({
@@ -28,9 +30,13 @@ export function AuctionDealPanel({
   showSellerButtons,
   showBidderButtons,
   returnToAfterDecision,
+  outcomeTextOverride,
 }: AuctionDealPanelProps) {
   const [state, formAction, pending] = useActionState(setListingDealDecision, null);
-  const outcome = listingDealOutcomeText(sellerDecision, bidderDecision);
+  const outcome =
+    typeof outcomeTextOverride === "string"
+      ? outcomeTextOverride
+      : listingDealOutcomeText(sellerDecision, bidderDecision);
 
   return (
     <div className="mt-3 space-y-4">

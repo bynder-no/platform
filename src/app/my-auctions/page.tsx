@@ -180,6 +180,44 @@ function isSellerDealFullyCompleted(deal: DealRowLite): boolean {
 }
 
 /** Grouping for ended-auction outcome (seller «Mine salg» + bidder «Mine kjøp»). */
+/**
+ * Short action/wait line for deal cards (same state the status line uses; display only).
+ */
+function dealCardHandlingHint(
+  viewerRole: "seller" | "bidder",
+  deal: DealRowLite | null | undefined,
+  group: PostAuctionOutcomeGroup,
+): "Handling kreves fra deg" | "Venter på motpart" | null {
+  if (group === "ikke_resultat" || group === "deal_fullfort") {
+    return null;
+  }
+  if (group === "deal_venter") {
+    const s = deal?.seller_decision ?? "pending";
+    const b = deal?.bidder_decision ?? "pending";
+    const mine = viewerRole === "seller" ? s : b;
+    const theirs = viewerRole === "seller" ? b : s;
+    if (mine === "pending") return "Handling kreves fra deg";
+    if (theirs === "pending") return "Venter på motpart";
+    return "Venter på motpart";
+  }
+  // deal_bekreftet
+  if (!deal) return null;
+  if (deal.seller_decision !== "deal" || deal.bidder_decision !== "deal") {
+    return null;
+  }
+  if (!deal.buyer_received_card) {
+    return viewerRole === "bidder"
+      ? "Handling kreves fra deg"
+      : "Venter på motpart";
+  }
+  if (!deal.seller_received_payment) {
+    return viewerRole === "seller"
+      ? "Handling kreves fra deg"
+      : "Venter på motpart";
+  }
+  return "Venter på motpart";
+}
+
 function postAuctionOutcomeGroup(
   deal: DealRowLite | null | undefined,
   hasBids: boolean,
@@ -491,7 +529,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       row.seller_id,
       leadingBidderId,
     );
-    return { row, highestNok, statusLabel, group, leadingBidderId };
+    return { row, highestNok, statusLabel, group, leadingBidderId, deal };
   });
 
   const bidderMineDealsRowVms = bidderWinRowsSorted.map((row) => {
@@ -515,7 +553,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       row.seller_id,
       leadingBidderId,
     );
-    return { row, highestNok, statusLabel, group };
+    return { row, highestNok, statusLabel, group, deal };
   });
 
   const counterpartProfileIds = new Set<string>();
@@ -647,6 +685,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                 statusLabel,
                                 group,
                                 leadingBidderId,
+                                deal,
                               }) => {
                                 const bidderUn =
                                   group !== "ikke_resultat" && leadingBidderId
@@ -654,6 +693,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                         String(leadingBidderId).trim(),
                                       ) ?? null
                                     : null;
+                                const handlingHint = dealCardHandlingHint(
+                                  "seller",
+                                  deal,
+                                  group,
+                                );
                                 return (
                                   <li
                                     key={row.id}
@@ -673,6 +717,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                                         {statusLabel}
                                       </p>
+                                      {handlingHint ? (
+                                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                          {handlingHint}
+                                        </p>
+                                      ) : null}
                                       {bidderUn ? (
                                         <p className="text-xs text-zinc-600 dark:text-zinc-400">
                                           Budgiver:{" "}
@@ -723,11 +772,17 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                           </p>
                         ) : (
                           <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-                            {items.map(({ row, highestNok, statusLabel }) => {
+                            {items.map(
+                              ({ row, highestNok, statusLabel, group, deal }) => {
                               const sellerUn =
                                 usernameByUserId.get(
                                   String(row.seller_id).trim(),
                                 ) ?? null;
+                              const handlingHint = dealCardHandlingHint(
+                                "bidder",
+                                deal,
+                                group,
+                              );
                               return (
                                 <li
                                   key={row.id}
@@ -747,6 +802,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                     <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                                       {statusLabel}
                                     </p>
+                                    {handlingHint ? (
+                                      <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                        {handlingHint}
+                                      </p>
+                                    ) : null}
                                     {sellerUn ? (
                                       <p className="text-xs text-zinc-600 dark:text-zinc-400">
                                         Selger:{" "}
