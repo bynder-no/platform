@@ -179,7 +179,7 @@ function isSellerDealFullyCompleted(deal: DealRowLite): boolean {
   );
 }
 
-/** Grouping for ended-auction outcome (seller «Mine annonser» + bidder «Andres annonser»). */
+/** Grouping for ended-auction outcome (seller «Mine salg» + bidder «Mine kjøp»). */
 function postAuctionOutcomeGroup(
   deal: DealRowLite | null | undefined,
   hasBids: boolean,
@@ -491,7 +491,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       row.seller_id,
       leadingBidderId,
     );
-    return { row, highestNok, statusLabel, group };
+    return { row, highestNok, statusLabel, group, leadingBidderId };
   });
 
   const bidderMineDealsRowVms = bidderWinRowsSorted.map((row) => {
@@ -517,6 +517,43 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     );
     return { row, highestNok, statusLabel, group };
   });
+
+  const counterpartProfileIds = new Set<string>();
+  for (const v of sellerRowVms) {
+    if (
+      v.group !== "ikke_resultat" &&
+      v.leadingBidderId != null &&
+      String(v.leadingBidderId).trim() !== ""
+    ) {
+      counterpartProfileIds.add(String(v.leadingBidderId).trim());
+    }
+  }
+  for (const v of bidderMineDealsRowVms) {
+    const sid = v.row.seller_id;
+    if (sid != null && String(sid).trim() !== "") {
+      counterpartProfileIds.add(String(sid).trim());
+    }
+  }
+
+  const usernameByUserId = new Map<string, string>();
+  if (counterpartProfileIds.size > 0) {
+    const { data: counterpartProfiles, error: counterpartProfErr } =
+      await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("id", [...counterpartProfileIds]);
+
+    if (counterpartProfErr) {
+      throw new Error(
+        `Could not load counterpart profiles: ${counterpartProfErr.message}`,
+      );
+    }
+    for (const p of counterpartProfiles ?? []) {
+      const id = typeof p.id === "string" ? p.id.trim() : "";
+      const u = typeof p.username === "string" ? p.username.trim() : "";
+      if (id !== "" && u !== "") usernameByUserId.set(id, u);
+    }
+  }
 
   const auctionListingHref =
     activeTab === "deals" ? "/my-auctions?tab=deals" : "/my-auctions";
@@ -565,21 +602,21 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
           <div className="space-y-6">
             <nav
               className="flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-700"
-              aria-label="Mine auksjoner-faner"
+              aria-label="Mine salg og Mine kjøp"
             >
                 <Link
                   href="/my-auctions"
                   className={tabClass(activeTab === "annonser")}
                   aria-current={activeTab === "annonser" ? "page" : undefined}
                 >
-                  Mine annonser
+                  Mine salg
                 </Link>
                 <Link
                   href="/my-auctions?tab=deals"
                   className={tabClass(activeTab === "deals")}
                   aria-current={activeTab === "deals" ? "page" : undefined}
                 >
-                  Andres annonser
+                  Mine kjøp
                 </Link>
               </nav>
 
@@ -603,34 +640,61 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                           </p>
                         ) : (
                           <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-                            {items.map(({ row, highestNok, statusLabel }) => (
-                              <li
-                                key={row.id}
-                                className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
-                              >
-                                <div className="space-y-1">
-                                  <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                                    {row.title?.trim() || "—"}
-                                  </p>
-                                  <p className="text-zinc-600 dark:text-zinc-400">
-                                    Høyeste bud:{" "}
-                                    <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
-                                      {highestNok > 0 ? highestNok : 0}
-                                    </span>{" "}
-                                    NOK
-                                  </p>
-                                  <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                                    {statusLabel}
-                                  </p>
-                                </div>
-                                <Link
-                                  href={`/my-auctions/${row.id}`}
-                                  className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                                >
-                                  Gå til deal
-                                </Link>
-                              </li>
-                            ))}
+                            {items.map(
+                              ({
+                                row,
+                                highestNok,
+                                statusLabel,
+                                group,
+                                leadingBidderId,
+                              }) => {
+                                const bidderUn =
+                                  group !== "ikke_resultat" && leadingBidderId
+                                    ? usernameByUserId.get(
+                                        String(leadingBidderId).trim(),
+                                      ) ?? null
+                                    : null;
+                                return (
+                                  <li
+                                    key={row.id}
+                                    className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+                                  >
+                                    <div className="space-y-1">
+                                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                        {row.title?.trim() || "—"}
+                                      </p>
+                                      <p className="text-zinc-600 dark:text-zinc-400">
+                                        Høyeste bud:{" "}
+                                        <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                          {highestNok > 0 ? highestNok : 0}
+                                        </span>{" "}
+                                        NOK
+                                      </p>
+                                      <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                        {statusLabel}
+                                      </p>
+                                      {bidderUn ? (
+                                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                          Budgiver:{" "}
+                                          <Link
+                                            href={`/u/${encodeURIComponent(bidderUn)}`}
+                                            className="font-medium text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200"
+                                          >
+                                            {bidderUn}
+                                          </Link>
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                    <Link
+                                      href={`/my-auctions/${row.id}`}
+                                      className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                    >
+                                      Gå til deal
+                                    </Link>
+                                  </li>
+                                );
+                              },
+                            )}
                           </ul>
                         )}
                       </div>
@@ -659,34 +723,51 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                           </p>
                         ) : (
                           <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-                            {items.map(({ row, highestNok, statusLabel }) => (
-                              <li
-                                key={row.id}
-                                className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
-                              >
-                                <div className="space-y-1">
-                                  <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                                    {row.title?.trim() || "—"}
-                                  </p>
-                                  <p className="text-zinc-600 dark:text-zinc-400">
-                                    Høyeste bud:{" "}
-                                    <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
-                                      {highestNok > 0 ? highestNok : 0}
-                                    </span>{" "}
-                                    NOK
-                                  </p>
-                                  <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                                    {statusLabel}
-                                  </p>
-                                </div>
-                                <Link
-                                  href={`/my-auctions/${row.id}`}
-                                  className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                            {items.map(({ row, highestNok, statusLabel }) => {
+                              const sellerUn =
+                                usernameByUserId.get(
+                                  String(row.seller_id).trim(),
+                                ) ?? null;
+                              return (
+                                <li
+                                  key={row.id}
+                                  className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
                                 >
-                                  Gå til deal
-                                </Link>
-                              </li>
-                            ))}
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                      {row.title?.trim() || "—"}
+                                    </p>
+                                    <p className="text-zinc-600 dark:text-zinc-400">
+                                      Høyeste bud:{" "}
+                                      <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                        {highestNok > 0 ? highestNok : 0}
+                                      </span>{" "}
+                                      NOK
+                                    </p>
+                                    <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                      {statusLabel}
+                                    </p>
+                                    {sellerUn ? (
+                                      <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                        Selger:{" "}
+                                        <Link
+                                          href={`/u/${encodeURIComponent(sellerUn)}`}
+                                          className="font-medium text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200"
+                                        >
+                                          {sellerUn}
+                                        </Link>
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                  <Link
+                                    href={`/my-auctions/${row.id}`}
+                                    className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                  >
+                                    Gå til deal
+                                  </Link>
+                                </li>
+                              );
+                            })}
                           </ul>
                         )}
                       </div>
