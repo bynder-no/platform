@@ -14,6 +14,11 @@ import {
   highestNokByListingId,
   type BidWithListingId,
 } from "@/lib/highest-bid-nok";
+import {
+  leadingBidderIdByListingId,
+  viewerAuctionBidPositionLabel,
+  type BidForLeadingRow,
+} from "@/lib/auction-viewer-bid-status";
 
 import { DashboardCustomBidForm } from "./dashboard-custom-bid-form";
 import { DashboardQuickBidForm } from "./dashboard-quick-bid-form";
@@ -89,7 +94,6 @@ type ListingRow = {
   title: string | null;
   price_nok: number | string | null;
   status: string | null;
-  created_at: string | null;
   type: string | null;
   auction_starts_at: string | null;
   auction_ends_at: string | null;
@@ -155,7 +159,7 @@ export default async function DashboardPage() {
   const { data: listings, error: listingsError } = await supabase
     .from("listings")
     .select(
-      "id, title, price_nok, status, created_at, type, auction_starts_at, auction_ends_at",
+      "id, title, price_nok, status, type, auction_starts_at, auction_ends_at",
     )
     .eq("seller_id", user.id)
     .order("created_at", { ascending: false });
@@ -287,6 +291,8 @@ export default async function DashboardPage() {
 
   let trackedLiveAuctions: TrackedAuctionListingRow[] = [];
   let highestNokTrackedFollow = new Map<string, number>();
+  const trackedListingIdsWithAnyBid = new Set<string>();
+  let trackedLeadingBidderByListingId = new Map<string, string | null>();
 
   const trackedIds = [...trackedListingIdSet];
   if (trackedIds.length > 0) {
@@ -335,7 +341,7 @@ export default async function DashboardPage() {
       const { data: trackedBidAmountRows, error: trackedBidAmtErr } =
         await supabase
           .from("bids")
-          .select("listing_id, amount_nok, created_at")
+          .select("listing_id, amount_nok, created_at, bidder_id")
           .in("listing_id", trackedTopIds);
 
       if (trackedBidAmtErr) {
@@ -343,8 +349,15 @@ export default async function DashboardPage() {
           `Could not load bids for followed auctions: ${trackedBidAmtErr.message}`,
         );
       }
+      const trackedFlat = (trackedBidAmountRows ?? []) as BidForLeadingRow[];
+      for (const r of trackedFlat) {
+        const lid = r.listing_id;
+        if (lid) trackedListingIdsWithAnyBid.add(lid);
+      }
+      trackedLeadingBidderByListingId =
+        leadingBidderIdByListingId(trackedFlat);
       highestNokTrackedFollow = highestNokByListingId(
-        (trackedBidAmountRows ?? []) as BidWithListingId[],
+        trackedFlat as BidWithListingId[],
       );
     }
   }
@@ -367,6 +380,15 @@ export default async function DashboardPage() {
       }
     }
 
+    const auctionPhase =
+      row.type === "auction"
+        ? auctionTimingLabelNo(
+            nowMs,
+            row.auction_starts_at,
+            row.auction_ends_at,
+          )
+        : null;
+
     return (
       <li
         key={row.id}
@@ -385,15 +407,11 @@ export default async function DashboardPage() {
               : row.type === "fixed_price"
                 ? "Fastpris"
                 : "—"}
-            {row.type === "auction" ? (
+            {row.type === "auction" && auctionPhase != null ? (
               <>
                 <span className="mx-2 text-zinc-400">·</span>
                 <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                  {auctionTimingLabelNo(
-                    nowMs,
-                    row.auction_starts_at,
-                    row.auction_ends_at,
-                  )}
+                  {auctionPhase}
                 </span>
               </>
             ) : null}
@@ -405,18 +423,42 @@ export default async function DashboardPage() {
                 : "—"}
             <span className="mx-2 text-zinc-400">·</span>
             {row.status}
-            <span className="mx-2 text-zinc-400">·</span>
-            {row.created_at
-              ? new Date(row.created_at).toLocaleString()
-              : "—"}
-            {row.type === "auction" && row.auction_ends_at ? (
-              <>
-                <span className="mx-2 text-zinc-400">·</span>
-                Slutter{" "}
-                {new Date(row.auction_ends_at).toLocaleString()}
-              </>
-            ) : null}
           </span>
+          {row.type === "auction" && auctionPhase === "Live" && row.auction_ends_at ? (
+            <span className="flex flex-col gap-0.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
+              <span>
+                Slutter {new Date(row.auction_ends_at).toLocaleString()}
+              </span>
+              <span className="tabular-nums">
+                {formatAuctionTimeRemainingNo(
+                  new Date(row.auction_ends_at).getTime(),
+                  nowMs,
+                )}
+              </span>
+            </span>
+          ) : row.type === "auction" &&
+            auctionPhase === "Planlagt" &&
+            (row.auction_starts_at || row.auction_ends_at) ? (
+            <span className="flex flex-col gap-0.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
+              {row.auction_starts_at ? (
+                <span>
+                  Starttid{" "}
+                  {new Date(row.auction_starts_at).toLocaleString()}
+                </span>
+              ) : null}
+              {row.auction_ends_at ? (
+                <span>
+                  Slutter {new Date(row.auction_ends_at).toLocaleString()}
+                </span>
+              ) : null}
+            </span>
+          ) : row.type === "auction" &&
+            auctionPhase === "Avsluttet" &&
+            row.auction_ends_at ? (
+            <span className="text-right text-xs text-zinc-500 dark:text-zinc-400">
+              Sluttet {new Date(row.auction_ends_at).toLocaleString()}
+            </span>
+          ) : null}
           {row.status === "draft" ? (
             <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
               {auctionEditDeleteLocked ? null : (
@@ -495,6 +537,14 @@ export default async function DashboardPage() {
                 const high = hasAnyBid
                   ? (highestNokTrackedFollow.get(row.id) ?? 0)
                   : 0;
+                const bidPositionLabel =
+                  row.seller_id !== user.id
+                    ? viewerAuctionBidPositionLabel(
+                        user.id,
+                        trackedListingIdsWithAnyBid.has(row.id),
+                        trackedLeadingBidderByListingId.get(row.id) ?? null,
+                      )
+                    : null;
                 const quickAmount = dashboardQuickBidAmountNok(
                   hasAnyBid,
                   high,
@@ -524,6 +574,11 @@ export default async function DashboardPage() {
                         <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
                           {high} NOK
                         </span>
+                        {bidPositionLabel ? (
+                          <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                            {bidPositionLabel}
+                          </span>
+                        ) : null}
                       </div>
                       <div className="flex flex-col gap-0.5 text-xs text-zinc-500 dark:text-zinc-400 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
                         <span>Slutter {endLabel}</span>

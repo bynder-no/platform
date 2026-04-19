@@ -14,6 +14,7 @@ import { AuctionDealPanel } from "./auction-deal-panel";
 import { ContactSellerForm } from "./contact-seller-form";
 import { FavoriteButton } from "./favorite-button";
 import { PlaceBidForm } from "./place-bid-form";
+import { viewerAuctionBidPositionLabel } from "@/lib/auction-viewer-bid-status";
 
 export const dynamic = "force-dynamic";
 
@@ -145,6 +146,21 @@ export default async function ListingDetailPage({ params }: PageProps) {
     user.id === listing.seller_id;
 
   const hasAuctionBids = listing.type === "auction" && auctionBids.length > 0;
+
+  const leadingBidderIdForViewerLabel =
+    leadingBidRow != null &&
+    leadingBidRow.bidder_id != null &&
+    String(leadingBidRow.bidder_id).trim() !== ""
+      ? String(leadingBidRow.bidder_id).trim()
+      : null;
+  const viewerAuctionBidLabel =
+    user != null && user.id !== listing.seller_id
+      ? viewerAuctionBidPositionLabel(
+          user.id,
+          hasAuctionBids,
+          leadingBidderIdForViewerLabel,
+        )
+      : null;
 
   let contactUnlockedPostAuction = false;
   if (listing.type === "auction" && auctionTimeEnded) {
@@ -435,6 +451,11 @@ export default async function ListingDetailPage({ params }: PageProps) {
                     {bidderPrivacyLabel(user?.id, leadingBidRow.bidder_id)}
                   </span>
                 </p>
+                {viewerAuctionBidLabel ? (
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    {viewerAuctionBidLabel}
+                  </p>
+                ) : null}
               </div>
             ) : (
               <p className="mt-3 text-zinc-700 dark:text-zinc-300">
