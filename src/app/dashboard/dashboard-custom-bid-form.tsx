@@ -36,8 +36,11 @@ export function DashboardCustomBidForm({
   }
 
   return (
-    <form action={formAction} className="flex w-full flex-col items-end gap-1">
-      <div className="flex w-full flex-col gap-1 sm:flex-row sm:items-center sm:justify-end">
+    <form
+      action={formAction}
+      className="flex w-full flex-col gap-1 sm:items-end"
+    >
+      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         <input type="hidden" name="listing_id" value={listingId} />
         <input type="hidden" name="return_to" value="/dashboard" />
         <input

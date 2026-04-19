@@ -508,41 +508,40 @@ export default async function DashboardPage() {
                 return (
                   <li
                     key={row.id}
-                    className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+                    className="flex flex-col gap-3 px-3 py-4 text-sm"
                   >
                     <Link
                       href={`/listings/${row.id}`}
-                      className="font-medium text-zinc-900 dark:text-zinc-100"
+                      className="line-clamp-2 text-base font-semibold leading-snug text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
                     >
                       {row.title?.trim() || "—"}
                     </Link>
-                    <div className="flex flex-col gap-1 sm:items-end">
-                      <span className="text-zinc-600 dark:text-zinc-400">
-                        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                    <div className="flex flex-col gap-1.5 text-zinc-600 dark:text-zinc-400">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
                           Live
                         </span>
-                        <span className="mx-2 text-zinc-400">·</span>
-                        <span className="tabular-nums">
+                        <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
                           {high} NOK
                         </span>
-                        <span className="mx-2 text-zinc-400">·</span>
-                        Slutter {endLabel}
-                        <span className="mx-2 text-zinc-400">·</span>
-                        {remaining}
-                      </span>
-                      {showQuickBid ? (
-                        <>
-                          <DashboardQuickBidForm
-                            listingId={row.id}
-                            amountNok={quickAmount}
-                          />
-                          <DashboardCustomBidForm
-                            listingId={row.id}
-                            minNextBidNok={quickAmount}
-                          />
-                        </>
-                      ) : null}
+                      </div>
+                      <div className="flex flex-col gap-0.5 text-xs text-zinc-500 dark:text-zinc-400 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
+                        <span>Slutter {endLabel}</span>
+                        <span className="tabular-nums">{remaining}</span>
+                      </div>
                     </div>
+                    {showQuickBid ? (
+                      <div className="flex w-full flex-col gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700 sm:max-w-md sm:self-end">
+                        <DashboardQuickBidForm
+                          listingId={row.id}
+                          amountNok={quickAmount}
+                        />
+                        <DashboardCustomBidForm
+                          listingId={row.id}
+                          minNextBidNok={quickAmount}
+                        />
+                      </div>
+                    ) : null}
                   </li>
                 );
               })}

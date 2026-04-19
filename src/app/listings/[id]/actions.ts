@@ -152,6 +152,23 @@ export async function toggleFavorite(
     revalidatePath("/");
     redirect("/");
   }
+  if (returnTo === "/auctions") {
+    revalidatePath("/auctions");
+    redirect("/auctions");
+  }
+  const auctionsOffsetMatch = /^\/auctions\?offset=(\d+)$/.exec(returnTo);
+  if (auctionsOffsetMatch) {
+    const n = Number.parseInt(auctionsOffsetMatch[1], 10);
+    if (
+      Number.isFinite(n) &&
+      n >= 0 &&
+      n <= 10_000 &&
+      n % 10 === 0
+    ) {
+      revalidatePath("/auctions");
+      redirect(returnTo);
+    }
+  }
 
   redirect(`/listings/${listingId}`);
 }

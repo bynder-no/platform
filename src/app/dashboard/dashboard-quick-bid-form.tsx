@@ -19,7 +19,10 @@ export function DashboardQuickBidForm({
   const [state, formAction, pending] = useActionState(placeBid, null);
 
   return (
-    <form action={formAction} className="flex flex-col items-end gap-1">
+    <form
+      action={formAction}
+      className="flex w-full flex-col gap-1 sm:w-auto sm:items-end"
+    >
       <input type="hidden" name="listing_id" value={listingId} />
       <input type="hidden" name="amount_nok" value={String(amountNok)} />
       <input type="hidden" name="return_to" value="/dashboard" />

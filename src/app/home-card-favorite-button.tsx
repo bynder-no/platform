@@ -10,11 +10,14 @@ const buttonClass =
 type HomeCardFavoriteButtonProps = {
   listingId: string;
   isFavorite: boolean;
+  /** Same-origin path only; defaults to home `/`. */
+  returnTo?: string;
 };
 
 export function HomeCardFavoriteButton({
   listingId,
   isFavorite,
+  returnTo = "/",
 }: HomeCardFavoriteButtonProps) {
   const [state, formAction, pending] = useActionState(toggleFavorite, null);
 
@@ -25,7 +28,7 @@ export function HomeCardFavoriteButton({
       onClick={(e) => e.stopPropagation()}
     >
       <input type="hidden" name="listing_id" value={listingId} />
-      <input type="hidden" name="return_to" value="/" />
+      <input type="hidden" name="return_to" value={returnTo} />
       <button
         type="submit"
         disabled={pending}
