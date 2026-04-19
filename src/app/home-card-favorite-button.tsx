@@ -39,7 +39,7 @@ export function HomeCardFavoriteButton({
         {pending ? "…" : isFavorite ? "★" : "☆"}
       </button>
       {state?.error ? (
-        <p className="max-w-[6rem] text-right text-[10px] leading-tight text-red-600 dark:text-red-400">
+        <p className="max-w-[7rem] text-right text-[10px] leading-tight text-red-600 dark:text-red-400">
           {state.error}
         </p>
       ) : null}

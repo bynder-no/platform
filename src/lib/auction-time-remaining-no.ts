@@ -1,10 +1,11 @@
+const MS_DAY = 86_400_000;
 const MS_HOUR = 3_600_000;
 const MS_MIN = 60_000;
 const MS_10_MIN = 10 * MS_MIN;
 
 /**
- * Remaining time until `endMs` from `nowMs` (server snapshot).
- * Home cards: hour/minute if >1h, minutes if >10m, else m+s or seconds only.
+ * Compact remaining time until `endMs` from `nowMs` (server snapshot).
+ * Home auction cards and dashboard «Auksjoner du følger»: day/hour when >1d, then hour/minute, minutes, m+s, or seconds only.
  */
 export function formatAuctionTimeRemainingNo(
   endMs: number,
@@ -12,6 +13,13 @@ export function formatAuctionTimeRemainingNo(
 ): string {
   const ms = endMs - nowMs;
   if (ms <= 0) return "Avsluttet";
+
+  if (ms > MS_DAY) {
+    const days = Math.floor(ms / MS_DAY);
+    const rem = ms % MS_DAY;
+    const hours = Math.floor(rem / MS_HOUR);
+    return hours > 0 ? `${days}d ${hours}t igjen` : `${days}d igjen`;
+  }
 
   if (ms > MS_HOUR) {
     const hours = Math.floor(ms / MS_HOUR);
