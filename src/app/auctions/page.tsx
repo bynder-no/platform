@@ -15,6 +15,11 @@ import {
   highestNokByListingId,
   type BidWithListingId,
 } from "@/lib/highest-bid-nok";
+import {
+  leadingBidderIdByListingId,
+  viewerAuctionBidPositionLabel,
+  type BidForLeadingRow,
+} from "@/lib/auction-viewer-bid-status";
 
 export const dynamic = "force-dynamic";
 
@@ -186,16 +191,24 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
 
   const ids = rows.map((r) => r.id).filter(Boolean);
   let highestById = new Map<string, number>();
+  const listingIdsWithAnyBid = new Set<string>();
+  let leadingBidderByListingId = new Map<string, string | null>();
   if (ids.length > 0) {
     const { data: bidRows, error: bidsErr } = await supabase
       .from("bids")
-      .select("listing_id, amount_nok, created_at")
+      .select("listing_id, amount_nok, created_at, bidder_id")
       .in("listing_id", ids);
 
     if (bidsErr) {
       throw new Error(`Could not load bids: ${bidsErr.message}`);
     }
-    highestById = highestNokByListingId((bidRows ?? []) as BidWithListingId[]);
+    const flat = (bidRows ?? []) as BidForLeadingRow[];
+    for (const r of flat) {
+      const lid = r.listing_id;
+      if (lid) listingIdsWithAnyBid.add(lid);
+    }
+    leadingBidderByListingId = leadingBidderIdByListingId(flat);
+    highestById = highestNokByListingId(flat as BidWithListingId[]);
   }
 
   const cardClass =
@@ -271,6 +284,14 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
                   row.auction_ends_at ?? null,
                 );
                 const liveNok = highestById.get(row.id) ?? 0;
+                const bidPositionLabel =
+                  user != null && row.seller_id !== user.id
+                    ? viewerAuctionBidPositionLabel(
+                        user.id,
+                        listingIdsWithAnyBid.has(row.id),
+                        leadingBidderByListingId.get(row.id) ?? null,
+                      )
+                    : null;
                 const timeLeft = auctionListingTimeRemainingLabel(
                   state,
                   row.auction_starts_at ?? null,
@@ -315,6 +336,11 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
                             <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
                               {liveNok} NOK
                             </span>
+                            {bidPositionLabel ? (
+                              <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                                {bidPositionLabel}
+                              </span>
+                            ) : null}
                           </Link>
                         </div>
                         {user &&

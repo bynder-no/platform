@@ -9,6 +9,7 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import { viewerAuctionBidPositionLabel } from "@/lib/auction-viewer-bid-status";
 
 export const dynamic = "force-dynamic";
 
@@ -321,15 +322,23 @@ export default async function MyAuctionsPage() {
               ) : (
                 <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
                   {ongoingRows.map((row) => {
-                    const { highestNok, leadingBidderId } = leadingBidForListing(
-                      bidsByListing.get(row.id) ?? [],
-                    );
+                    const bidRows = bidsByListing.get(row.id) ?? [];
+                    const { highestNok, leadingBidderId } =
+                      leadingBidForListing(bidRows);
                     const statusLabel = myAuctionsStatusLabel(
                       dealsByListing.get(row.id),
                       user.id,
                       row.seller_id,
                       leadingBidderId,
                     );
+                    const bidPositionLabel =
+                      row.seller_id !== user.id
+                        ? viewerAuctionBidPositionLabel(
+                            user.id,
+                            bidRows.length > 0,
+                            leadingBidderId,
+                          )
+                        : null;
                     return (
                       <li
                         key={row.id}
@@ -346,6 +355,11 @@ export default async function MyAuctionsPage() {
                             </span>{" "}
                             NOK
                           </p>
+                          {bidPositionLabel ? (
+                            <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                              {bidPositionLabel}
+                            </p>
+                          ) : null}
                           <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                             {statusLabel}
                           </p>
@@ -373,15 +387,23 @@ export default async function MyAuctionsPage() {
               ) : (
                 <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
                   {completedRows.map((row) => {
-                    const { highestNok, leadingBidderId } = leadingBidForListing(
-                      bidsByListing.get(row.id) ?? [],
-                    );
+                    const bidRows = bidsByListing.get(row.id) ?? [];
+                    const { highestNok, leadingBidderId } =
+                      leadingBidForListing(bidRows);
                     const statusLabel = myAuctionsStatusLabel(
                       dealsByListing.get(row.id),
                       user.id,
                       row.seller_id,
                       leadingBidderId,
                     );
+                    const bidPositionLabel =
+                      row.seller_id !== user.id
+                        ? viewerAuctionBidPositionLabel(
+                            user.id,
+                            bidRows.length > 0,
+                            leadingBidderId,
+                          )
+                        : null;
                     return (
                       <li
                         key={row.id}
@@ -398,6 +420,11 @@ export default async function MyAuctionsPage() {
                             </span>{" "}
                             NOK
                           </p>
+                          {bidPositionLabel ? (
+                            <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                              {bidPositionLabel}
+                            </p>
+                          ) : null}
                           <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                             {statusLabel}
                           </p>

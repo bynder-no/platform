@@ -15,6 +15,11 @@ import {
   highestNokByListingId,
   type BidWithListingId,
 } from "@/lib/highest-bid-nok";
+import {
+  leadingBidderIdByListingId,
+  viewerAuctionBidPositionLabel,
+  type BidForLeadingRow,
+} from "@/lib/auction-viewer-bid-status";
 
 export const dynamic = "force-dynamic";
 
@@ -187,17 +192,25 @@ export default async function HomePage() {
 
   const auctionIds = auctionRows.map((r) => r.id).filter(Boolean);
   let auctionHighestNokById = new Map<string, number>();
+  const listingIdsWithAnyAuctionBid = new Set<string>();
+  let auctionLeadingBidderByListingId = new Map<string, string | null>();
   if (auctionIds.length > 0) {
     const { data: auctionBidRows, error: auctionBidsErr } = await supabase
       .from("bids")
-      .select("listing_id, amount_nok, created_at")
+      .select("listing_id, amount_nok, created_at, bidder_id")
       .in("listing_id", auctionIds);
 
     if (auctionBidsErr) {
       throw new Error(`Could not load bids: ${auctionBidsErr.message}`);
     }
+    const flat = (auctionBidRows ?? []) as BidForLeadingRow[];
+    for (const r of flat) {
+      const lid = r.listing_id;
+      if (lid) listingIdsWithAnyAuctionBid.add(lid);
+    }
+    auctionLeadingBidderByListingId = leadingBidderIdByListingId(flat);
     auctionHighestNokById = highestNokByListingId(
-      (auctionBidRows ?? []) as BidWithListingId[],
+      flat as BidWithListingId[],
     );
   }
 
@@ -284,6 +297,14 @@ export default async function HomePage() {
                   row.auction_ends_at ?? null,
                 );
                 const liveNok = auctionHighestNokById.get(row.id) ?? 0;
+                const bidPositionLabel =
+                  user != null && row.seller_id !== user.id
+                    ? viewerAuctionBidPositionLabel(
+                        user.id,
+                        listingIdsWithAnyAuctionBid.has(row.id),
+                        auctionLeadingBidderByListingId.get(row.id) ?? null,
+                      )
+                    : null;
                 const timeLeft = homeAuctionTimeRemainingLabel(
                   state,
                   row.auction_starts_at ?? null,
@@ -328,6 +349,11 @@ export default async function HomePage() {
                             <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
                               {liveNok} NOK
                             </span>
+                            {bidPositionLabel ? (
+                              <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                                {bidPositionLabel}
+                              </span>
+                            ) : null}
                           </Link>
                         </div>
                         {user &&
