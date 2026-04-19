@@ -22,39 +22,11 @@ import {
 
 import { DashboardCustomBidForm } from "./dashboard-custom-bid-form";
 import { DashboardQuickBidForm } from "./dashboard-quick-bid-form";
-import { DeleteDraftForm } from "./delete-draft-form";
-import { PublishDraftForm } from "./publish-draft-form";
 
 export const dynamic = "force-dynamic";
 
-/** Hide draft Edit/Delete from 1 minute before auction start through after start. */
-const AUCTION_EDIT_DELETE_LOCK_MS = 60 * 1000;
-
 const sectionHeadingClass =
   "text-sm font-semibold text-zinc-900 dark:text-zinc-50";
-
-function auctionTimingLabelNo(
-  nowMs: number,
-  startsAt: string | null,
-  endsAt: string | null,
-): "Planlagt" | "Live" | "Avsluttet" {
-  const startsAtMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
-  const endsAtMs = endsAt ? new Date(endsAt).getTime() : Number.NaN;
-  if (Number.isFinite(startsAtMs) && nowMs < startsAtMs) return "Planlagt";
-  if (Number.isFinite(endsAtMs) && nowMs >= endsAtMs) return "Avsluttet";
-  return "Live";
-}
-
-function isAuctionTimeEnded(
-  row: { type: string | null; auction_starts_at: string | null; auction_ends_at: string | null },
-  nowMs: number,
-): boolean {
-  if (row.type !== "auction") return false;
-  return (
-    auctionTimingLabelNo(nowMs, row.auction_starts_at, row.auction_ends_at) ===
-    "Avsluttet"
-  );
-}
 
 /** Live auction window: started and not yet ended (same instant boundaries as timing label). */
 function isAuctionLiveNow(
@@ -88,16 +60,6 @@ function formatAuctionTimeRemainingNo(endMs: number, nowMs: number): string {
 }
 
 const TRACKED_LIVE_AUCTIONS_LIMIT = 4;
-
-type ListingRow = {
-  id: string;
-  title: string | null;
-  price_nok: number | string | null;
-  status: string | null;
-  type: string | null;
-  auction_starts_at: string | null;
-  auction_ends_at: string | null;
-};
 
 type TrackedAuctionListingRow = {
   id: string;
@@ -156,46 +118,8 @@ export default async function DashboardPage() {
     }
   }
 
-  const { data: listings, error: listingsError } = await supabase
-    .from("listings")
-    .select(
-      "id, title, price_nok, status, type, auction_starts_at, auction_ends_at",
-    )
-    .eq("seller_id", user.id)
-    .order("created_at", { ascending: false });
-
-  if (listingsError) {
-    throw new Error(`Could not load listings: ${listingsError.message}`);
-  }
-
-  const rows = (listings ?? []) as ListingRow[];
   const now = new Date();
   const nowMs = now.getTime();
-
-  const activeListingsRows = rows.filter((r) => !isAuctionTimeEnded(r, nowMs));
-  const activeAuctionRows = activeListingsRows.filter((r) => r.type === "auction");
-  const activeFixedPriceRows = activeListingsRows.filter(
-    (r) => r.type === "fixed_price",
-  );
-
-  const auctionIdsForBids = rows
-    .filter((r) => r.type === "auction")
-    .map((r) => r.id)
-    .filter(Boolean);
-  let highestNokByListing = new Map<string, number>();
-  if (auctionIdsForBids.length > 0) {
-    const { data: bidRows, error: bidsErr } = await supabase
-      .from("bids")
-      .select("listing_id, amount_nok, created_at")
-      .in("listing_id", auctionIdsForBids);
-
-    if (bidsErr) {
-      throw new Error(`Could not load bids: ${bidsErr.message}`);
-    }
-    highestNokByListing = highestNokByListingId(
-      (bidRows ?? []) as BidWithListingId[],
-    );
-  }
 
   const { data: favoriteRows, error: favoritesError } = await supabase
     .from("favorites")
@@ -332,126 +256,6 @@ export default async function DashboardPage() {
     }
   }
 
-  const auctionCount = rows.filter((r) => r.type === "auction").length;
-
-  const listingItem = (row: ListingRow) => {
-    let auctionEditDeleteLocked = false;
-    if (
-      row.type === "auction" &&
-      row.status === "draft" &&
-      row.auction_starts_at != null
-    ) {
-      const startsAtMs = new Date(row.auction_starts_at).getTime();
-      if (Number.isFinite(startsAtMs)) {
-        if (startsAtMs > nowMs) {
-          auctionEditDeleteLocked =
-            nowMs >= startsAtMs - AUCTION_EDIT_DELETE_LOCK_MS;
-        }
-      }
-    }
-
-    const auctionPhase =
-      row.type === "auction"
-        ? auctionTimingLabelNo(
-            nowMs,
-            row.auction_starts_at,
-            row.auction_ends_at,
-          )
-        : null;
-
-    return (
-      <li
-        key={row.id}
-        className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
-      >
-        <Link
-          href={`/listings/${row.id}`}
-          className="font-medium text-zinc-900 dark:text-zinc-100"
-        >
-          {row.title}
-        </Link>
-        <div className="flex flex-col gap-2 sm:items-end">
-          <span className="text-zinc-600 dark:text-zinc-400">
-            {row.type === "auction"
-              ? "Auksjon"
-              : row.type === "fixed_price"
-                ? "Fastpris"
-                : "—"}
-            {row.type === "auction" && auctionPhase != null ? (
-              <>
-                <span className="mx-2 text-zinc-400">·</span>
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                  {auctionPhase}
-                </span>
-              </>
-            ) : null}
-            <span className="mx-2 text-zinc-400">·</span>
-            {row.type === "auction"
-              ? `${highestNokByListing.get(row.id) ?? 0} NOK`
-              : row.price_nok != null
-                ? `${row.price_nok} NOK`
-                : "—"}
-            <span className="mx-2 text-zinc-400">·</span>
-            {row.status}
-          </span>
-          {row.type === "auction" && auctionPhase === "Live" && row.auction_ends_at ? (
-            <span className="flex flex-col gap-0.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
-              <span>
-                Slutter {new Date(row.auction_ends_at).toLocaleString()}
-              </span>
-              <span className="tabular-nums">
-                {formatAuctionTimeRemainingNo(
-                  new Date(row.auction_ends_at).getTime(),
-                  nowMs,
-                )}
-              </span>
-            </span>
-          ) : row.type === "auction" &&
-            auctionPhase === "Planlagt" &&
-            (row.auction_starts_at || row.auction_ends_at) ? (
-            <span className="flex flex-col gap-0.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
-              {row.auction_starts_at ? (
-                <span>
-                  Starttid{" "}
-                  {new Date(row.auction_starts_at).toLocaleString()}
-                </span>
-              ) : null}
-              {row.auction_ends_at ? (
-                <span>
-                  Slutter {new Date(row.auction_ends_at).toLocaleString()}
-                </span>
-              ) : null}
-            </span>
-          ) : row.type === "auction" &&
-            auctionPhase === "Avsluttet" &&
-            row.auction_ends_at ? (
-            <span className="text-right text-xs text-zinc-500 dark:text-zinc-400">
-              Sluttet {new Date(row.auction_ends_at).toLocaleString()}
-            </span>
-          ) : null}
-          {row.status === "draft" ? (
-            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
-              {auctionEditDeleteLocked ? null : (
-                <>
-                  <Link
-                    href={`/listings/${row.id}/edit`}
-                    className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-                  >
-                    Rediger
-                  </Link>
-                  {row.type === "auction" ? null : (
-                    <PublishDraftForm listingId={row.id} />
-                  )}
-                  <DeleteDraftForm listingId={row.id} />
-                </>
-              )}
-            </div>
-          ) : null}
-        </div>
-      </li>
-    );
-  };
-
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
@@ -572,63 +376,6 @@ export default async function DashboardPage() {
               })}
             </ul>
           )}
-        </section>
-
-        <section aria-labelledby="dash-active-auctions-heading">
-          <h2 id="dash-active-auctions-heading" className={sectionHeadingClass}>
-            Mine aktive auksjoner
-          </h2>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-            Inkluderer utkast og publiserte auksjoner. Avsluttede auksjoner (etter
-            sluttid) vises under «Mine auksjoner».
-          </p>
-          {activeAuctionRows.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-              Ingen aktive auksjoner her ennå.
-            </p>
-          ) : (
-            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-              {activeAuctionRows.map((row) => listingItem(row))}
-            </ul>
-          )}
-        </section>
-
-        <section aria-labelledby="dash-active-fixed-heading">
-          <h2 id="dash-active-fixed-heading" className={sectionHeadingClass}>
-            Mine aktive fastprisannonser
-          </h2>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-            Inkluderer utkast og publiserte fastprisannonser.
-          </p>
-          {activeFixedPriceRows.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-              Ingen aktive fastprisannonser her ennå.
-            </p>
-          ) : (
-            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-              {activeFixedPriceRows.map((row) => listingItem(row))}
-            </ul>
-          )}
-        </section>
-
-        <section aria-labelledby="dash-auctions-heading">
-          <h2 id="dash-auctions-heading" className={sectionHeadingClass}>
-            Mine auksjoner
-          </h2>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-            {auctionCount > 0
-              ? `Du har ${auctionCount} auksjonsannonse${auctionCount === 1 ? "" : "r"} som selger (inkl. utkast og avsluttede).`
-              : "Du har ingen auksjonsannonser som selger ennå."}{" "}
-            Dealrom og fullførte handler finner du på Mine auksjoner.
-          </p>
-          <p className="mt-3">
-            <Link
-              href="/my-auctions"
-              className="text-sm font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-            >
-              Gå til Mine auksjoner →
-            </Link>
-          </p>
         </section>
 
         <section aria-labelledby="dash-fav-heading">
