@@ -49,6 +49,7 @@ function priceText(nok: number | string | null) {
 function homeCardSellerUsernameLink(
   sellerId: string | null,
   usernameBySellerId: Map<string, string>,
+  viewerUserId: string | null,
 ) {
   const u = sellerId ? usernameBySellerId.get(sellerId) : undefined;
   if (!u) {
@@ -56,9 +57,15 @@ function homeCardSellerUsernameLink(
       <span className="text-zinc-400 dark:text-zinc-500">—</span>
     );
   }
+  const href =
+    viewerUserId != null &&
+    sellerId != null &&
+    viewerUserId === sellerId
+      ? "/profile"
+      : `/u/${encodeURIComponent(u)}`;
   return (
     <Link
-      href={`/u/${encodeURIComponent(u)}`}
+      href={href}
       className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
     >
       {u}
@@ -300,6 +307,7 @@ export default async function HomePage() {
                             {homeCardSellerUsernameLink(
                               row.seller_id,
                               sellerUsernameById,
+                              user?.id ?? null,
                             )}
                           </p>
                           <Link
@@ -374,6 +382,7 @@ export default async function HomePage() {
                           {homeCardSellerUsernameLink(
                             row.seller_id,
                             sellerUsernameById,
+                            user?.id ?? null,
                           )}
                         </p>
                         <Link
