@@ -336,7 +336,7 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
             href="/my-auctions"
             className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
           >
-            ← Mine auksjoner
+            ← Mine deals
           </Link>
         </p>
         <h1 className={pageTitleClass}>Dealrom</h1>
@@ -386,6 +386,7 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
             </h2>
             <AuctionDealPanel
               listingId={id}
+              returnToAfterDecision={`/my-auctions/${id}`}
               sellerDecision={dealRow.seller_decision}
               bidderDecision={dealRow.bidder_decision}
               showSellerButtons={

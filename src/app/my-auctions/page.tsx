@@ -562,7 +562,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <div className="space-y-1">
-          <h1 className={pageTitleClass}>Mine auksjoner</h1>
+          <h1 className={pageTitleClass}>Mine deals</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
             {listingKind === "auction"
               ? "Kun avsluttede auksjoner (ikke planlagte eller pågående)."

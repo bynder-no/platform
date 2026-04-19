@@ -17,6 +17,8 @@ type AuctionDealPanelProps = {
   bidderDecision: string;
   showSellerButtons: boolean;
   showBidderButtons: boolean;
+  /** When set, server action redirects back here after Deal / No deal (must match listing id). */
+  returnToAfterDecision?: string;
 };
 
 export function AuctionDealPanel({
@@ -25,6 +27,7 @@ export function AuctionDealPanel({
   bidderDecision,
   showSellerButtons,
   showBidderButtons,
+  returnToAfterDecision,
 }: AuctionDealPanelProps) {
   const [state, formAction, pending] = useActionState(setListingDealDecision, null);
   const outcome = listingDealOutcomeText(sellerDecision, bidderDecision);
@@ -37,6 +40,9 @@ export function AuctionDealPanel({
         <form action={formAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="listing_id" value={listingId} />
           <input type="hidden" name="role" value="seller" />
+          {returnToAfterDecision ? (
+            <input type="hidden" name="return_to" value={returnToAfterDecision} />
+          ) : null}
           <button
             type="submit"
             name="decision"
@@ -62,6 +68,9 @@ export function AuctionDealPanel({
         <form action={formAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="listing_id" value={listingId} />
           <input type="hidden" name="role" value="bidder" />
+          {returnToAfterDecision ? (
+            <input type="hidden" name="return_to" value={returnToAfterDecision} />
+          ) : null}
           <button
             type="submit"
             name="decision"

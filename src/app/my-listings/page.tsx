@@ -303,7 +303,7 @@ export default async function MyListingsPage() {
           </h2>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
             Inkluderer utkast og publiserte auksjoner. Avsluttede auksjoner (etter
-            sluttid) vises under «Mine auksjoner».
+            sluttid) vises under «Mine deals».
           </p>
           {activeAuctionRows.length === 0 ? (
             <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
