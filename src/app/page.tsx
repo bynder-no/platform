@@ -9,6 +9,8 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
+import { HomeCardFavoriteButton } from "@/app/home-card-favorite-button";
+import { formatAuctionTimeRemainingNo } from "@/lib/auction-time-remaining-no";
 import {
   highestNokByListingId,
   type BidWithListingId,
@@ -23,6 +25,7 @@ type ListingCardRow = {
   price_nok: number | string | null;
   auction_starts_at: string | null;
   auction_ends_at: string | null;
+  seller_id: string | null;
 };
 
 function auctionStateLabelNo(
@@ -43,6 +46,46 @@ function priceText(nok: number | string | null) {
   return Number.isFinite(n) ? `${n} NOK` : "—";
 }
 
+function homeCardSellerUsernameLink(
+  sellerId: string | null,
+  usernameBySellerId: Map<string, string>,
+) {
+  const u = sellerId ? usernameBySellerId.get(sellerId) : undefined;
+  if (!u) {
+    return (
+      <span className="text-zinc-400 dark:text-zinc-500">—</span>
+    );
+  }
+  return (
+    <Link
+      href={`/u/${encodeURIComponent(u)}`}
+      className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+    >
+      {u}
+    </Link>
+  );
+}
+
+/** Remaining label: live → until end; planlagt → until start. */
+function homeAuctionTimeRemainingLabel(
+  state: "Planlagt" | "Live" | "Avsluttet",
+  startsAt: string | null,
+  endsAt: string | null,
+  nowMs: number,
+): string | null {
+  if (state === "Live") {
+    const endMs = endsAt ? new Date(endsAt).getTime() : Number.NaN;
+    if (!Number.isFinite(endMs)) return null;
+    return formatAuctionTimeRemainingNo(endMs, nowMs);
+  }
+  if (state === "Planlagt") {
+    const startMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
+    if (!Number.isFinite(startMs)) return null;
+    return formatAuctionTimeRemainingNo(startMs, nowMs);
+  }
+  return null;
+}
+
 export default async function HomePage() {
   const supabase = await createClient();
   const {
@@ -59,7 +102,7 @@ export default async function HomePage() {
   const nowMs = now.getTime();
 
   const selectCols =
-    "id, title, type, price_nok, auction_starts_at, auction_ends_at, created_at";
+    "id, title, type, price_nok, auction_starts_at, auction_ends_at, created_at, seller_id";
 
   const { data: auctionList, error: auctionErr } = await supabase
     .from("listings")
@@ -87,6 +130,53 @@ export default async function HomePage() {
 
   const auctionRows = (auctionList ?? []) as ListingCardRow[];
   const fixedRows = (fixedList ?? []) as ListingCardRow[];
+
+  const sellerIds = [
+    ...new Set(
+      [...auctionRows, ...fixedRows]
+        .map((r) => r.seller_id)
+        .filter((id): id is string => typeof id === "string" && id !== ""),
+    ),
+  ];
+  const sellerUsernameById = new Map<string, string>();
+  if (sellerIds.length > 0) {
+    const { data: sellerProfiles, error: sellerProfErr } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .in("id", sellerIds);
+
+    if (sellerProfErr) {
+      throw new Error(`Could not load seller profiles: ${sellerProfErr.message}`);
+    }
+    for (const p of sellerProfiles ?? []) {
+      const u = typeof p.username === "string" ? p.username.trim() : "";
+      if (p.id && u !== "") sellerUsernameById.set(p.id, u);
+    }
+  }
+
+  const homeCardIds = [
+    ...new Set(
+      [...auctionRows, ...fixedRows]
+        .map((r) => r.id)
+        .filter((id): id is string => typeof id === "string" && id !== ""),
+    ),
+  ];
+  const favoriteIdSet = new Set<string>();
+  if (user && homeCardIds.length > 0) {
+    const { data: homeFavRows, error: homeFavErr } = await supabase
+      .from("favorites")
+      .select("listing_id")
+      .eq("user_id", user.id)
+      .in("listing_id", homeCardIds);
+
+    if (homeFavErr) {
+      throw new Error(`Could not load favorites: ${homeFavErr.message}`);
+    }
+    for (const r of homeFavRows ?? []) {
+      const lid = r.listing_id;
+      if (typeof lid === "string" && lid !== "") favoriteIdSet.add(lid);
+    }
+  }
 
   const auctionIds = auctionRows.map((r) => r.id).filter(Boolean);
   let auctionHighestNokById = new Map<string, number>();
@@ -187,22 +277,58 @@ export default async function HomePage() {
                   row.auction_ends_at ?? null,
                 );
                 const liveNok = auctionHighestNokById.get(row.id) ?? 0;
+                const timeLeft = homeAuctionTimeRemainingLabel(
+                  state,
+                  row.auction_starts_at ?? null,
+                  row.auction_ends_at ?? null,
+                  nowMs,
+                );
                 return (
                   <li key={row.id}>
-                    <Link
-                      href={`/listings/${row.id}`}
+                    <div
                       className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
                     >
-                      <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
-                        {row.title?.trim() || "—"}
-                      </span>
-                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                        {state}
-                      </span>
-                      <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
-                        {liveNok} NOK
-                      </span>
-                    </Link>
+                      <div className="flex items-start gap-2">
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                          <Link
+                            href={`/listings/${row.id}`}
+                            className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-100"
+                          >
+                            {row.title?.trim() || "—"}
+                          </Link>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                            {homeCardSellerUsernameLink(
+                              row.seller_id,
+                              sellerUsernameById,
+                            )}
+                          </p>
+                          <Link
+                            href={`/listings/${row.id}`}
+                            className="flex flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
+                          >
+                            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                              {state}
+                            </span>
+                            {timeLeft ? (
+                              <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                                {timeLeft}
+                              </span>
+                            ) : null}
+                            <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                              {liveNok} NOK
+                            </span>
+                          </Link>
+                        </div>
+                        {user &&
+                        row.seller_id &&
+                        row.seller_id !== user.id ? (
+                          <HomeCardFavoriteButton
+                            listingId={row.id}
+                            isFavorite={favoriteIdSet.has(row.id)}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
                   </li>
                 );
               })}
@@ -230,17 +356,40 @@ export default async function HomePage() {
             <ul className="mt-4 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
               {fixedRows.map((row) => (
                 <li key={row.id}>
-                  <Link
-                    href={`/listings/${row.id}`}
+                  <div
                     className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
                   >
-                    <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
-                      {row.title?.trim() || "—"}
-                    </span>
-                    <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
-                      {priceText(row.price_nok)}
-                    </span>
-                  </Link>
+                    <div className="flex items-start gap-2">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <Link
+                          href={`/listings/${row.id}`}
+                          className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-100"
+                        >
+                          {row.title?.trim() || "—"}
+                        </Link>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          {homeCardSellerUsernameLink(
+                            row.seller_id,
+                            sellerUsernameById,
+                          )}
+                        </p>
+                        <Link
+                          href={`/listings/${row.id}`}
+                          className="tabular-nums text-zinc-600 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-400"
+                        >
+                          {priceText(row.price_nok)}
+                        </Link>
+                      </div>
+                      {user &&
+                      row.seller_id &&
+                      row.seller_id !== user.id ? (
+                        <HomeCardFavoriteButton
+                          listingId={row.id}
+                          isFavorite={favoriteIdSet.has(row.id)}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
