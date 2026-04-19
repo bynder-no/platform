@@ -173,6 +173,10 @@ export default async function DashboardPage() {
   const nowMs = now.getTime();
 
   const activeListingsRows = rows.filter((r) => !isAuctionTimeEnded(r, nowMs));
+  const activeAuctionRows = activeListingsRows.filter((r) => r.type === "auction");
+  const activeFixedPriceRows = activeListingsRows.filter(
+    (r) => r.type === "fixed_price",
+  );
 
   const auctionIdsForBids = rows
     .filter((r) => r.type === "auction")
@@ -191,40 +195,6 @@ export default async function DashboardPage() {
     highestNokByListing = highestNokByListingId(
       (bidRows ?? []) as BidWithListingId[],
     );
-  }
-
-  const { data: myBidRows, error: myBidsErr } = await supabase
-    .from("bids")
-    .select("id, listing_id, amount_nok, created_at")
-    .eq("bidder_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(30);
-
-  if (myBidsErr) {
-    throw new Error(`Could not load your bids: ${myBidsErr.message}`);
-  }
-
-  const myBids = myBidRows ?? [];
-  const bidListingIds = [
-    ...new Set(
-      myBids
-        .map((b) => b.listing_id)
-        .filter((id): id is string => typeof id === "string" && id !== ""),
-    ),
-  ];
-  const bidListingTitles = new Map<string, string>();
-  if (bidListingIds.length > 0) {
-    const { data: bidListings, error: bidListErr } = await supabase
-      .from("listings")
-      .select("id, title")
-      .in("id", bidListingIds);
-
-    if (bidListErr) {
-      throw new Error(`Could not load listings for bids: ${bidListErr.message}`);
-    }
-    for (const l of bidListings ?? []) {
-      if (l.id) bidListingTitles.set(l.id, String(l.title ?? "").trim() || "—");
-    }
   }
 
   const { data: favoriteRows, error: favoritesError } = await supabase
@@ -604,21 +574,39 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        <section aria-labelledby="dash-active-heading">
-          <h2 id="dash-active-heading" className={sectionHeadingClass}>
-            Mine aktive annonser
+        <section aria-labelledby="dash-active-auctions-heading">
+          <h2 id="dash-active-auctions-heading" className={sectionHeadingClass}>
+            Mine aktive auksjoner
           </h2>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-            Inkluderer utkast og publiserte annonser. Avsluttede auksjoner
-            (etter sluttid) vises under «Mine auksjoner».
+            Inkluderer utkast og publiserte auksjoner. Avsluttede auksjoner (etter
+            sluttid) vises under «Mine auksjoner».
           </p>
-          {activeListingsRows.length === 0 ? (
+          {activeAuctionRows.length === 0 ? (
             <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-              Ingen annonser her ennå. Opprett en for å se den her.
+              Ingen aktive auksjoner her ennå.
             </p>
           ) : (
             <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-              {activeListingsRows.map((row) => listingItem(row))}
+              {activeAuctionRows.map((row) => listingItem(row))}
+            </ul>
+          )}
+        </section>
+
+        <section aria-labelledby="dash-active-fixed-heading">
+          <h2 id="dash-active-fixed-heading" className={sectionHeadingClass}>
+            Mine aktive fastprisannonser
+          </h2>
+          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+            Inkluderer utkast og publiserte fastprisannonser.
+          </p>
+          {activeFixedPriceRows.length === 0 ? (
+            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+              Ingen aktive fastprisannonser her ennå.
+            </p>
+          ) : (
+            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+              {activeFixedPriceRows.map((row) => listingItem(row))}
             </ul>
           )}
         </section>
@@ -641,46 +629,6 @@ export default async function DashboardPage() {
               Gå til Mine auksjoner →
             </Link>
           </p>
-        </section>
-
-        <section aria-labelledby="dash-bids-heading">
-          <h2 id="dash-bids-heading" className={sectionHeadingClass}>
-            Bud jeg har lagt inn
-          </h2>
-          {myBids.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-              Du har ikke lagt inn bud ennå.
-            </p>
-          ) : (
-            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-              {myBids.map((b) => {
-                const lid = b.listing_id ?? "";
-                const title = bidListingTitles.get(lid) ?? "—";
-                const amt = Number(b.amount_nok);
-                const when = b.created_at
-                  ? new Date(b.created_at).toLocaleString()
-                  : "—";
-                return (
-                  <li
-                    key={b.id}
-                    className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
-                  >
-                    <Link
-                      href={lid ? `/listings/${lid}` : "#"}
-                      className="font-medium text-zinc-900 dark:text-zinc-100"
-                    >
-                      {title}
-                    </Link>
-                    <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
-                      {Number.isFinite(amt) ? `${amt} NOK` : "—"}
-                      <span className="mx-2 text-zinc-400">·</span>
-                      {when}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
         </section>
 
         <section aria-labelledby="dash-fav-heading">
