@@ -375,7 +375,8 @@ export async function placeBid(
     return { error: insertError.message };
   }
 
-  const remainingMs = endsAtMs - Date.now();
+  const bidAcceptedAtMs = Date.now();
+  const remainingMs = endsAtMs - bidAcceptedAtMs;
   if (remainingMs > 0 && remainingMs < ANTI_SNIPE_WINDOW_MS) {
     const { error: snipeError } = await supabase.rpc("extend_auction_anti_snipe", {
       p_listing_id: listingId,

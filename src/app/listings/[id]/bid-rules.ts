@@ -1,2 +1,5 @@
-/** Length of the final window and of each anti-snipe extension (2 minutes). */
-export const ANTI_SNIPE_WINDOW_MS = 2 * 60 * 1000;
+/**
+ * Anti-snipe: if remaining time is strictly less than this when a bid is accepted,
+ * `auction_ends_at` is set to (bid time + this many ms). If remaining is this long or more, end time is unchanged.
+ */
+export const ANTI_SNIPE_WINDOW_MS = 5 * 60 * 1000;

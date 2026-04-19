@@ -7,6 +7,9 @@ import { createListing } from "./actions";
 const inputClass =
   "rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
 
+/** Minste budøkning / minstepris: no wheel nudge, no spin buttons (webkit + Firefox). */
+const auctionNumberInputClass = `${inputClass} [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`;
+
 const buttonClass =
   "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
 
@@ -177,7 +180,8 @@ export function CreateListingForm() {
               required
               value={minBidIncrementNok}
               onChange={(e) => setMinBidIncrementNok(e.target.value)}
-              className={inputClass}
+              onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+              className={auctionNumberInputClass}
               placeholder="5"
             />
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -235,7 +239,8 @@ export function CreateListingForm() {
                   required
                   value={reservePriceNok}
                   onChange={(e) => setReservePriceNok(e.target.value)}
-                  className={inputClass}
+                  onWheel={(e) => (e.currentTarget as HTMLInputElement).blur()}
+                  className={auctionNumberInputClass}
                   placeholder="5"
                 />
                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
