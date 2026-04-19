@@ -9,9 +9,11 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
-import { viewerAuctionBidPositionLabel } from "@/lib/auction-viewer-bid-status";
-
 export const dynamic = "force-dynamic";
+
+type PageProps = {
+  searchParams: Promise<{ tab?: string | string[] }>;
+};
 
 type BidRow = {
   listing_id: string;
@@ -66,19 +68,6 @@ function normalizeCompletedAtIso(value: unknown): string | null {
   return s;
 }
 
-function isFullyCompletedAuctionDeal(
-  deal: DealRowLite | null | undefined,
-): boolean {
-  if (!deal) return false;
-  return (
-    deal.seller_decision === "deal" &&
-    deal.bidder_decision === "deal" &&
-    deal.buyer_received_card === true &&
-    deal.seller_received_payment === true &&
-    deal.completed_at != null
-  );
-}
-
 /** Post-auction deal status for list display only (Norwegian). */
 function myAuctionsStatusLabel(
   deal: DealRowLite | null | undefined,
@@ -107,18 +96,132 @@ function myAuctionsStatusLabel(
     return "Deal bekreftet";
   }
   if (s === "pending" && b === "pending") {
-    return "Venter på svar";
+    return "Deal venter";
   }
   if (
     (s === "deal" && b === "pending") ||
     (s === "pending" && b === "deal")
   ) {
-    return "Venter på svar";
+    return "Deal venter";
   }
-  return "Venter på svar";
+  return "Deal venter";
 }
 
-export default async function MyAuctionsPage() {
+function isEndedAuctionForMyAuctionsPage(
+  row: { auction_ends_at: string | null; auction_starts_at: string | null },
+  nowIso: string,
+): boolean {
+  const nowMs = new Date(nowIso).getTime();
+  if (!row.auction_ends_at) return false;
+  const endMs = new Date(row.auction_ends_at).getTime();
+  if (!Number.isFinite(endMs) || endMs > nowMs) return false;
+  if (row.auction_starts_at) {
+    const startMs = new Date(row.auction_starts_at).getTime();
+    if (Number.isFinite(startMs) && startMs > nowMs) return false;
+  }
+  return true;
+}
+
+function contactUnlockedAfterAuctionFromBids(
+  useReservePrice: boolean,
+  reserveNok: number | string | null,
+  thresholdPct: number | string | null,
+  highestBidNok: number,
+  hasBids: boolean,
+): boolean {
+  if (!hasBids) return false;
+  if (!useReservePrice) return true;
+  const reserve =
+    reserveNok != null && Number.isFinite(Number(reserveNok))
+      ? Number(reserveNok)
+      : Number.NaN;
+  const pct =
+    thresholdPct != null && Number.isFinite(Number(thresholdPct))
+      ? Number(thresholdPct)
+      : Number.NaN;
+  if (!Number.isFinite(reserve) || !Number.isFinite(pct)) return false;
+  const contactOpensAtNok = Math.ceil((reserve * pct) / 100);
+  return highestBidNok >= contactOpensAtNok;
+}
+
+function sellerMineAnnonserStatusLabel(
+  deal: DealRowLite | null | undefined,
+  hasBids: boolean,
+  contactUnlocked: boolean,
+  userId: string,
+  listingSellerId: string,
+  leadingBidderId: string | null,
+): string {
+  if (!hasBids) return "Ingen bud";
+  if (!contactUnlocked) return "Krav ikke møtt";
+  if (!deal) return "Deal venter";
+  return myAuctionsStatusLabel(
+    deal,
+    userId,
+    listingSellerId,
+    leadingBidderId,
+  );
+}
+
+type PostAuctionOutcomeGroup =
+  | "ikke_resultat"
+  | "deal_venter"
+  | "deal_bekreftet"
+  | "deal_fullfort";
+
+function isSellerDealFullyCompleted(deal: DealRowLite): boolean {
+  return (
+    deal.seller_decision === "deal" &&
+    deal.bidder_decision === "deal" &&
+    deal.buyer_received_card === true &&
+    deal.seller_received_payment === true &&
+    deal.completed_at != null
+  );
+}
+
+/** Grouping for ended-auction outcome (seller Mine annonser + bidder Mine deals). */
+function postAuctionOutcomeGroup(
+  deal: DealRowLite | null | undefined,
+  hasBids: boolean,
+  contactUnlocked: boolean,
+): PostAuctionOutcomeGroup {
+  if (!hasBids) return "ikke_resultat";
+  if (!contactUnlocked) return "ikke_resultat";
+  if (!deal) return "deal_venter";
+  const s = deal.seller_decision;
+  const b = deal.bidder_decision;
+  if (s === "no_deal" || b === "no_deal") {
+    return "ikke_resultat";
+  }
+  if (isSellerDealFullyCompleted(deal)) {
+    return "deal_fullfort";
+  }
+  if (s === "deal" && b === "deal") {
+    return "deal_bekreftet";
+  }
+  return "deal_venter";
+}
+
+function bidderMineDealsStatusLabel(
+  deal: DealRowLite | null | undefined,
+  hasBids: boolean,
+  contactUnlocked: boolean,
+  userId: string,
+  listingSellerId: string,
+  leadingBidderId: string | null,
+): string {
+  if (!hasBids) return "—";
+  if (!contactUnlocked) return "Krav ikke møtt";
+  if (!deal) return "Deal venter";
+  return myAuctionsStatusLabel(
+    deal,
+    userId,
+    listingSellerId,
+    leadingBidderId,
+  );
+}
+
+export default async function MyAuctionsPage({ searchParams }: PageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -128,11 +231,18 @@ export default async function MyAuctionsPage() {
     redirect("/login");
   }
 
+  const sp = await searchParams;
+  const tabParam = sp.tab;
+  const activeTab =
+    typeof tabParam === "string" && tabParam === "deals" ? "deals" : "annonser";
+
   const nowIso = new Date().toISOString();
 
-  const { data: sellerListings, error: sellerErr } = await supabase
+  const { data: sellerListingsRaw, error: sellerErr } = await supabase
     .from("listings")
-    .select("id, title, auction_ends_at, seller_id")
+    .select(
+      "id, title, auction_starts_at, auction_ends_at, seller_id, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+    )
     .eq("type", "auction")
     .not("auction_ends_at", "is", null)
     .lte("auction_ends_at", nowIso)
@@ -141,6 +251,19 @@ export default async function MyAuctionsPage() {
   if (sellerErr) {
     throw new Error(`Could not load auctions: ${sellerErr.message}`);
   }
+
+  const sellerRows = (sellerListingsRaw ?? [])
+    .filter((l) => isEndedAuctionForMyAuctionsPage(l, nowIso))
+    .map((l) => ({
+      id: l.id,
+      title: l.title,
+      auction_starts_at: l.auction_starts_at,
+      auction_ends_at: l.auction_ends_at,
+      seller_id: String(l.seller_id ?? ""),
+      use_reserve_price: l.use_reserve_price === true,
+      reserve_price_nok: l.reserve_price_nok,
+      contact_threshold_percent: l.contact_threshold_percent,
+    }));
 
   const { data: myBidRows, error: myBidsErr } = await supabase
     .from("bids")
@@ -151,26 +274,32 @@ export default async function MyAuctionsPage() {
     throw new Error(`Could not load bids: ${myBidsErr.message}`);
   }
 
-  const sellerIds = new Set((sellerListings ?? []).map((l) => l.id));
+  const sellerListingIdSet = new Set(sellerRows.map((l) => l.id));
   const bidListingIds = [
     ...new Set(
       (myBidRows ?? [])
         .map((r) => r.listing_id)
         .filter((id): id is string => typeof id === "string" && id !== ""),
     ),
-  ].filter((id) => !sellerIds.has(id));
+  ].filter((id) => !sellerListingIdSet.has(id));
 
   let bidderWinRows: {
     id: string;
     title: string | null;
+    auction_starts_at: string | null;
     auction_ends_at: string | null;
     seller_id: string;
+    use_reserve_price: boolean;
+    reserve_price_nok: number | string | null;
+    contact_threshold_percent: number | string | null;
   }[] = [];
 
   if (bidListingIds.length > 0) {
     const { data: bidderCandidates, error: bidderListErr } = await supabase
       .from("listings")
-      .select("id, title, auction_ends_at, seller_id")
+      .select(
+        "id, title, auction_starts_at, auction_ends_at, seller_id, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+      )
       .eq("type", "auction")
       .not("auction_ends_at", "is", null)
       .lte("auction_ends_at", nowIso)
@@ -180,7 +309,11 @@ export default async function MyAuctionsPage() {
       throw new Error(`Could not load auctions: ${bidderListErr.message}`);
     }
 
-    const candidateIds = (bidderCandidates ?? []).map((l) => l.id);
+    const endedBidderCandidates = (bidderCandidates ?? []).filter((l) =>
+      isEndedAuctionForMyAuctionsPage(l, nowIso),
+    );
+
+    const candidateIds = endedBidderCandidates.map((l) => l.id);
     if (candidateIds.length > 0) {
       const { data: bidRows, error: bidsErr } = await supabase
         .from("bids")
@@ -209,35 +342,27 @@ export default async function MyAuctionsPage() {
         }
       }
 
-      bidderWinRows = (bidderCandidates ?? [])
+      bidderWinRows = endedBidderCandidates
         .filter((l) => won.has(l.id))
         .map((l) => ({
-          ...l,
+          id: l.id,
+          title: l.title,
+          auction_starts_at: l.auction_starts_at,
+          auction_ends_at: l.auction_ends_at,
           seller_id: String(l.seller_id ?? ""),
+          use_reserve_price: l.use_reserve_price === true,
+          reserve_price_nok: l.reserve_price_nok,
+          contact_threshold_percent: l.contact_threshold_percent,
         }));
     }
   }
 
-  const merged = new Map<
-    string,
-    {
-      id: string;
-      title: string | null;
-      auction_ends_at: string | null;
-      seller_id: string;
-    }
-  >();
-  for (const l of sellerListings ?? []) {
-    merged.set(l.id, {
-      ...l,
-      seller_id: String(l.seller_id ?? ""),
-    });
-  }
-  for (const l of bidderWinRows) {
-    merged.set(l.id, l);
-  }
-
-  const allIds = [...merged.keys()];
+  const allIds = [
+    ...new Set([
+      ...sellerRows.map((r) => r.id),
+      ...bidderWinRows.map((r) => r.id),
+    ]),
+  ];
   const bidsByListing = new Map<string, BidRow[]>();
   const dealsByListing = new Map<string, DealRowLite>();
   if (allIds.length > 0) {
@@ -284,163 +409,242 @@ export default async function MyAuctionsPage() {
     }
   }
 
-  const rows = [...merged.values()].sort((a, b) => {
+  const sortByAuctionEndDesc = (
+    a: { auction_ends_at: string | null },
+    b: { auction_ends_at: string | null },
+  ) => {
     const ta = a.auction_ends_at ? new Date(a.auction_ends_at).getTime() : 0;
     const tb = b.auction_ends_at ? new Date(b.auction_ends_at).getTime() : 0;
     return tb - ta;
+  };
+
+  const sellerRowsSorted = [...sellerRows].sort(sortByAuctionEndDesc);
+  const bidderWinRowsSorted = [...bidderWinRows].sort(sortByAuctionEndDesc);
+
+  const hasSellerRows = sellerRowsSorted.length > 0;
+  const hasBidderMineDealsRows = bidderWinRowsSorted.length > 0;
+  const pageHasAnyRow = hasSellerRows || hasBidderMineDealsRows;
+
+  const tabClass = (isActive: boolean) =>
+    `inline-flex items-center border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+      isActive
+        ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
+        : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+    }`;
+
+  const postAuctionOutcomeGroupOrder: PostAuctionOutcomeGroup[] = [
+    "ikke_resultat",
+    "deal_venter",
+    "deal_bekreftet",
+    "deal_fullfort",
+  ];
+
+  const postAuctionOutcomeGroupTitle: Record<PostAuctionOutcomeGroup, string> =
+    {
+      ikke_resultat: "Ikke resultat",
+      deal_venter: "Deal venter",
+      deal_bekreftet: "Deal bekreftet",
+      deal_fullfort: "Deal fullført",
+    };
+
+  const sellerRowVms = sellerRowsSorted.map((row) => {
+    const bidRows = bidsByListing.get(row.id) ?? [];
+    const { highestNok, leadingBidderId } = leadingBidForListing(bidRows);
+    const hasBids = bidRows.length > 0;
+    const contactUnlocked = contactUnlockedAfterAuctionFromBids(
+      row.use_reserve_price,
+      row.reserve_price_nok,
+      row.contact_threshold_percent,
+      highestNok,
+      hasBids,
+    );
+    const deal = dealsByListing.get(row.id);
+    const group = postAuctionOutcomeGroup(deal, hasBids, contactUnlocked);
+    const statusLabel = sellerMineAnnonserStatusLabel(
+      deal,
+      hasBids,
+      contactUnlocked,
+      user.id,
+      row.seller_id,
+      leadingBidderId,
+    );
+    return { row, highestNok, statusLabel, group };
   });
 
-  const completedRows = rows.filter((row) =>
-    isFullyCompletedAuctionDeal(dealsByListing.get(row.id)),
-  );
-  const ongoingRows = rows.filter(
-    (row) => !isFullyCompletedAuctionDeal(dealsByListing.get(row.id)),
-  );
+  const bidderMineDealsRowVms = bidderWinRowsSorted.map((row) => {
+    const bidRows = bidsByListing.get(row.id) ?? [];
+    const { highestNok, leadingBidderId } = leadingBidForListing(bidRows);
+    const hasBids = bidRows.length > 0;
+    const contactUnlocked = contactUnlockedAfterAuctionFromBids(
+      row.use_reserve_price,
+      row.reserve_price_nok,
+      row.contact_threshold_percent,
+      highestNok,
+      hasBids,
+    );
+    const deal = dealsByListing.get(row.id);
+    const group = postAuctionOutcomeGroup(deal, hasBids, contactUnlocked);
+    const statusLabel = bidderMineDealsStatusLabel(
+      deal,
+      hasBids,
+      contactUnlocked,
+      user.id,
+      row.seller_id,
+      leadingBidderId,
+    );
+    return { row, highestNok, statusLabel, group };
+  });
 
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
-        <h1 className={pageTitleClass}>Mine auksjoner</h1>
+        <div className="space-y-1">
+          <h1 className={pageTitleClass}>Mine auksjoner</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Kun avsluttede auksjoner (ikke planlagte eller pågående).
+          </p>
+        </div>
         <SignedInNavLinks />
       </header>
 
       <section className={pageBodyGapClass}>
-        {rows.length === 0 ? (
+        {!pageHasAnyRow ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Ingen avsluttede auksjoner der du er selger eller høyeste budgiver.
+            Ingen avsluttede auksjoner her ennå.
           </p>
         ) : (
-          <div className="space-y-8">
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                Pågående
-              </h2>
-              {ongoingRows.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Ingen pågående handler
+          <div className="space-y-6">
+            <nav
+              className="flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-700"
+              aria-label="Mine auksjoner-faner"
+            >
+              <Link
+                href="/my-auctions"
+                className={tabClass(activeTab === "annonser")}
+                aria-current={activeTab === "annonser" ? "page" : undefined}
+              >
+                Mine annonser
+              </Link>
+              <Link
+                href="/my-auctions?tab=deals"
+                className={tabClass(activeTab === "deals")}
+                aria-current={activeTab === "deals" ? "page" : undefined}
+              >
+                Mine deals
+              </Link>
+            </nav>
+
+            {activeTab === "annonser" ? (
+              !hasSellerRows ? (
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  Ingen avsluttede auksjoner som selger.
                 </p>
               ) : (
-                <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-                  {ongoingRows.map((row) => {
-                    const bidRows = bidsByListing.get(row.id) ?? [];
-                    const { highestNok, leadingBidderId } =
-                      leadingBidForListing(bidRows);
-                    const statusLabel = myAuctionsStatusLabel(
-                      dealsByListing.get(row.id),
-                      user.id,
-                      row.seller_id,
-                      leadingBidderId,
-                    );
-                    const bidPositionLabel =
-                      row.seller_id !== user.id
-                        ? viewerAuctionBidPositionLabel(
-                            user.id,
-                            bidRows.length > 0,
-                            leadingBidderId,
-                          )
-                        : null;
+                <div className="space-y-8">
+                  {postAuctionOutcomeGroupOrder.map((groupKey) => {
+                    const items = sellerRowVms.filter((v) => v.group === groupKey);
                     return (
-                      <li
-                        key={row.id}
-                        className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="space-y-1">
-                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                            {row.title?.trim() || "—"}
+                      <div key={groupKey}>
+                        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                          {postAuctionOutcomeGroupTitle[groupKey]}
+                        </h2>
+                        {items.length === 0 ? (
+                          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                            Ingen auksjoner i denne gruppen.
                           </p>
-                          <p className="text-zinc-600 dark:text-zinc-400">
-                            Høyeste bud:{" "}
-                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
-                              {highestNok > 0 ? highestNok : 0}
-                            </span>{" "}
-                            NOK
-                          </p>
-                          {bidPositionLabel ? (
-                            <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                              {bidPositionLabel}
-                            </p>
-                          ) : null}
-                          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                            {statusLabel}
-                          </p>
-                        </div>
-                        <Link
-                          href={`/my-auctions/${row.id}`}
-                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                          Gå til deal
-                        </Link>
-                      </li>
+                        ) : (
+                          <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                            {items.map(({ row, highestNok, statusLabel }) => (
+                              <li
+                                key={row.id}
+                                className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+                              >
+                                <div className="space-y-1">
+                                  <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                    {row.title?.trim() || "—"}
+                                  </p>
+                                  <p className="text-zinc-600 dark:text-zinc-400">
+                                    Høyeste bud:{" "}
+                                    <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                      {highestNok > 0 ? highestNok : 0}
+                                    </span>{" "}
+                                    NOK
+                                  </p>
+                                  <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                    {statusLabel}
+                                  </p>
+                                </div>
+                                <Link
+                                  href={`/my-auctions/${row.id}`}
+                                  className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                >
+                                  Gå til deal
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                     );
                   })}
-                </ul>
-              )}
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                Fullførte
-              </h2>
-              {completedRows.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Ingen fullførte handler
-                </p>
-              ) : (
-                <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-                  {completedRows.map((row) => {
-                    const bidRows = bidsByListing.get(row.id) ?? [];
-                    const { highestNok, leadingBidderId } =
-                      leadingBidForListing(bidRows);
-                    const statusLabel = myAuctionsStatusLabel(
-                      dealsByListing.get(row.id),
-                      user.id,
-                      row.seller_id,
-                      leadingBidderId,
-                    );
-                    const bidPositionLabel =
-                      row.seller_id !== user.id
-                        ? viewerAuctionBidPositionLabel(
-                            user.id,
-                            bidRows.length > 0,
-                            leadingBidderId,
-                          )
-                        : null;
-                    return (
-                      <li
-                        key={row.id}
-                        className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="space-y-1">
-                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
-                            {row.title?.trim() || "—"}
-                          </p>
-                          <p className="text-zinc-600 dark:text-zinc-400">
-                            Høyeste bud:{" "}
-                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
-                              {highestNok > 0 ? highestNok : 0}
-                            </span>{" "}
-                            NOK
-                          </p>
-                          {bidPositionLabel ? (
-                            <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                              {bidPositionLabel}
-                            </p>
-                          ) : null}
-                          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                            {statusLabel}
-                          </p>
-                        </div>
-                        <Link
-                          href={`/my-auctions/${row.id}`}
-                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                          Gå til deal
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+                </div>
+              )
+            ) : !hasBidderMineDealsRows ? (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Ingen avsluttede auksjoner der du er høyeste budgiver.
+              </p>
+            ) : (
+              <div className="space-y-8">
+                {postAuctionOutcomeGroupOrder.map((groupKey) => {
+                  const items = bidderMineDealsRowVms.filter(
+                    (v) => v.group === groupKey,
+                  );
+                  return (
+                    <div key={groupKey}>
+                      <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                        {postAuctionOutcomeGroupTitle[groupKey]}
+                      </h2>
+                      {items.length === 0 ? (
+                        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                          Ingen auksjoner i denne gruppen.
+                        </p>
+                      ) : (
+                        <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                          {items.map(({ row, highestNok, statusLabel }) => (
+                            <li
+                              key={row.id}
+                              className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="space-y-1">
+                                <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                  {row.title?.trim() || "—"}
+                                </p>
+                                <p className="text-zinc-600 dark:text-zinc-400">
+                                  Høyeste bud:{" "}
+                                  <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                    {highestNok > 0 ? highestNok : 0}
+                                  </span>{" "}
+                                  NOK
+                                </p>
+                                <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                  {statusLabel}
+                                </p>
+                              </div>
+                              <Link
+                                href={`/my-auctions/${row.id}`}
+                                className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                              >
+                                Gå til deal
+                              </Link>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </section>
