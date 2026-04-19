@@ -8,8 +8,8 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
-import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
 import { HomeCardFavoriteButton } from "@/app/home-card-favorite-button";
+import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
 import { formatAuctionTimeRemainingNo } from "@/lib/auction-time-remaining-no";
 import {
   highestNokByListingId,
@@ -310,8 +310,11 @@ export default async function HomePage() {
                               {state}
                             </span>
                             {timeLeft ? (
-                              <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                                {timeLeft}
+                              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                                  Tid igjen
+                                </span>{" "}
+                                <span className="tabular-nums">{timeLeft}</span>
                               </span>
                             ) : null}
                             <span className="tabular-nums text-zinc-600 dark:text-zinc-400">

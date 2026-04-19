@@ -4,8 +4,8 @@ const MS_MIN = 60_000;
 const MS_10_MIN = 10 * MS_MIN;
 
 /**
- * Compact remaining time until `endMs` (server snapshot).
- * Same rules as dashboard «Auksjoner du følger» cards.
+ * Compact remaining time until `endMs` from `nowMs` (server snapshot).
+ * Home auction cards and dashboard «Auksjoner du følger»: day/hour when >1d, then hour/minute, minutes, m+s, or seconds only.
  */
 export function formatAuctionTimeRemainingNo(
   endMs: number,

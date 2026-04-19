@@ -15,6 +15,8 @@ import {
   type BidWithListingId,
 } from "@/lib/highest-bid-nok";
 
+import { DashboardCustomBidForm } from "./dashboard-custom-bid-form";
+import { DashboardQuickBidForm } from "./dashboard-quick-bid-form";
 import { DeleteDraftForm } from "./delete-draft-form";
 import { PublishDraftForm } from "./publish-draft-form";
 
@@ -99,7 +101,30 @@ type TrackedAuctionListingRow = {
   type: string | null;
   auction_starts_at: string | null;
   auction_ends_at: string | null;
+  seller_id: string | null;
+  price_nok: number | string | null;
+  min_bid_increment_nok: number | string | null;
 };
+
+function dashboardQuickBidAmountNok(
+  hasAnyBid: boolean,
+  highestNok: number,
+  priceNok: number | string | null,
+  minIncrementNok: number | string | null,
+): number | null {
+  const startPriceNok =
+    priceNok != null && Number.isFinite(Number(priceNok))
+      ? Math.trunc(Number(priceNok))
+      : null;
+  const minBidIncrementNok =
+    minIncrementNok != null && Number.isFinite(Number(minIncrementNok))
+      ? Math.trunc(Number(minIncrementNok))
+      : null;
+  if (startPriceNok == null || startPriceNok < 1) return null;
+  if (minBidIncrementNok == null || minBidIncrementNok < 1) return null;
+  if (!hasAnyBid) return startPriceNok;
+  return highestNok + minBidIncrementNok;
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -268,7 +293,9 @@ export default async function DashboardPage() {
     const { data: trackedAuctionListings, error: trackedListErr } =
       await supabase
         .from("listings")
-        .select("id, title, type, auction_starts_at, auction_ends_at")
+        .select(
+          "id, title, type, auction_starts_at, auction_ends_at, seller_id, price_nok, min_bid_increment_nok",
+        )
         .in("id", trackedIds)
         .eq("type", "auction");
 
@@ -464,8 +491,20 @@ export default async function DashboardPage() {
                 const remaining = Number.isFinite(endMs)
                   ? formatAuctionTimeRemainingNo(endMs, nowMs)
                   : "—";
-                const high =
-                  highestNokTrackedFollow.get(row.id) ?? 0;
+                const hasAnyBid = highestNokTrackedFollow.has(row.id);
+                const high = hasAnyBid
+                  ? (highestNokTrackedFollow.get(row.id) ?? 0)
+                  : 0;
+                const quickAmount = dashboardQuickBidAmountNok(
+                  hasAnyBid,
+                  high,
+                  row.price_nok,
+                  row.min_bid_increment_nok,
+                );
+                const showQuickBid =
+                  quickAmount != null &&
+                  row.seller_id != null &&
+                  row.seller_id !== user.id;
                 return (
                   <li
                     key={row.id}
@@ -491,6 +530,18 @@ export default async function DashboardPage() {
                         <span className="mx-2 text-zinc-400">·</span>
                         {remaining}
                       </span>
+                      {showQuickBid ? (
+                        <>
+                          <DashboardQuickBidForm
+                            listingId={row.id}
+                            amountNok={quickAmount}
+                          />
+                          <DashboardCustomBidForm
+                            listingId={row.id}
+                            minNextBidNok={quickAmount}
+                          />
+                        </>
+                      ) : null}
                     </div>
                   </li>
                 );

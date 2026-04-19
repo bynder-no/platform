@@ -147,6 +147,12 @@ export async function toggleFavorite(
     }
   }
 
+  const returnTo = String(formData.get("return_to") ?? "").trim();
+  if (returnTo === "/") {
+    revalidatePath("/");
+    redirect("/");
+  }
+
   redirect(`/listings/${listingId}`);
 }
 
@@ -363,7 +369,14 @@ export async function placeBid(
     }
   }
 
+  const returnTo = String(formData.get("return_to") ?? "").trim();
+  const backToDashboard = returnTo === "/dashboard";
+
   revalidatePath(`/listings/${listingId}`);
+  if (backToDashboard) {
+    revalidatePath("/dashboard");
+    redirect("/dashboard");
+  }
   redirect(`/listings/${listingId}`);
 }
 

@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { toggleFavorite } from "@/app/listings/[id]/actions";
 
 const buttonClass =
-  "rounded border border-zinc-200 bg-white px-1.5 py-0.5 text-[11px] font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900";
+  "shrink-0 rounded p-0.5 text-lg leading-none text-amber-500 transition hover:bg-zinc-100 disabled:opacity-50 dark:text-amber-400 dark:hover:bg-zinc-800";
 
 type HomeCardFavoriteButtonProps = {
   listingId: string;
