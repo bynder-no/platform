@@ -8,7 +8,9 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import { HomeCardFavoriteButton } from "@/app/home-card-favorite-button";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
+import { formatAuctionTimeRemainingNo } from "@/lib/auction-time-remaining-no";
 import {
   highestNokByListingId,
   type BidWithListingId,
@@ -23,6 +25,7 @@ type ListingCardRow = {
   price_nok: number | string | null;
   auction_starts_at: string | null;
   auction_ends_at: string | null;
+  seller_id: string | null;
 };
 
 function auctionStateLabelNo(
@@ -59,7 +62,7 @@ export default async function HomePage() {
   const nowMs = now.getTime();
 
   const selectCols =
-    "id, title, type, price_nok, auction_starts_at, auction_ends_at, created_at";
+    "id, title, type, price_nok, auction_starts_at, auction_ends_at, created_at, seller_id";
 
   const { data: auctionList, error: auctionErr } = await supabase
     .from("listings")
@@ -87,6 +90,30 @@ export default async function HomePage() {
 
   const auctionRows = (auctionList ?? []) as ListingCardRow[];
   const fixedRows = (fixedList ?? []) as ListingCardRow[];
+
+  const homeCardIds = [
+    ...new Set(
+      [...auctionRows, ...fixedRows]
+        .map((r) => r.id)
+        .filter((id): id is string => typeof id === "string" && id !== ""),
+    ),
+  ];
+  const favoriteIdSet = new Set<string>();
+  if (user && homeCardIds.length > 0) {
+    const { data: homeFavRows, error: homeFavErr } = await supabase
+      .from("favorites")
+      .select("listing_id")
+      .eq("user_id", user.id)
+      .in("listing_id", homeCardIds);
+
+    if (homeFavErr) {
+      throw new Error(`Could not load favorites: ${homeFavErr.message}`);
+    }
+    for (const r of homeFavRows ?? []) {
+      const lid = r.listing_id;
+      if (typeof lid === "string" && lid !== "") favoriteIdSet.add(lid);
+    }
+  }
 
   const auctionIds = auctionRows.map((r) => r.id).filter(Boolean);
   let auctionHighestNokById = new Map<string, number>();
@@ -187,22 +214,48 @@ export default async function HomePage() {
                   row.auction_ends_at ?? null,
                 );
                 const liveNok = auctionHighestNokById.get(row.id) ?? 0;
+                const endMs = row.auction_ends_at
+                  ? new Date(row.auction_ends_at).getTime()
+                  : Number.NaN;
+                const tidIggjenLabel = Number.isFinite(endMs)
+                  ? formatAuctionTimeRemainingNo(endMs, nowMs)
+                  : "—";
                 return (
                   <li key={row.id}>
-                    <Link
-                      href={`/listings/${row.id}`}
+                    <div
                       className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
                     >
-                      <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
-                        {row.title?.trim() || "—"}
-                      </span>
-                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                        {state}
-                      </span>
-                      <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
-                        {liveNok} NOK
-                      </span>
-                    </Link>
+                      <div className="flex items-start gap-1">
+                        <Link
+                          href={`/listings/${row.id}`}
+                          className="flex min-w-0 flex-1 flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
+                        >
+                          <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
+                            {row.title?.trim() || "—"}
+                          </span>
+                          <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                            {state}
+                          </span>
+                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                            <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                              Tid igjen
+                            </span>{" "}
+                            <span className="tabular-nums">{tidIggjenLabel}</span>
+                          </span>
+                          <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                            {liveNok} NOK
+                          </span>
+                        </Link>
+                        {user &&
+                        row.seller_id &&
+                        row.seller_id !== user.id ? (
+                          <HomeCardFavoriteButton
+                            listingId={row.id}
+                            isFavorite={favoriteIdSet.has(row.id)}
+                          />
+                        ) : null}
+                      </div>
+                    </div>
                   </li>
                 );
               })}
@@ -230,17 +283,31 @@ export default async function HomePage() {
             <ul className="mt-4 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
               {fixedRows.map((row) => (
                 <li key={row.id}>
-                  <Link
-                    href={`/listings/${row.id}`}
+                  <div
                     className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
                   >
-                    <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
-                      {row.title?.trim() || "—"}
-                    </span>
-                    <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
-                      {priceText(row.price_nok)}
-                    </span>
-                  </Link>
+                    <div className="flex items-start gap-1">
+                      <Link
+                        href={`/listings/${row.id}`}
+                        className="flex min-w-0 flex-1 flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
+                      >
+                        <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
+                          {row.title?.trim() || "—"}
+                        </span>
+                        <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+                          {priceText(row.price_nok)}
+                        </span>
+                      </Link>
+                      {user &&
+                      row.seller_id &&
+                      row.seller_id !== user.id ? (
+                        <HomeCardFavoriteButton
+                          listingId={row.id}
+                          isFavorite={favoriteIdSet.has(row.id)}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
