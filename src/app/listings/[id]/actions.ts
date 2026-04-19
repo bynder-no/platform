@@ -570,6 +570,12 @@ export async function setListingDealDecision(
     );
   }
 
+  const returnTo = String(formData.get("return_to") ?? "").trim();
+  const dealRoomPath = `/my-auctions/${listingId}`;
   revalidatePath(`/listings/${listingId}`);
+  if (returnTo === dealRoomPath) {
+    revalidatePath(dealRoomPath);
+    redirect(dealRoomPath);
+  }
   redirect(`/listings/${listingId}`);
 }

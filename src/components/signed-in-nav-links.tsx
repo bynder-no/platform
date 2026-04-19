@@ -36,7 +36,7 @@ export function SignedInNavLinks({ className }: SignedInNavLinksProps) {
         ·
       </span>
       <Link href="/my-auctions" className={navLinkClass}>
-        Mine auksjoner
+        Mine deals
       </Link>
       <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
         ·

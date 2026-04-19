@@ -17,6 +17,10 @@ type AuctionDealPanelProps = {
   bidderDecision: string;
   showSellerButtons: boolean;
   showBidderButtons: boolean;
+  /** When set, server action redirects back here after Deal / No deal (must match listing id). */
+  returnToAfterDecision?: string;
+  /** When set, replaces the default outcome line (e.g. personalized «Deal venter» copy in dealrom). */
+  outcomeTextOverride?: string;
 };
 
 export function AuctionDealPanel({
@@ -25,9 +29,14 @@ export function AuctionDealPanel({
   bidderDecision,
   showSellerButtons,
   showBidderButtons,
+  returnToAfterDecision,
+  outcomeTextOverride,
 }: AuctionDealPanelProps) {
   const [state, formAction, pending] = useActionState(setListingDealDecision, null);
-  const outcome = listingDealOutcomeText(sellerDecision, bidderDecision);
+  const outcome =
+    typeof outcomeTextOverride === "string"
+      ? outcomeTextOverride
+      : listingDealOutcomeText(sellerDecision, bidderDecision);
 
   return (
     <div className="mt-3 space-y-4">
@@ -37,6 +46,9 @@ export function AuctionDealPanel({
         <form action={formAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="listing_id" value={listingId} />
           <input type="hidden" name="role" value="seller" />
+          {returnToAfterDecision ? (
+            <input type="hidden" name="return_to" value={returnToAfterDecision} />
+          ) : null}
           <button
             type="submit"
             name="decision"
@@ -62,6 +74,9 @@ export function AuctionDealPanel({
         <form action={formAction} className="flex flex-wrap gap-2">
           <input type="hidden" name="listing_id" value={listingId} />
           <input type="hidden" name="role" value="bidder" />
+          {returnToAfterDecision ? (
+            <input type="hidden" name="return_to" value={returnToAfterDecision} />
+          ) : null}
           <button
             type="submit"
             name="decision"
