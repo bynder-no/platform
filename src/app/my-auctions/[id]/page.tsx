@@ -204,6 +204,24 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     listingSellerIdForDeal !== "" &&
     winningBidderIdForDeal !== "";
 
+  const counterpartUserId = isSeller
+    ? winningBidderIdForDeal
+    : listingSellerIdForDeal;
+  let counterpartUsername: string | null = null;
+  if (counterpartUserId !== "") {
+    const { data: counterpartProfile, error: counterpartErr } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", counterpartUserId)
+      .maybeSingle();
+    if (counterpartErr) {
+      console.error("profiles:", counterpartErr.message);
+    } else {
+      const normalizedUsername = String(counterpartProfile?.username ?? "").trim();
+      counterpartUsername = normalizedUsername !== "" ? normalizedUsername : null;
+    }
+  }
+
   let dealRow: {
     seller_decision: string;
     bidder_decision: string;
@@ -360,6 +378,31 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
       ? dealVenterActionHint(isSeller ? "seller" : "bidder", dealRow)
       : undefined;
 
+  const topStatusLabel =
+    eligibleForAuctionDeal &&
+    dealRow != null &&
+    dealRow.seller_decision === "deal" &&
+    dealRow.bidder_decision === "deal"
+      ? showDealCompletedMessage
+        ? "Fullført"
+        : "Deal bekreftet"
+      : "Deal venter";
+
+  const topStatusHelperText =
+    topStatusLabel === "Fullført"
+      ? "Begge parter har bekreftet handelen."
+      : topStatusLabel === "Deal bekreftet"
+        ? postDealFulfillmentStatusText(
+            isSeller ? "seller" : "bidder",
+            dealRow?.seller_decision ?? "pending",
+            dealRow?.bidder_decision ?? "pending",
+            dealRow?.buyer_received_card ?? false,
+            dealRow?.seller_received_payment ?? false,
+          ) || "Deal er bekreftet. Følg neste steg for å fullføre."
+        : dealRow
+          ? dealVenterActionHint(isSeller ? "seller" : "bidder", dealRow)
+          : "Venter på at begge svarer på deal.";
+
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
@@ -376,13 +419,36 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
       </header>
 
       <div className={`${pageBodyGapClass} space-y-8 text-sm`}>
-        <section aria-labelledby="dealroom-title-heading">
-          <h2 id="dealroom-title-heading" className={sectionLabelClass}>
-            Annonse
+        <section aria-labelledby="dealroom-summary-heading">
+          <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
+            Dealoversikt
           </h2>
-          <p className="mt-2 text-lg font-semibold text-zinc-950 dark:text-zinc-50">
-            {listing.title?.trim() || "—"}
-          </p>
+          <div className="mt-2 rounded-md border border-zinc-200 p-4 dark:border-zinc-700">
+            <p className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+              {listing.title?.trim() || "—"}
+            </p>
+            <p className="mt-2 text-zinc-700 dark:text-zinc-300">
+              Motpart:{" "}
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                {counterpartUsername ?? "—"}
+              </span>
+            </p>
+            <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+              Du er:{" "}
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                {isSeller ? "Selger" : "Kjøper"}
+              </span>
+            </p>
+            <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+              <p className={sectionLabelClass}>Status</p>
+              <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+                {topStatusLabel}
+              </p>
+              <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                {topStatusHelperText}
+              </p>
+            </div>
+          </div>
         </section>
 
         <section aria-labelledby="dealroom-bid-heading">
@@ -393,13 +459,6 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
             {highestBidNok > 0 ? highestBidNok : 0}{" "}
             <span className="text-zinc-500 dark:text-zinc-400">NOK</span>
           </p>
-        </section>
-
-        <section aria-labelledby="dealroom-ended-heading">
-          <h2 id="dealroom-ended-heading" className={sectionLabelClass}>
-            Status
-          </h2>
-          <p className="mt-2 text-zinc-700 dark:text-zinc-300">Avsluttet</p>
         </section>
 
         <section aria-labelledby="dealroom-contact-heading">

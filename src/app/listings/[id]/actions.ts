@@ -7,6 +7,31 @@ import { createClient } from "@/lib/supabase/server";
 
 import { ANTI_SNIPE_WINDOW_MS } from "./bid-rules";
 
+type NotificationType =
+  | "outbid"
+  | "deal_relevant"
+  | "no_successful_result"
+  | "deal_requires_action"
+  | "rating_available";
+
+async function createNotification(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  type: NotificationType,
+  listingId: string,
+  message: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("create_notification", {
+    p_user_id: userId,
+    p_type: type,
+    p_listing_id: listingId,
+    p_message: message,
+  });
+  if (error) {
+    console.error("create_notification:", error.message);
+  }
+}
+
 export type PublishListingState = { error: string } | null;
 
 export async function publishListing(
@@ -272,7 +297,7 @@ export async function placeBid(
   const { data: listing, error: listingFetchError } = await supabase
     .from("listings")
     .select(
-      "seller_id, type, status, price_nok, min_bid_increment_nok, auction_starts_at, auction_ends_at",
+      "title, seller_id, type, status, price_nok, min_bid_increment_nok, auction_starts_at, auction_ends_at",
     )
     .eq("id", listingId)
     .maybeSingle();
@@ -314,7 +339,7 @@ export async function placeBid(
 
   const { data: topBid, error: topBidError } = await supabase
     .from("bids")
-    .select("amount_nok")
+    .select("amount_nok, bidder_id")
     .eq("listing_id", listingId)
     .order("amount_nok", { ascending: false })
     .limit(1)
@@ -328,6 +353,8 @@ export async function placeBid(
     topBid?.amount_nok != null && Number.isFinite(Number(topBid.amount_nok))
       ? Math.trunc(Number(topBid.amount_nok))
       : null;
+  const previousHighestBidderId =
+    topBid?.bidder_id != null ? String(topBid.bidder_id).trim() : "";
 
   const startPriceNok =
     listing.price_nok != null && Number.isFinite(Number(listing.price_nok))
@@ -390,6 +417,17 @@ export async function placeBid(
   const returnTo = String(formData.get("return_to") ?? "").trim();
   const backToDashboard = returnTo === "/dashboard";
 
+  if (previousHighestBidderId !== "" && previousHighestBidderId !== user.id) {
+    const listingTitle = String(listing.title ?? "").trim() || "annonsen";
+    await createNotification(
+      supabase,
+      previousHighestBidderId,
+      "outbid",
+      listingId,
+      `Du er overbydd i ${listingTitle}.`,
+    );
+  }
+
   revalidatePath(`/listings/${listingId}`);
   if (backToDashboard) {
     revalidatePath("/dashboard");
@@ -431,7 +469,7 @@ export async function setListingDealDecision(
   const { data: listing, error: listingErr } = await supabase
     .from("listings")
     .select(
-      "seller_id, type, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+      "title, seller_id, type, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
     )
     .eq("id", listingId)
     .maybeSingle();
@@ -568,6 +606,63 @@ export async function setListingDealDecision(
       "apply_listing_deal_transaction_stats:",
       dealStatsErr.message,
     );
+  }
+
+  const { data: dealAfterDecision, error: dealAfterDecisionErr } = await supabase
+    .from("listing_deals")
+    .select("seller_decision, bidder_decision")
+    .eq("listing_id", listingId)
+    .maybeSingle();
+  if (dealAfterDecisionErr) {
+    console.error("listing_deals select:", dealAfterDecisionErr.message);
+  } else if (dealAfterDecision) {
+    const sellerDecision = String(dealAfterDecision.seller_decision ?? "pending");
+    const bidderDecision = String(dealAfterDecision.bidder_decision ?? "pending");
+    const sellerId = String(listing.seller_id ?? "").trim();
+    const bidderId = String(leadingBidRow.bidder_id ?? "").trim();
+    const listingTitle = String(listing.title ?? "").trim() || "annonsen";
+
+    if (sellerDecision === "no_deal" || bidderDecision === "no_deal") {
+      if (bidderId !== "") {
+        await createNotification(
+          supabase,
+          bidderId,
+          "no_successful_result",
+          listingId,
+          `Auksjonen for ${listingTitle} endte uten vellykket resultat.`,
+        );
+      }
+    } else if (sellerDecision === "deal" && bidderDecision === "deal") {
+      if (bidderId !== "") {
+        await createNotification(
+          supabase,
+          bidderId,
+          "deal_relevant",
+          listingId,
+          `Du vant auksjonen for ${listingTitle}. Gå til dealrommet.`,
+        );
+      }
+    } else if (sellerDecision === "pending" && bidderDecision !== "pending") {
+      if (sellerId !== "") {
+        await createNotification(
+          supabase,
+          sellerId,
+          "deal_requires_action",
+          listingId,
+          `Du har en deal som venter svar for ${listingTitle}.`,
+        );
+      }
+    } else if (bidderDecision === "pending" && sellerDecision !== "pending") {
+      if (bidderId !== "") {
+        await createNotification(
+          supabase,
+          bidderId,
+          "deal_requires_action",
+          listingId,
+          `Du har en deal som venter svar for ${listingTitle}.`,
+        );
+      }
+    }
   }
 
   const returnTo = String(formData.get("return_to") ?? "").trim();
