@@ -698,9 +698,6 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                 {activeTab === "deals" ? (
                   <input type="hidden" name="tab" value="deals" />
                 ) : null}
-                {listingKind === "fixed_price" ? (
-                  <input type="hidden" name="listing" value="fixed_price" />
-                ) : null}
               </form>
 
               {activeTab === "annonser" ? (
