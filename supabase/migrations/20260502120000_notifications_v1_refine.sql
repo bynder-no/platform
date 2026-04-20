@@ -1,43 +1,3 @@
-create table public.notifications (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles (id) on delete cascade,
-  type text not null check (
-    type in (
-      'outbid',
-      'deal_action_required',
-      'deal_relevant',
-      'no_successful_result',
-      'deal_requires_action',
-      'rating_available'
-    )
-  ),
-  listing_id uuid not null references public.listings (id) on delete cascade,
-  message text not null,
-  is_read boolean not null default false,
-  created_at timestamptz not null default now()
-);
-
-create index notifications_user_created_idx
-  on public.notifications (user_id, created_at desc);
-
-create unique index notifications_unique_event_idx
-  on public.notifications (user_id, type, listing_id, message);
-
-alter table public.notifications enable row level security;
-
-create policy "Users can view own notifications"
-  on public.notifications
-  for select
-  to authenticated
-  using (user_id = auth.uid());
-
-create policy "Users can mark own notifications as read"
-  on public.notifications
-  for update
-  to authenticated
-  using (user_id = auth.uid())
-  with check (user_id = auth.uid());
-
 create or replace function public.create_notification(
   p_user_id uuid,
   p_type text,
@@ -53,6 +13,7 @@ declare
   v_actor uuid;
   v_listing_seller uuid;
   v_top_bidder uuid;
+  v_existing_unread_id uuid;
   v_notification_id uuid;
 begin
   v_actor := auth.uid();
@@ -68,13 +29,7 @@ begin
     return null;
   end if;
 
-  if p_type not in (
-    'outbid',
-    'deal_relevant',
-    'no_successful_result',
-    'deal_requires_action',
-    'rating_available'
-  ) then
+  if p_type not in ('outbid', 'deal_action_required') then
     return null;
   end if;
 
@@ -98,9 +53,22 @@ begin
     return null;
   end if;
 
+  select n.id
+    into v_existing_unread_id
+  from public.notifications n
+  where n.user_id = p_user_id
+    and n.type = p_type
+    and n.listing_id = p_listing_id
+    and n.is_read = false
+  order by n.created_at desc
+  limit 1;
+
+  if v_existing_unread_id is not null then
+    return v_existing_unread_id;
+  end if;
+
   insert into public.notifications (user_id, type, listing_id, message)
   values (p_user_id, p_type, p_listing_id, p_message)
-  on conflict (user_id, type, listing_id, message) do nothing
   returning id into v_notification_id;
 
   return v_notification_id;
