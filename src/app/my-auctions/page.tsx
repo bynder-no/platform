@@ -12,7 +12,11 @@ import {
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: Promise<{ tab?: string | string[]; listing?: string | string[] }>;
+  searchParams: Promise<{
+    tab?: string | string[];
+    listing?: string | string[];
+    q?: string | string[];
+  }>;
 };
 
 type BidRow = {
@@ -279,6 +283,10 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     typeof listingParam === "string" && listingParam === "fixed_price"
       ? "fixed_price"
       : "auction";
+  const searchParam = sp.q;
+  const searchQueryRaw = typeof searchParam === "string" ? searchParam : "";
+  const searchQuery = searchQueryRaw.trim();
+  const normalizedSearchQuery = searchQuery.toLocaleLowerCase();
 
   type SellerMineRow = {
     id: string;
@@ -483,9 +491,6 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
   const sellerRowsSorted = [...sellerRows].sort(sortByAuctionEndDesc);
   const bidderWinRowsSorted = [...bidderWinRows].sort(sortByAuctionEndDesc);
 
-  const hasSellerRows = sellerRowsSorted.length > 0;
-  const hasBidderMineDealsRows = bidderWinRowsSorted.length > 0;
-
   const tabClass = (isActive: boolean) =>
     `inline-flex items-center border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
       isActive
@@ -556,8 +561,25 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     return { row, highestNok, statusLabel, group, deal };
   });
 
+  const titleMatchesSearch = (title: string | null | undefined): boolean => {
+    if (normalizedSearchQuery === "") return true;
+    return String(title ?? "")
+      .toLocaleLowerCase()
+      .includes(normalizedSearchQuery);
+  };
+
+  const visibleSellerRowVms = sellerRowVms.filter((v) =>
+    titleMatchesSearch(v.row.title),
+  );
+  const visibleBidderMineDealsRowVms = bidderMineDealsRowVms.filter((v) =>
+    titleMatchesSearch(v.row.title),
+  );
+
+  const hasSellerRows = visibleSellerRowVms.length > 0;
+  const hasBidderMineDealsRows = visibleBidderMineDealsRowVms.length > 0;
+
   const counterpartProfileIds = new Set<string>();
-  for (const v of sellerRowVms) {
+  for (const v of visibleSellerRowVms) {
     if (
       v.group !== "ikke_resultat" &&
       v.leadingBidderId != null &&
@@ -566,7 +588,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       counterpartProfileIds.add(String(v.leadingBidderId).trim());
     }
   }
-  for (const v of bidderMineDealsRowVms) {
+  for (const v of visibleBidderMineDealsRowVms) {
     const sid = v.row.seller_id;
     if (sid != null && String(sid).trim() !== "") {
       counterpartProfileIds.add(String(sid).trim());
@@ -658,6 +680,26 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                 </Link>
               </nav>
 
+              <form method="get" className="space-y-2">
+                <label
+                  htmlFor="my-auctions-search"
+                  className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+                >
+                  Søk
+                </label>
+                <input
+                  id="my-auctions-search"
+                  name="q"
+                  type="search"
+                  defaultValue={searchQuery}
+                  placeholder="Søk etter annonse"
+                  className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
+                />
+                {activeTab === "deals" ? (
+                  <input type="hidden" name="tab" value="deals" />
+                ) : null}
+              </form>
+
               {activeTab === "annonser" ? (
                 !hasSellerRows ? (
                   <p className="text-sm text-zinc-600 dark:text-zinc-400">
@@ -666,7 +708,9 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                 ) : (
                   <div className="space-y-8">
                   {postAuctionOutcomeGroupOrder.map((groupKey) => {
-                    const items = sellerRowVms.filter((v) => v.group === groupKey);
+                    const items = visibleSellerRowVms.filter(
+                      (v) => v.group === groupKey,
+                    );
                     return (
                       <div key={groupKey}>
                         <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
@@ -758,7 +802,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
               ) : (
                 <div className="space-y-8">
                   {postAuctionOutcomeGroupOrder.map((groupKey) => {
-                    const items = bidderMineDealsRowVms.filter(
+                    const items = visibleBidderMineDealsRowVms.filter(
                       (v) => v.group === groupKey,
                     );
                     return (
