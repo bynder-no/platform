@@ -410,12 +410,9 @@ export async function submitDealRating(
   if (
     !deal ||
     deal.seller_decision !== "deal" ||
-    deal.bidder_decision !== "deal" ||
-    deal.buyer_received_card !== true ||
-    deal.seller_received_payment !== true ||
-    deal.completed_at == null
+    deal.bidder_decision !== "deal"
   ) {
-    return { error: "Handelen er ikke fullført." };
+    return { error: "Handelen er ikke klar for vurdering." };
   }
 
   const dealSellerId = String(deal.seller_id ?? "").trim();
@@ -425,6 +422,12 @@ export async function submitDealRating(
   }
   if (uid !== dealSellerId && uid !== dealBidderId) {
     return { error: "Ingen tilgang." };
+  }
+
+  const sellerCanRate = uid === dealSellerId && deal.seller_received_payment === true;
+  const buyerCanRate = uid === dealBidderId && deal.buyer_received_card === true;
+  if (!sellerCanRate && !buyerCanRate) {
+    return { error: "Handelen er ikke klar for vurdering." };
   }
 
   const { data: existingRating, error: existingErr } = await supabase

@@ -6,6 +6,7 @@ import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { BuyerReceivedCardForm } from "./buyer-received-card-form";
 import { DealRatingForm } from "./deal-rating-form";
 import { DealChatForm } from "./deal-chat-form";
+import { DealMessagesPanel } from "./deal-messages-panel";
 import { postDealFulfillmentStatusText } from "./deal-status";
 import { SellerReceivedPaymentForm } from "./seller-received-payment-form";
 import { createClient } from "@/lib/supabase/server";
@@ -312,14 +313,23 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     dealRow.buyer_received_card === true &&
     dealRow.seller_received_payment === true;
 
-  const showRatingCta =
+  const canBuyerRate =
     eligibleForAuctionDeal &&
     dealRow != null &&
+    isLeadingBidder &&
     dealRow.seller_decision === "deal" &&
     dealRow.bidder_decision === "deal" &&
-    dealRow.buyer_received_card === true &&
-    dealRow.seller_received_payment === true &&
-    dealRow.completed_at != null;
+    dealRow.buyer_received_card === true;
+
+  const canSellerRate =
+    eligibleForAuctionDeal &&
+    dealRow != null &&
+    isSeller &&
+    dealRow.seller_decision === "deal" &&
+    dealRow.bidder_decision === "deal" &&
+    dealRow.seller_received_payment === true;
+
+  const showRatingCta = canBuyerRate || canSellerRate;
 
   const ratingFieldsetLegend = isSeller ? "Rate kjøper" : "Rate selger";
   const ratingHelperText = isSeller
@@ -452,22 +462,6 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
               Fullført
             </h2>
             <p className="mt-2 text-zinc-700 dark:text-zinc-300">Fullført</p>
-            {showRatingCta ? (
-              <div className="mt-6 border-t border-zinc-200 pt-6 dark:border-zinc-700">
-                <h3 className={sectionLabelClass}>Vurdering</h3>
-                {userHasRatedThisDeal ? (
-                  <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-                    Du har ratet denne handelen.
-                  </p>
-                ) : (
-                  <DealRatingForm
-                    listingId={id}
-                    intro={ratingHelperText}
-                    fieldsetLegend={ratingFieldsetLegend}
-                  />
-                )}
-              </div>
-            ) : null}
           </section>
         ) : (
           <>
@@ -496,41 +490,30 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
           </>
         )}
 
+        {showRatingCta ? (
+          <section aria-labelledby="dealroom-rating-heading">
+            <h2 id="dealroom-rating-heading" className={sectionLabelClass}>
+              Vurdering
+            </h2>
+            {userHasRatedThisDeal ? (
+              <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                Du har ratet denne handelen.
+              </p>
+            ) : (
+              <DealRatingForm
+                listingId={id}
+                intro={ratingHelperText}
+                fieldsetLegend={ratingFieldsetLegend}
+              />
+            )}
+          </section>
+        ) : null}
+
         <section aria-labelledby="dealroom-chat-heading">
           <h2 id="dealroom-chat-heading" className={sectionLabelClass}>
             Meldinger
           </h2>
-          {dealMessages.length === 0 ? (
-            <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-              Ingen meldinger ennå.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-              {dealMessages.map((m) => {
-                const when = m.created_at
-                  ? new Date(m.created_at).toLocaleString()
-                  : "—";
-                const label =
-                  m.sender_id === user.id ? "Deg" : "Motpart";
-                return (
-                  <li key={m.id} className="text-sm">
-                    <p className="font-medium text-zinc-800 dark:text-zinc-200">
-                      {label}
-                      <span className="mx-2 font-normal text-zinc-400 dark:text-zinc-500">
-                        ·
-                      </span>
-                      <span className="font-normal text-zinc-500 dark:text-zinc-400">
-                        {when}
-                      </span>
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
-                      {String(m.body ?? "").trim() || "—"}
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <DealMessagesPanel messages={dealMessages} currentUserId={user.id} />
           <DealChatForm listingId={id} />
         </section>
       </div>
