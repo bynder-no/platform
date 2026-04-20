@@ -53,6 +53,12 @@ export function SignedInNavLinks({ className }: SignedInNavLinksProps) {
       <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
         ·
       </span>
+      <Link href="/notifications" className={navLinkClass}>
+        Varsler
+      </Link>
+      <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+        ·
+      </span>
       <Link href="/profile" className={navLinkClass}>
         Profile
       </Link>

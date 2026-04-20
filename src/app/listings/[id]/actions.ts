@@ -9,10 +9,7 @@ import { ANTI_SNIPE_WINDOW_MS } from "./bid-rules";
 
 type NotificationType =
   | "outbid"
-  | "deal_relevant"
-  | "no_successful_result"
-  | "deal_requires_action"
-  | "rating_available";
+  | "deal_action_required";
 
 async function createNotification(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -620,46 +617,28 @@ export async function setListingDealDecision(
     const bidderDecision = String(dealAfterDecision.bidder_decision ?? "pending");
     const sellerId = String(listing.seller_id ?? "").trim();
     const bidderId = String(leadingBidRow.bidder_id ?? "").trim();
-    const listingTitle = String(listing.title ?? "").trim() || "annonsen";
+    const dealActionMessage = "Motpart har svart på dealen – din tur";
 
-    if (sellerDecision === "no_deal" || bidderDecision === "no_deal") {
+    // Exactly one side has chosen "deal", the other is still "pending".
+    // Do not fire for both pending, both deal, or any no_deal resolution.
+    if (sellerDecision === "deal" && bidderDecision === "pending") {
       if (bidderId !== "") {
         await createNotification(
           supabase,
           bidderId,
-          "no_successful_result",
+          "deal_action_required",
           listingId,
-          `Auksjonen for ${listingTitle} endte uten vellykket resultat.`,
+          dealActionMessage,
         );
       }
-    } else if (sellerDecision === "deal" && bidderDecision === "deal") {
-      if (bidderId !== "") {
-        await createNotification(
-          supabase,
-          bidderId,
-          "deal_relevant",
-          listingId,
-          `Du vant auksjonen for ${listingTitle}. Gå til dealrommet.`,
-        );
-      }
-    } else if (sellerDecision === "pending" && bidderDecision !== "pending") {
+    } else if (bidderDecision === "deal" && sellerDecision === "pending") {
       if (sellerId !== "") {
         await createNotification(
           supabase,
           sellerId,
-          "deal_requires_action",
+          "deal_action_required",
           listingId,
-          `Du har en deal som venter svar for ${listingTitle}.`,
-        );
-      }
-    } else if (bidderDecision === "pending" && sellerDecision !== "pending") {
-      if (bidderId !== "") {
-        await createNotification(
-          supabase,
-          bidderId,
-          "deal_requires_action",
-          listingId,
-          `Du har en deal som venter svar for ${listingTitle}.`,
+          dealActionMessage,
         );
       }
     }
