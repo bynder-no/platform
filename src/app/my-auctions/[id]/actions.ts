@@ -13,6 +13,31 @@ type BidRow = {
   bidder_id: string;
 };
 
+type NotificationType =
+  | "outbid"
+  | "deal_relevant"
+  | "no_successful_result"
+  | "deal_requires_action"
+  | "rating_available";
+
+async function createNotification(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  type: NotificationType,
+  listingId: string,
+  message: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("create_notification", {
+    p_user_id: userId,
+    p_type: type,
+    p_listing_id: listingId,
+    p_message: message,
+  });
+  if (error) {
+    console.error("create_notification:", error.message);
+  }
+}
+
 function leadingBidderId(bids: BidRow[]): string | null {
   let highestNok = 0;
   let leading: BidRow | null = null;
@@ -163,7 +188,7 @@ export async function markBuyerReceivedCard(
 
   const { data: listing, error: listingErr } = await supabase
     .from("listings")
-    .select("seller_id, type, auction_ends_at")
+    .select("title, seller_id, type, auction_ends_at")
     .eq("id", listingId)
     .maybeSingle();
 
@@ -201,7 +226,9 @@ export async function markBuyerReceivedCard(
 
   const { data: deal, error: dealErr } = await supabase
     .from("listing_deals")
-    .select("seller_decision, bidder_decision, buyer_received_card")
+    .select(
+      "seller_decision, bidder_decision, buyer_received_card, seller_received_payment",
+    )
     .eq("listing_id", listingId)
     .maybeSingle();
 
@@ -234,6 +261,24 @@ export async function markBuyerReceivedCard(
 
   await maybeSetDealCompletedAt(supabase, listingId);
 
+  const listingTitle = String(listing.title ?? "").trim() || "annonsen";
+  await createNotification(
+    supabase,
+    user.id,
+    "rating_available",
+    listingId,
+    `Du kan nå rate handelen for ${listingTitle}.`,
+  );
+  if (deal.seller_received_payment !== true) {
+    await createNotification(
+      supabase,
+      String(listing.seller_id).trim(),
+      "deal_requires_action",
+      listingId,
+      `Du har en deal som venter handling for ${listingTitle}.`,
+    );
+  }
+
   revalidatePath(`/my-auctions/${listingId}`);
   redirect(`/my-auctions/${listingId}`);
 }
@@ -260,7 +305,7 @@ export async function markSellerReceivedPayment(
 
   const { data: listing, error: listingErr } = await supabase
     .from("listings")
-    .select("seller_id, type, auction_ends_at")
+    .select("title, seller_id, type, auction_ends_at")
     .eq("id", listingId)
     .maybeSingle();
 
@@ -287,7 +332,7 @@ export async function markSellerReceivedPayment(
   const { data: deal, error: dealErr } = await supabase
     .from("listing_deals")
     .select(
-      "seller_decision, bidder_decision, seller_received_payment",
+      "seller_decision, bidder_decision, seller_received_payment, buyer_received_card",
     )
     .eq("listing_id", listingId)
     .maybeSingle();
@@ -320,6 +365,34 @@ export async function markSellerReceivedPayment(
   }
 
   await maybeSetDealCompletedAt(supabase, listingId);
+
+  const listingTitle = String(listing.title ?? "").trim() || "annonsen";
+  await createNotification(
+    supabase,
+    user.id,
+    "rating_available",
+    listingId,
+    `Du kan nå rate handelen for ${listingTitle}.`,
+  );
+  const { data: bidRowsAfter, error: bidsAfterErr } = await supabase
+    .from("bids")
+    .select("amount_nok, created_at, bidder_id")
+    .eq("listing_id", listingId)
+    .order("created_at", { ascending: true });
+  if (bidsAfterErr) {
+    console.error("bids:", bidsAfterErr.message);
+  } else if (deal.buyer_received_card !== true) {
+    const leaderAfter = leadingBidderId((bidRowsAfter ?? []) as BidRow[]);
+    if (leaderAfter) {
+      await createNotification(
+        supabase,
+        String(leaderAfter).trim(),
+        "deal_requires_action",
+        listingId,
+        `Du har en deal som venter handling for ${listingTitle}.`,
+      );
+    }
+  }
 
   revalidatePath(`/my-auctions/${listingId}`);
   redirect(`/my-auctions/${listingId}`);
