@@ -9,7 +9,8 @@ import { ANTI_SNIPE_WINDOW_MS } from "./bid-rules";
 
 type NotificationType =
   | "outbid"
-  | "deal_action_required";
+  | "deal_action_required"
+  | "seller_bid_received";
 
 async function createNotification(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -422,6 +423,17 @@ export async function placeBid(
       "outbid",
       listingId,
       `Du er overbydd i ${listingTitle}.`,
+    );
+  }
+
+  const sellerId = String(listing.seller_id ?? "").trim();
+  if (sellerId !== "" && sellerId !== user.id) {
+    await createNotification(
+      supabase,
+      sellerId,
+      "seller_bid_received",
+      listingId,
+      "Noen har bydd på auksjonen din",
     );
   }
 
