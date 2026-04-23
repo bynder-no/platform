@@ -48,7 +48,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, price_nok, min_bid_increment_nok, description, created_at, seller_id, type, status, auction_starts_at, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+      "title, price_nok, min_bid_increment_nok, description, created_at, seller_id, type, status, auction_starts_at, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent, auction_outcome",
     )
     .eq("id", id)
     .maybeSingle();
@@ -273,6 +273,81 @@ export default async function ListingDetailPage({ params }: PageProps) {
       } else {
         dealRow = insertedDeal;
       }
+    }
+  }
+
+  if (user && listing.type === "auction" && auctionTimeEnded) {
+    const dealNoOutcome =
+      dealRow != null &&
+      (dealRow.seller_decision === "no_deal" ||
+        dealRow.bidder_decision === "no_deal");
+
+    const canNotifyAuctionNoResult =
+      listingSellerIdForDeal !== "" &&
+      (user.id === listingSellerIdForDeal ||
+        (winningBidderIdForDeal !== "" &&
+          user.id === winningBidderIdForDeal));
+
+    const isExpectedAuctionNoResultDuplicate = (msg: string) =>
+      msg.includes("notifications_unique_one_time_event_idx") ||
+      msg.includes("duplicate key value violates unique constraint");
+
+    const tryAuctionNoResult = async (
+      recipientUserId: string,
+      message: string,
+    ) => {
+      if (recipientUserId === "" || !canNotifyAuctionNoResult) {
+        return;
+      }
+      if (user.id === recipientUserId) {
+        const { data: existing, error: existingErr } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("type", "auction_no_result")
+          .eq("listing_id", id)
+          .limit(1)
+          .maybeSingle();
+        if (existingErr) {
+          console.error(
+            "notifications auction_no_result lookup:",
+            existingErr.message,
+          );
+        } else if (existing) {
+          return;
+        }
+      }
+      const { error: rpcErr } = await supabase.rpc("create_notification", {
+        p_user_id: recipientUserId,
+        p_type: "auction_no_result",
+        p_listing_id: id,
+        p_message: message,
+      });
+      if (rpcErr) {
+        const msg = rpcErr.message ?? "";
+        if (!isExpectedAuctionNoResultDuplicate(msg)) {
+          console.error(
+            "create_notification auction_no_result:",
+            rpcErr.message,
+          );
+        }
+      }
+    };
+
+    if (
+      dealNoOutcome &&
+      winningBidderIdForDeal !== "" &&
+      listingSellerIdForDeal !== "" &&
+      canNotifyAuctionNoResult
+    ) {
+      await tryAuctionNoResult(
+        listingSellerIdForDeal,
+        "Handelen ble ikke gjennomført",
+      );
+      await tryAuctionNoResult(
+        winningBidderIdForDeal,
+        "Handelen ble ikke gjennomført",
+      );
     }
   }
 

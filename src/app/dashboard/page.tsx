@@ -19,6 +19,7 @@ import {
   viewerAuctionBidPositionLabel,
   type BidForLeadingRow,
 } from "@/lib/auction-viewer-bid-status";
+import { resolvePendingEndedAuctions } from "@/lib/auction-resolution";
 
 import { DashboardCustomBidForm } from "./dashboard-custom-bid-form";
 import { DashboardQuickBidForm } from "./dashboard-quick-bid-form";
@@ -94,6 +95,7 @@ function dashboardQuickBidAmountNok(
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+  await resolvePendingEndedAuctions(supabase);
   const {
     data: { user },
   } = await supabase.auth.getUser();

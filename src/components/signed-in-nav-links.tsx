@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { signOut } from "@/app/auth/actions";
+import { createClient } from "@/lib/supabase/server";
 
 const navLinkClass =
   "text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300";
@@ -9,7 +10,32 @@ type SignedInNavLinksProps = {
   className?: string;
 };
 
-export function SignedInNavLinks({ className }: SignedInNavLinksProps) {
+export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let unreadNotificationCount = 0;
+  if (user) {
+    const { count, error } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+
+    if (error) {
+      console.error("notifications unread count:", error.message);
+    } else {
+      unreadNotificationCount = count ?? 0;
+    }
+  }
+
+  const varslerLabel =
+    user && unreadNotificationCount > 0
+      ? `Varsler (${unreadNotificationCount})`
+      : "Varsler";
+
   return (
     <nav
       aria-label="Account"
@@ -54,7 +80,7 @@ export function SignedInNavLinks({ className }: SignedInNavLinksProps) {
         ·
       </span>
       <Link href="/notifications" className={navLinkClass}>
-        Varsler
+        {varslerLabel}
       </Link>
       <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
         ·
