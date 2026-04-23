@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
+import { resolvePendingEndedAuctions } from "@/lib/auction-resolution";
+import { qualifiesAuctionContactFromHighestBid } from "@/lib/auction-contact-qualification";
 import {
   pageBodyGapClass,
   pageHeaderClass,
@@ -126,28 +128,6 @@ function isEndedAuctionForMyAuctionsPage(
   return true;
 }
 
-function contactUnlockedAfterAuctionFromBids(
-  useReservePrice: boolean,
-  reserveNok: number | string | null,
-  thresholdPct: number | string | null,
-  highestBidNok: number,
-  hasBids: boolean,
-): boolean {
-  if (!hasBids) return false;
-  if (!useReservePrice) return true;
-  const reserve =
-    reserveNok != null && Number.isFinite(Number(reserveNok))
-      ? Number(reserveNok)
-      : Number.NaN;
-  const pct =
-    thresholdPct != null && Number.isFinite(Number(thresholdPct))
-      ? Number(thresholdPct)
-      : Number.NaN;
-  if (!Number.isFinite(reserve) || !Number.isFinite(pct)) return false;
-  const contactOpensAtNok = Math.ceil((reserve * pct) / 100);
-  return highestBidNok >= contactOpensAtNok;
-}
-
 function sellerMineAnnonserStatusLabel(
   deal: DealRowLite | null | undefined,
   hasBids: boolean,
@@ -265,6 +245,7 @@ function bidderMineDealsStatusLabel(
 
 export default async function MyAuctionsPage({ searchParams }: PageProps) {
   const supabase = await createClient();
+  await resolvePendingEndedAuctions(supabase);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -404,11 +385,31 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
         }
 
         const won = new Set<string>();
+        const candidateById = new Map(
+          endedBidderCandidates.map((candidate) => [candidate.id, candidate] as const),
+        );
         for (const lid of candidateIds) {
-          const { leadingBidderId } = leadingBidForListing(
-            byListing.get(lid) ?? [],
-          );
-          if (leadingBidderId === user.id) {
+          const listingBids = byListing.get(lid) ?? [];
+          const { highestNok, leadingBidderId } = leadingBidForListing(listingBids);
+          const candidate = candidateById.get(lid);
+          if (!candidate) continue;
+          const contactUnlocked = qualifiesAuctionContactFromHighestBid({
+            useReservePrice: candidate.use_reserve_price === true,
+            reservePriceNok: candidate.reserve_price_nok,
+            contactThresholdPercent: candidate.contact_threshold_percent,
+            highestBid: highestNok,
+            hasBids: listingBids.length > 0,
+          });
+          console.log("SHARED QUAL CHECK MY_AUCTIONS", {
+            listingId: lid,
+            useReservePrice: candidate.use_reserve_price === true,
+            reservePriceNok: candidate.reserve_price_nok,
+            contactThresholdPercent: candidate.contact_threshold_percent,
+            highestBid: highestNok,
+            hasBids: listingBids.length > 0,
+            qualifies: contactUnlocked,
+          });
+          if (leadingBidderId === user.id && contactUnlocked) {
             won.add(lid);
           }
         }
@@ -517,13 +518,13 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     const bidRows = bidsByListing.get(row.id) ?? [];
     const { highestNok, leadingBidderId } = leadingBidForListing(bidRows);
     const hasBids = bidRows.length > 0;
-    const contactUnlocked = contactUnlockedAfterAuctionFromBids(
-      row.use_reserve_price,
-      row.reserve_price_nok,
-      row.contact_threshold_percent,
-      highestNok,
+    const contactUnlocked = qualifiesAuctionContactFromHighestBid({
+      useReservePrice: row.use_reserve_price,
+      reservePriceNok: row.reserve_price_nok,
+      contactThresholdPercent: row.contact_threshold_percent,
+      highestBid: highestNok,
       hasBids,
-    );
+    });
     const deal = dealsByListing.get(row.id);
     const group = postAuctionOutcomeGroup(deal, hasBids, contactUnlocked);
     const statusLabel = sellerMineAnnonserStatusLabel(
@@ -541,13 +542,13 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     const bidRows = bidsByListing.get(row.id) ?? [];
     const { highestNok, leadingBidderId } = leadingBidForListing(bidRows);
     const hasBids = bidRows.length > 0;
-    const contactUnlocked = contactUnlockedAfterAuctionFromBids(
-      row.use_reserve_price,
-      row.reserve_price_nok,
-      row.contact_threshold_percent,
-      highestNok,
+    const contactUnlocked = qualifiesAuctionContactFromHighestBid({
+      useReservePrice: row.use_reserve_price,
+      reservePriceNok: row.reserve_price_nok,
+      contactThresholdPercent: row.contact_threshold_percent,
+      highestBid: highestNok,
       hasBids,
-    );
+    });
     const deal = dealsByListing.get(row.id);
     const group = postAuctionOutcomeGroup(deal, hasBids, contactUnlocked);
     const statusLabel = bidderMineDealsStatusLabel(

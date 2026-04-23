@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
+import { resolvePendingEndedAuctions } from "@/lib/auction-resolution";
 import {
   pageBodyGapClass,
   pageHeaderClass,
@@ -79,6 +80,7 @@ type ListingRow = {
 
 export default async function MyListingsPage() {
   const supabase = await createClient();
+  await resolvePendingEndedAuctions(supabase);
   const {
     data: { user },
   } = await supabase.auth.getUser();

@@ -33,6 +33,61 @@ function leadingBidderId(bids: BidRow[]): string | null {
   return leading?.bidder_id ?? null;
 }
 
+async function sendCompletionNotification(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  listingId: string,
+  notifiedUserId: string,
+  message: string,
+  actorRole: "buyer" | "seller",
+  event: "buyer_received_card" | "seller_received_payment",
+): Promise<void> {
+  console.log("COMPLETION NOTIFY CHECK", { listingId, actorRole, event });
+  const { error } = await supabase.rpc("create_notification", {
+    p_user_id: notifiedUserId,
+    p_type: "deal_action_required",
+    p_listing_id: listingId,
+    p_message: message,
+  });
+  if (error) {
+    console.error("COMPLETION NOTIFY ERROR", {
+      listingId,
+      notifiedUserId,
+      actorRole,
+      event,
+      message: error.message,
+    });
+    return;
+  }
+  console.log("COMPLETION NOTIFY OK", { listingId, notifiedUserId, event });
+}
+
+async function sendRatingNotification(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  listingId: string,
+  ratedUserId: string,
+  actorRole: "buyer" | "seller",
+): Promise<void> {
+  console.log("RATING NOTIFY CHECK", { listingId, actorRole, ratedUserId });
+  const message =
+    actorRole === "buyer" ? "Kjøper har ratet deg" : "Selger har ratet deg";
+  const { error } = await supabase.rpc("create_notification", {
+    p_user_id: ratedUserId,
+    p_type: "deal_action_required",
+    p_listing_id: listingId,
+    p_message: message,
+  });
+  if (error) {
+    console.error("RATING NOTIFY ERROR", {
+      listingId,
+      ratedUserId,
+      actorRole,
+      message: error.message,
+    });
+    return;
+  }
+  console.log("RATING NOTIFY OK", { listingId, notifiedUserId: ratedUserId });
+}
+
 async function maybeSetDealCompletedAt(
   supabase: Awaited<ReturnType<typeof createClient>>,
   listingId: string,
@@ -232,6 +287,18 @@ export async function markBuyerReceivedCard(
     return { error: updErr.message };
   }
 
+  const sellerId = String(listing.seller_id ?? "").trim();
+  if (sellerId !== "" && sellerId !== user.id) {
+    await sendCompletionNotification(
+      supabase,
+      listingId,
+      sellerId,
+      "Kjøper har mottatt pakken",
+      "buyer",
+      "buyer_received_card",
+    );
+  }
+
   await maybeSetDealCompletedAt(supabase, listingId);
 
   revalidatePath(`/my-auctions/${listingId}`);
@@ -286,7 +353,7 @@ export async function markSellerReceivedPayment(
 
   const { data: deal, error: dealErr } = await supabase
     .from("listing_deals")
-    .select("seller_decision, bidder_decision, seller_received_payment")
+    .select("seller_decision, bidder_decision, seller_received_payment, bidder_id")
     .eq("listing_id", listingId)
     .maybeSingle();
 
@@ -315,6 +382,18 @@ export async function markSellerReceivedPayment(
 
   if (updErr) {
     return { error: updErr.message };
+  }
+
+  const bidderId = String(deal.bidder_id ?? "").trim();
+  if (bidderId !== "" && bidderId !== user.id) {
+    await sendCompletionNotification(
+      supabase,
+      listingId,
+      bidderId,
+      "Selger har mottatt betalingen",
+      "seller",
+      "seller_received_payment",
+    );
   }
 
   await maybeSetDealCompletedAt(supabase, listingId);
@@ -459,6 +538,11 @@ export async function submitDealRating(
       return { error: "Du har allerede ratet denne handelen." };
     }
     return { error: insertErr.message };
+  }
+
+  if (toUserId !== "") {
+    const actorRole: "buyer" | "seller" = uid === dealBidderId ? "buyer" : "seller";
+    await sendRatingNotification(supabase, listingId, toUserId, actorRole);
   }
 
   revalidatePath(`/my-auctions/${listingId}`);

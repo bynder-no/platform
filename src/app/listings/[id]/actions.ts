@@ -6,6 +6,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 import { ANTI_SNIPE_WINDOW_MS } from "./bid-rules";
+import {
+  forceDealOpenedOutcomeIfPending,
+  isPostAuctionContactQualifiedByHighestBid,
+  resolveAndPersistEndedAuctionOutcomeForListing,
+} from "./auction-outcome";
 
 type NotificationType =
   | "outbid"
@@ -332,6 +337,7 @@ export async function placeBid(
   }
 
   if (nowMs >= endsAtMs) {
+    await resolveAndPersistEndedAuctionOutcomeForListing(supabase, listingId);
     return { error: "Auksjonen er avsluttet." };
   }
 
@@ -478,7 +484,7 @@ export async function setListingDealDecision(
   const { data: listing, error: listingErr } = await supabase
     .from("listings")
     .select(
-      "title, seller_id, type, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+      "title, seller_id, type, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent, auction_outcome",
     )
     .eq("id", listingId)
     .maybeSingle();
@@ -535,23 +541,13 @@ export async function setListingDealDecision(
   }
 
   let contactUnlocked = false;
-  if (!listing.use_reserve_price) {
-    contactUnlocked = hasAuctionBids;
-  } else {
-    const reserveNok = listing.reserve_price_nok;
-    const pct = listing.contact_threshold_percent;
-    if (
-      reserveNok != null &&
-      pct != null &&
-      Number.isFinite(Number(reserveNok)) &&
-      Number.isFinite(Number(pct))
-    ) {
-      const contactOpensAtNok = Math.ceil(
-        (Number(reserveNok) * Number(pct)) / 100,
-      );
-      contactUnlocked = highestBidNok >= contactOpensAtNok;
-    }
-  }
+  contactUnlocked = isPostAuctionContactQualifiedByHighestBid(
+    listing.use_reserve_price === true,
+    listing.reserve_price_nok,
+    listing.contact_threshold_percent,
+    highestBidNok,
+    hasAuctionBids,
+  );
 
   if (!contactUnlocked) {
     return { error: "Kontakt er ikke åpnet." };
@@ -578,6 +574,7 @@ export async function setListingDealDecision(
   }
 
   if (!existingDeal) {
+    console.log("DEAL FLOW SOURCE OF TRUTH", { listingId, hasDealRow: false });
     const { error: insertErr } = await supabase.from("listing_deals").insert({
       listing_id: listingId,
       seller_decision: "pending",
@@ -590,6 +587,9 @@ export async function setListingDealDecision(
     ) {
       return { error: insertErr.message };
     }
+    console.log("DEAL FLOW SOURCE OF TRUTH", { listingId, hasDealRow: true });
+  } else {
+    console.log("DEAL FLOW SOURCE OF TRUTH", { listingId, hasDealRow: true });
   }
 
   const patch =
@@ -605,6 +605,9 @@ export async function setListingDealDecision(
   if (updateErr) {
     return { error: updateErr.message };
   }
+
+  await forceDealOpenedOutcomeIfPending(supabase, listingId);
+  await resolveAndPersistEndedAuctionOutcomeForListing(supabase, listingId);
 
   const { error: dealStatsErr } = await supabase.rpc(
     "apply_listing_deal_transaction_stats",

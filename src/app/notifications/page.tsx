@@ -38,6 +38,16 @@ export default async function NotificationsPage() {
     redirect("/login");
   }
 
+  const { error: markReadError } = await supabase
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("user_id", user.id)
+    .eq("is_read", false);
+
+  if (markReadError) {
+    throw new Error(`Could not mark notifications as read: ${markReadError.message}`);
+  }
+
   const { data, error } = await supabase
     .from("notifications")
     .select("id, type, listing_id, message, created_at")
