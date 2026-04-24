@@ -121,15 +121,6 @@ export async function resolveAndPersistEndedAuctionOutcomeForListing(
 
   // Deal flow is authoritative. If a deal row exists, force deal_opened unless already set.
   if (dealRow && storedOutcome !== "deal_opened") {
-    console.log("AUCTION OUTCOME DECISION", {
-      listingId,
-      highestBid: null,
-      reservePrice: listing.reserve_price_nok,
-      contactThresholdPercent: listing.contact_threshold_percent,
-      qualifies: true,
-      hasDealRow: true,
-      nextOutcome: "deal_opened",
-    });
     console.log("WON PATH CHECK", {
       listingId,
       hasDealRow: true,
@@ -189,15 +180,6 @@ export async function resolveAndPersistEndedAuctionOutcomeForListing(
     highestBidNok,
     hasAuctionBids,
   );
-  console.log("SHARED QUAL CHECK OUTCOME", {
-    listingId,
-    useReservePrice: listing.use_reserve_price === true,
-    reservePriceNok: listing.reserve_price_nok,
-    contactThresholdPercent: listing.contact_threshold_percent,
-    highestBid: highestBidNok,
-    hasBids: hasAuctionBids,
-    qualifies,
-  });
 
   let nextOutcome: "no_bids" | "threshold_not_met" | "deal_opened";
   if (dealRow) {
@@ -210,15 +192,6 @@ export async function resolveAndPersistEndedAuctionOutcomeForListing(
     nextOutcome = "threshold_not_met";
   }
 
-  console.log("AUCTION OUTCOME DECISION", {
-    listingId,
-    highestBid: highestBidNok,
-    useReservePrice: listing.use_reserve_price === true,
-    reservePriceNok: listing.reserve_price_nok,
-    contactThresholdPercent: listing.contact_threshold_percent,
-    qualifies,
-    nextOutcome,
-  });
   if (nextOutcome === "deal_opened") {
     console.log("WON PATH CHECK", {
       listingId,

@@ -13,13 +13,6 @@ export async function resolveSingleEndedAuction(
     listingId,
   );
   if (decision != null) {
-    console.log("JS BATCH OUTCOME DECISION", {
-      listingId: decision.listingId,
-      highestBid: decision.highestBid,
-      qualifies: decision.qualifies,
-      hasDealRow: decision.hasDealRow,
-      nextOutcome: decision.nextOutcome,
-    });
     await notifyPostAuctionOutcomeIfResolved(supabase, listingId);
   }
 }
@@ -54,24 +47,11 @@ export async function resolvePendingEndedAuctions(
     );
     if (decision == null) continue;
 
-    console.log("JS BATCH OUTCOME DECISION", {
-      listingId: decision.listingId,
-      highestBid: decision.highestBid,
-      qualifies: decision.qualifies,
-      hasDealRow: decision.hasDealRow,
-      nextOutcome: decision.nextOutcome,
-    });
-
     const notifyResult = await notifyPostAuctionOutcomeIfResolved(
       supabase,
       listingId,
     );
-    if (notifyResult.ok) {
-      console.log("POST AUCTION NOTIFY OK", {
-        listingId,
-        outcome: decision.nextOutcome,
-      });
-    } else {
+    if (!notifyResult.ok) {
       console.error("POST AUCTION NOTIFY ERROR", {
         listingId,
         outcome: decision.nextOutcome,

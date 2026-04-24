@@ -400,15 +400,6 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
             highestBid: highestNok,
             hasBids: listingBids.length > 0,
           });
-          console.log("SHARED QUAL CHECK MY_AUCTIONS", {
-            listingId: lid,
-            useReservePrice: candidate.use_reserve_price === true,
-            reservePriceNok: candidate.reserve_price_nok,
-            contactThresholdPercent: candidate.contact_threshold_percent,
-            highestBid: highestNok,
-            hasBids: listingBids.length > 0,
-            qualifies: contactUnlocked,
-          });
           if (leadingBidderId === user.id && contactUnlocked) {
             won.add(lid);
           }
