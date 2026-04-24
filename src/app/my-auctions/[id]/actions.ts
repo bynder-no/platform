@@ -41,7 +41,6 @@ async function sendCompletionNotification(
   actorRole: "buyer" | "seller",
   event: "buyer_received_card" | "seller_received_payment",
 ): Promise<void> {
-  console.log("COMPLETION NOTIFY CHECK", { listingId, actorRole, event });
   const { error } = await supabase.rpc("create_notification", {
     p_user_id: notifiedUserId,
     p_type: "deal_action_required",
@@ -49,7 +48,7 @@ async function sendCompletionNotification(
     p_message: message,
   });
   if (error) {
-    console.error("COMPLETION NOTIFY ERROR", {
+    console.error("deal completion notification failed", {
       listingId,
       notifiedUserId,
       actorRole,
@@ -58,7 +57,6 @@ async function sendCompletionNotification(
     });
     return;
   }
-  console.log("COMPLETION NOTIFY OK", { listingId, notifiedUserId, event });
 }
 
 async function sendRatingNotification(
@@ -67,7 +65,6 @@ async function sendRatingNotification(
   ratedUserId: string,
   actorRole: "buyer" | "seller",
 ): Promise<void> {
-  console.log("RATING NOTIFY CHECK", { listingId, actorRole, ratedUserId });
   const message =
     actorRole === "buyer" ? "Kjøper har ratet deg" : "Selger har ratet deg";
   const { error } = await supabase.rpc("create_notification", {
@@ -77,7 +74,7 @@ async function sendRatingNotification(
     p_message: message,
   });
   if (error) {
-    console.error("RATING NOTIFY ERROR", {
+    console.error("deal rating notification failed", {
       listingId,
       ratedUserId,
       actorRole,
@@ -85,7 +82,6 @@ async function sendRatingNotification(
     });
     return;
   }
-  console.log("RATING NOTIFY OK", { listingId, notifiedUserId: ratedUserId });
 }
 
 async function maybeSetDealCompletedAt(

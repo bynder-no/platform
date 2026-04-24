@@ -62,7 +62,6 @@ export async function notifyPostAuctionOutcomeIfResolved(
   }
 
   if (outcome === "deal_opened" && sellerId) {
-    console.log("SELLER DEAL NOTIFY CHECK", { listingId, sellerId, outcome });
     const { data: existingSellerDealNotify, error: existingSellerDealNotifyErr } =
       await supabase
         .from("notifications")
@@ -74,7 +73,7 @@ export async function notifyPostAuctionOutcomeIfResolved(
         .maybeSingle();
 
     if (existingSellerDealNotifyErr) {
-      console.error("SELLER DEAL NOTIFY ERROR", {
+      console.error("post-auction seller notification lookup failed", {
         listingId,
         sellerId,
         message: existingSellerDealNotifyErr.message,
@@ -93,14 +92,13 @@ export async function notifyPostAuctionOutcomeIfResolved(
         },
       );
       if (sellerDealNotifyErr) {
-        console.error("SELLER DEAL NOTIFY ERROR", {
+        console.error("post-auction seller notification create failed", {
           listingId,
           sellerId,
           message: sellerDealNotifyErr.message,
         });
         return { ok: false, message: sellerDealNotifyErr.message };
       }
-      console.log("SELLER DEAL NOTIFY OK", { listingId, sellerId });
     }
   }
 
