@@ -98,6 +98,106 @@ function homeAuctionTimeRemainingLabel(
   return null;
 }
 
+type HomeAuctionCardProps = {
+  row: ListingCardRow;
+  nowMs: number;
+  cardClass: string;
+  sellerUsernameById: Map<string, string>;
+  viewerUserId: string | null;
+  auctionHighestNokById: Map<string, number>;
+  listingIdsWithAnyAuctionBid: Set<string>;
+  auctionLeadingBidderByListingId: Map<string, string | null>;
+  favoriteIdSet: Set<string>;
+};
+
+function HomeAuctionListingCard({
+  row,
+  nowMs,
+  cardClass,
+  sellerUsernameById,
+  viewerUserId,
+  auctionHighestNokById,
+  listingIdsWithAnyAuctionBid,
+  auctionLeadingBidderByListingId,
+  favoriteIdSet,
+}: HomeAuctionCardProps) {
+  const state = auctionStateLabelNo(
+    nowMs,
+    row.auction_starts_at ?? null,
+    row.auction_ends_at ?? null,
+  );
+  const liveNok = auctionHighestNokById.get(row.id) ?? 0;
+  const bidPositionLabel =
+    viewerUserId != null && row.seller_id !== viewerUserId
+      ? viewerAuctionBidPositionLabel(
+          viewerUserId,
+          listingIdsWithAnyAuctionBid.has(row.id),
+          auctionLeadingBidderByListingId.get(row.id) ?? null,
+        )
+      : null;
+  const timeLeft = homeAuctionTimeRemainingLabel(
+    state,
+    row.auction_starts_at ?? null,
+    row.auction_ends_at ?? null,
+    nowMs,
+  );
+  return (
+    <div
+      className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
+    >
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <Link
+            href={`/listings/${row.id}`}
+            className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-100"
+          >
+            {row.title?.trim() || "—"}
+          </Link>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {homeCardSellerUsernameLink(
+              row.seller_id,
+              sellerUsernameById,
+              viewerUserId,
+            )}
+          </p>
+          <Link
+            href={`/listings/${row.id}`}
+            className="flex flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
+          >
+            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              {state}
+            </span>
+            {timeLeft ? (
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                  Tid igjen
+                </span>{" "}
+                <span className="tabular-nums">{timeLeft}</span>
+              </span>
+            ) : null}
+            <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+              {liveNok} NOK
+            </span>
+            {bidPositionLabel ? (
+              <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                {bidPositionLabel}
+              </span>
+            ) : null}
+          </Link>
+        </div>
+        {viewerUserId &&
+        row.seller_id &&
+        row.seller_id !== viewerUserId ? (
+          <HomeCardFavoriteButton
+            listingId={row.id}
+            isFavorite={favoriteIdSet.has(row.id)}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default async function HomePage() {
   const supabase = await createClient();
   const {
@@ -190,7 +290,9 @@ export default async function HomePage() {
     }
   }
 
-  const auctionIds = auctionRows.map((r) => r.id).filter(Boolean);
+  const auctionIds = auctionRows
+    .map((r) => r.id)
+    .filter((id): id is string => typeof id === "string" && id !== "");
   let auctionHighestNokById = new Map<string, number>();
   const listingIdsWithAnyAuctionBid = new Set<string>();
   let auctionLeadingBidderByListingId = new Map<string, string | null>();
@@ -290,85 +392,23 @@ export default async function HomePage() {
             </p>
           ) : (
             <ul className="mt-4 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
-              {auctionRows.map((row) => {
-                const state = auctionStateLabelNo(
-                  nowMs,
-                  row.auction_starts_at ?? null,
-                  row.auction_ends_at ?? null,
-                );
-                const liveNok = auctionHighestNokById.get(row.id) ?? 0;
-                const bidPositionLabel =
-                  user != null && row.seller_id !== user.id
-                    ? viewerAuctionBidPositionLabel(
-                        user.id,
-                        listingIdsWithAnyAuctionBid.has(row.id),
-                        auctionLeadingBidderByListingId.get(row.id) ?? null,
-                      )
-                    : null;
-                const timeLeft = homeAuctionTimeRemainingLabel(
-                  state,
-                  row.auction_starts_at ?? null,
-                  row.auction_ends_at ?? null,
-                  nowMs,
-                );
-                return (
-                  <li key={row.id}>
-                    <div
-                      className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="flex min-w-0 flex-1 flex-col gap-1">
-                          <Link
-                            href={`/listings/${row.id}`}
-                            className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-100"
-                          >
-                            {row.title?.trim() || "—"}
-                          </Link>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {homeCardSellerUsernameLink(
-                              row.seller_id,
-                              sellerUsernameById,
-                              user?.id ?? null,
-                            )}
-                          </p>
-                          <Link
-                            href={`/listings/${row.id}`}
-                            className="flex flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
-                          >
-                            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                              {state}
-                            </span>
-                            {timeLeft ? (
-                              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                                <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                                  Tid igjen
-                                </span>{" "}
-                                <span className="tabular-nums">{timeLeft}</span>
-                              </span>
-                            ) : null}
-                            <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
-                              {liveNok} NOK
-                            </span>
-                            {bidPositionLabel ? (
-                              <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                                {bidPositionLabel}
-                              </span>
-                            ) : null}
-                          </Link>
-                        </div>
-                        {user &&
-                        row.seller_id &&
-                        row.seller_id !== user.id ? (
-                          <HomeCardFavoriteButton
-                            listingId={row.id}
-                            isFavorite={favoriteIdSet.has(row.id)}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
+              {auctionRows.map((row) => (
+                <li key={row.id}>
+                  <HomeAuctionListingCard
+                    row={row}
+                    nowMs={nowMs}
+                    cardClass={cardClass}
+                    sellerUsernameById={sellerUsernameById}
+                    viewerUserId={user?.id ?? null}
+                    auctionHighestNokById={auctionHighestNokById}
+                    listingIdsWithAnyAuctionBid={listingIdsWithAnyAuctionBid}
+                    auctionLeadingBidderByListingId={
+                      auctionLeadingBidderByListingId
+                    }
+                    favoriteIdSet={favoriteIdSet}
+                  />
+                </li>
+              ))}
             </ul>
           )}
         </section>

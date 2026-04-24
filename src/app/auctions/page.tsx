@@ -1,5 +1,9 @@
 import Link from "next/link";
 
+import {
+  LISTING_CATEGORY_OPTIONS,
+  parseListingCategory,
+} from "@/app/create/listing-categories";
 import { HomeCardFavoriteButton } from "@/app/home-card-favorite-button";
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +30,10 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 10;
 
 type PageProps = {
-  searchParams: Promise<{ offset?: string | string[] }>;
+  searchParams: Promise<{
+    offset?: string | string[];
+    category?: string | string[];
+  }>;
 };
 
 type AuctionRow = {
@@ -109,9 +116,121 @@ function parseOffset(raw: string | string[] | undefined): number {
   return Math.min(n, 10_000);
 }
 
+const categoryHubCardClass =
+  "flex min-h-[5rem] flex-col justify-center rounded-xl border border-zinc-200 bg-white px-5 py-4 text-left text-base font-semibold text-zinc-900 shadow-sm transition hover:border-zinc-400 hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:border-zinc-500 dark:hover:bg-zinc-900 dark:focus-visible:outline-zinc-100";
+
+type AuctionsListingCardProps = {
+  row: AuctionRow;
+  nowMs: number;
+  cardClass: string;
+  sellerUsernameById: Map<string, string>;
+  viewerUserId: string | null;
+  highestById: Map<string, number>;
+  listingIdsWithAnyBid: Set<string>;
+  leadingBidderByListingId: Map<string, string | null>;
+  favoriteIdSet: Set<string>;
+  favoriteReturnTo: string;
+};
+
+function AuctionsListingCard({
+  row,
+  nowMs,
+  cardClass,
+  sellerUsernameById,
+  viewerUserId,
+  highestById,
+  listingIdsWithAnyBid,
+  leadingBidderByListingId,
+  favoriteIdSet,
+  favoriteReturnTo,
+}: AuctionsListingCardProps) {
+  const state = auctionStateLabelNo(
+    nowMs,
+    row.auction_starts_at ?? null,
+    row.auction_ends_at ?? null,
+  );
+  const liveNok = highestById.get(row.id) ?? 0;
+  const bidPositionLabel =
+    viewerUserId != null && row.seller_id !== viewerUserId
+      ? viewerAuctionBidPositionLabel(
+          viewerUserId,
+          listingIdsWithAnyBid.has(row.id),
+          leadingBidderByListingId.get(row.id) ?? null,
+        )
+      : null;
+  const timeLeft = auctionListingTimeRemainingLabel(
+    state,
+    row.auction_starts_at ?? null,
+    row.auction_ends_at ?? null,
+    nowMs,
+  );
+  return (
+    <div
+      className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
+    >
+      <div className="flex items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <Link
+            href={`/listings/${row.id}`}
+            className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-100"
+          >
+            {row.title?.trim() || "—"}
+          </Link>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {auctionListingSellerLink(
+              row.seller_id,
+              sellerUsernameById,
+              viewerUserId,
+            )}
+          </p>
+          <Link
+            href={`/listings/${row.id}`}
+            className="flex flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
+          >
+            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+              {state}
+            </span>
+            {timeLeft ? (
+              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                  Tid igjen
+                </span>{" "}
+                <span className="tabular-nums">{timeLeft}</span>
+              </span>
+            ) : null}
+            <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+              {liveNok} NOK
+            </span>
+            {bidPositionLabel ? (
+              <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                {bidPositionLabel}
+              </span>
+            ) : null}
+          </Link>
+        </div>
+        {viewerUserId &&
+        row.seller_id &&
+        row.seller_id !== viewerUserId ? (
+          <HomeCardFavoriteButton
+            listingId={row.id}
+            isFavorite={favoriteIdSet.has(row.id)}
+            returnTo={favoriteReturnTo}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default async function PublicAuctionsPage({ searchParams }: PageProps) {
   const sp = await searchParams;
   const offset = parseOffset(sp.offset);
+  const category = parseListingCategory(sp.category);
+  const categoryLabel =
+    category != null
+      ? (LISTING_CATEGORY_OPTIONS.find((o) => o.slug === category)?.label ??
+        null)
+      : null;
 
   const supabase = await createClient();
   const {
@@ -130,11 +249,15 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
   const selectCols =
     "id, title, auction_starts_at, auction_ends_at, created_at, seller_id";
 
-  const { data: rawListings, error: listingsErr } = await supabase
+  let listingsQuery = supabase
     .from("listings")
     .select(selectCols)
     .or(publicListingFeedOrFilter(nowIso))
-    .eq("type", "auction")
+    .eq("type", "auction");
+  if (category != null) {
+    listingsQuery = listingsQuery.eq("category", category);
+  }
+  const { data: rawListings, error: listingsErr } = await listingsQuery
     .order("created_at", { ascending: false })
     .range(offset, offset + PAGE_SIZE);
 
@@ -215,9 +338,25 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
     "flex min-w-[11rem] max-w-[14rem] flex-1 shrink-0 flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
 
   const nextOffset = offset + PAGE_SIZE;
-  const nextHref = `/auctions?offset=${nextOffset}`;
+  const nextHref =
+    category != null
+      ? `/auctions?category=${encodeURIComponent(category)}&offset=${nextOffset}`
+      : `/auctions?offset=${nextOffset}`;
   const favoriteReturnTo =
-    offset === 0 ? "/auctions" : `/auctions?offset=${offset}`;
+    category != null
+      ? offset === 0
+        ? `/auctions?category=${encodeURIComponent(category)}`
+        : `/auctions?category=${encodeURIComponent(category)}&offset=${offset}`
+      : offset === 0
+        ? "/auctions"
+        : `/auctions?offset=${offset}`;
+
+  const pageTitle =
+    category != null && categoryLabel != null ? categoryLabel : "Auksjoner";
+  const pageSubtitle =
+    category != null && categoryLabel != null
+      ? `Auksjoner i kategorien «${categoryLabel}».`
+      : "Velg kategori eller bla i alle auksjoner.";
 
   return (
     <div className={pageShellClass}>
@@ -231,10 +370,20 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
           </Link>
         </p>
         <div className="space-y-2">
-          <h1 className={pageTitleClass}>Live auksjoner</h1>
+          <h1 className={pageTitleClass}>{pageTitle}</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Offentlig oversikt over auksjoner som pågår nå.
+            {pageSubtitle}
           </p>
+          {category != null ? (
+            <p className="text-sm">
+              <Link
+                href="/auctions"
+                className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+              >
+                ← Alle kategorier
+              </Link>
+            </p>
+          ) : null}
         </div>
 
         {user ? (
@@ -269,108 +418,72 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
         )}
       </header>
 
-      <section className={pageBodyGapClass}>
-        {rows.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Ingen live auksjoner akkurat nå.
-          </p>
-        ) : (
-          <>
-            <ul className="flex flex-wrap gap-3">
-              {rows.map((row) => {
-                const state = auctionStateLabelNo(
-                  nowMs,
-                  row.auction_starts_at ?? null,
-                  row.auction_ends_at ?? null,
-                );
-                const liveNok = highestById.get(row.id) ?? 0;
-                const bidPositionLabel =
-                  user != null && row.seller_id !== user.id
-                    ? viewerAuctionBidPositionLabel(
-                        user.id,
-                        listingIdsWithAnyBid.has(row.id),
-                        leadingBidderByListingId.get(row.id) ?? null,
-                      )
-                    : null;
-                const timeLeft = auctionListingTimeRemainingLabel(
-                  state,
-                  row.auction_starts_at ?? null,
-                  row.auction_ends_at ?? null,
-                  nowMs,
-                );
-                return (
-                  <li key={row.id}>
-                    <div
-                      className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <div className="flex min-w-0 flex-1 flex-col gap-1">
-                          <Link
-                            href={`/listings/${row.id}`}
-                            className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-100"
-                          >
-                            {row.title?.trim() || "—"}
-                          </Link>
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {auctionListingSellerLink(
-                              row.seller_id,
-                              sellerUsernameById,
-                              user?.id ?? null,
-                            )}
-                          </p>
-                          <Link
-                            href={`/listings/${row.id}`}
-                            className="flex flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
-                          >
-                            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                              {state}
-                            </span>
-                            {timeLeft ? (
-                              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                                <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                                  Tid igjen
-                                </span>{" "}
-                                <span className="tabular-nums">{timeLeft}</span>
-                              </span>
-                            ) : null}
-                            <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
-                              {liveNok} NOK
-                            </span>
-                            {bidPositionLabel ? (
-                              <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                                {bidPositionLabel}
-                              </span>
-                            ) : null}
-                          </Link>
-                        </div>
-                        {user &&
-                        row.seller_id &&
-                        row.seller_id !== user.id ? (
-                          <HomeCardFavoriteButton
-                            listingId={row.id}
-                            isFavorite={favoriteIdSet.has(row.id)}
-                            returnTo={favoriteReturnTo}
-                          />
-                        ) : null}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
+      <div className={`${pageBodyGapClass} space-y-10`}>
+        {category == null ? (
+          <section aria-labelledby="auctions-category-hub-heading">
+            <h2
+              id="auctions-category-hub-heading"
+              className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+            >
+              Kategorier
+            </h2>
+            <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+              {LISTING_CATEGORY_OPTIONS.map(({ slug, label }) => (
+                <li key={slug}>
+                  <Link href={`/auctions?category=${slug}`} className={categoryHubCardClass}>
+                    {label}
+                  </Link>
+                </li>
+              ))}
             </ul>
-            {hasMore ? (
-              <p className="mt-6">
-                <Link
-                  href={nextHref}
-                  className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
-                >
-                  Se mer
-                </Link>
-              </p>
-            ) : null}
-          </>
-        )}
-      </section>
+          </section>
+        ) : null}
+
+        <section aria-labelledby="auctions-list-heading">
+          <h2
+            id="auctions-list-heading"
+            className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+          >
+            {category == null ? "Alle auksjoner" : "Annonser"}
+          </h2>
+          {rows.length === 0 ? (
+            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+              Ingen auksjoner å vise akkurat nå.
+            </p>
+          ) : (
+            <>
+              <ul className="mt-4 flex flex-wrap gap-3">
+                {rows.map((row) => (
+                  <li key={row.id}>
+                    <AuctionsListingCard
+                      row={row}
+                      nowMs={nowMs}
+                      cardClass={cardClass}
+                      sellerUsernameById={sellerUsernameById}
+                      viewerUserId={user?.id ?? null}
+                      highestById={highestById}
+                      listingIdsWithAnyBid={listingIdsWithAnyBid}
+                      leadingBidderByListingId={leadingBidderByListingId}
+                      favoriteIdSet={favoriteIdSet}
+                      favoriteReturnTo={favoriteReturnTo}
+                    />
+                  </li>
+                ))}
+              </ul>
+              {hasMore ? (
+                <p className="mt-6">
+                  <Link
+                    href={nextHref}
+                    className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+                  >
+                    Se mer
+                  </Link>
+                </p>
+              ) : null}
+            </>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

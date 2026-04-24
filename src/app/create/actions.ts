@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
+import { parseListingCategory } from "./listing-categories";
+import { parseListingType } from "./listing-type";
+
 export type CreateListingState = { error: string } | null;
 
 function parseWholeNumber(
@@ -43,10 +46,23 @@ export async function createListing(
     redirect("/login");
   }
 
+  const category = parseListingCategory(
+    String(formData.get("category") ?? "").trim(),
+  );
+  if (category == null) {
+    redirect("/create");
+  }
+
+  const listingType = parseListingType(
+    String(formData.get("type") ?? "").trim(),
+  );
+  if (listingType == null) {
+    redirect(`/create?category=${encodeURIComponent(category)}`);
+  }
+
   const title = String(formData.get("title") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const priceRaw = String(formData.get("price_nok") ?? "").trim();
-  const listingType = String(formData.get("type") ?? "").trim();
   const auctionStartDateRaw = String(
     formData.get("auction_start_date") ?? "",
   ).trim();
@@ -68,9 +84,6 @@ export async function createListing(
     return { error: "Title is required." };
   }
 
-  if (listingType !== "fixed_price" && listingType !== "auction") {
-    return { error: "Select a valid listing type." };
-  }
   let priceNok: number | null = null;
   if (listingType === "fixed_price") {
     const parsedPrice = parseWholeNumber(priceRaw, "Price (NOK)", 5);
@@ -164,6 +177,7 @@ export async function createListing(
     seller_id: user.id,
     title,
     description,
+    category,
     price_nok: priceNok,
     image_urls: [],
     status: "draft",
