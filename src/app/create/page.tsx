@@ -8,11 +8,22 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 
+import { CreateCategorySelection } from "./create-category-selection";
 import { CreateListingForm } from "./create-listing-form";
+import { CreateTypeSelection } from "./create-type-selection";
+import { parseListingCategory } from "./listing-categories";
+import { parseListingType } from "./listing-type";
 
 export const dynamic = "force-dynamic";
 
-export default async function CreateListingPage() {
+type PageProps = {
+  searchParams: Promise<{
+    category?: string | string[];
+    type?: string | string[];
+  }>;
+};
+
+export default async function CreateListingPage({ searchParams }: PageProps) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,6 +32,10 @@ export default async function CreateListingPage() {
   if (!user) {
     redirect("/login");
   }
+
+  const sp = await searchParams;
+  const category = parseListingCategory(sp.category);
+  const listingType = parseListingType(sp.type);
 
   return (
     <div className={pageShellClass}>
@@ -33,7 +48,13 @@ export default async function CreateListingPage() {
         </div>
         <SignedInNavLinks />
       </header>
-      <CreateListingForm />
+      {category == null ? (
+        <CreateCategorySelection />
+      ) : listingType == null ? (
+        <CreateTypeSelection category={category} />
+      ) : (
+        <CreateListingForm category={category} listingType={listingType} />
+      )}
     </div>
   );
 }

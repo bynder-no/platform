@@ -3,6 +3,8 @@
 import { useActionState, useMemo, useState } from "react";
 
 import { createListing } from "./actions";
+import type { ListingCategory } from "./listing-categories";
+import type { ListingTypeChoice } from "./listing-type";
 
 const inputClass =
   "rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
@@ -13,10 +15,16 @@ const auctionNumberInputClass = `${inputClass} [-moz-appearance:textfield] [&::-
 const buttonClass =
   "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
 
-export function CreateListingForm() {
+export function CreateListingForm({
+  category,
+  listingType: initialListingType,
+}: {
+  category: ListingCategory;
+  listingType: ListingTypeChoice;
+}) {
   const [state, formAction, pending] = useActionState(createListing, null);
-  const [listingType, setListingType] = useState<"fixed_price" | "auction">(
-    "fixed_price",
+  const [listingType, setListingType] = useState<ListingTypeChoice>(
+    initialListingType,
   );
   const [useReservePrice, setUseReservePrice] = useState(true);
   const [reservePriceNok, setReservePriceNok] = useState("");
@@ -39,6 +47,7 @@ export function CreateListingForm() {
 
   return (
     <form action={formAction} className="mt-10 flex flex-col gap-4">
+      <input type="hidden" name="category" value={category} />
       <fieldset className="flex flex-col gap-2 text-sm">
         <legend className="font-medium text-zinc-800 dark:text-zinc-200">
           Annonsetype
