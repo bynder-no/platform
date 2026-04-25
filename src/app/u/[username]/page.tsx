@@ -79,8 +79,10 @@ export default async function PublicProfilePage({ params }: PageProps) {
   }
 
   const rows = listings ?? [];
+  const fixedPriceRows = rows.filter((row) => row.type === "fixed_price");
+  const auctionRows = rows.filter((row) => row.type === "auction");
 
-  const listingIds = rows.map((r) => r.id).filter(Boolean);
+  const listingIds = auctionRows.map((r) => r.id).filter(Boolean);
   let highestNokByListing = new Map<string, number>();
   if (listingIds.length > 0) {
     const { data: bidRows, error: bidsErr } = await supabase
@@ -99,7 +101,15 @@ export default async function PublicProfilePage({ params }: PageProps) {
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
-        <h1 className={pageTitleClass}>Profile</h1>
+        <div className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Kortselger
+          </p>
+          <h1 className={pageTitleClass}>{profile.username?.trim() || "—"}</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Vurdering: 4,9/5 (kommer snart)
+          </p>
+        </div>
         {user ? (
           <SignedInNavLinks />
         ) : (
@@ -108,58 +118,83 @@ export default async function PublicProfilePage({ params }: PageProps) {
               href="/"
               className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
             >
-              Home
+              Hjem
             </Link>
           </p>
         )}
       </header>
 
-      <dl className={`${pageBodyGapClass} space-y-4 text-sm`}>
-        <div>
-          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
-            Display name
-          </dt>
-          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
-            {profile.display_name?.trim() || "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="font-medium text-zinc-800 dark:text-zinc-200">
-            Username
-          </dt>
-          <dd className="mt-1 text-zinc-600 dark:text-zinc-400">
-            {profile.username?.trim() || "—"}
-          </dd>
-        </div>
-      </dl>
-
       <section className={pageBodyGapClass}>
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-          Active listings
+        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+          Butikk
         </h2>
-        {rows.length === 0 ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <span className="rounded-full border border-zinc-400 bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900">
+            Alle
+          </span>
+          <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
+            Singelkort
+          </span>
+          <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
+            PSA/slabs
+          </span>
+          <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
+            Sealed produkter
+          </span>
+          <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
+            Bulk / mange kort
+          </span>
+        </div>
+        {fixedPriceRows.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-            No active listings.
+            Ingen aktive fastprisannonser i butikken akkurat nå.
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
-            {rows.map((row) => {
-              const rawType =
-                typeof row.type === "string" ? row.type.trim() : "";
-              const typeLabel =
-                rawType === "auction"
-                  ? "Auction"
-                  : rawType === "fixed_price"
-                    ? "Fixed price"
-                    : "—";
-              const auctionStateLabel =
-                rawType === "auction"
-                  ? auctionStateLabelNo(
-                      nowMs,
-                      row.auction_starts_at ?? null,
-                      row.auction_ends_at ?? null,
-                    )
-                  : null;
+            {fixedPriceRows.map((row) => {
+              return (
+                <li
+                  key={row.id}
+                  className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+                >
+                  <Link
+                    href={`/listings/${row.id}`}
+                    className="font-medium text-zinc-900 dark:text-zinc-100"
+                  >
+                    {row.title}
+                  </Link>
+                  <span className="text-zinc-600 dark:text-zinc-400">
+                    Fastpris
+                    <span className="mx-2 text-zinc-400">·</span>
+                    {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
+                    <span className="mx-2 text-zinc-400">·</span>
+                    {row.created_at
+                      ? new Date(row.created_at).toLocaleString()
+                      : "—"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className={pageBodyGapClass}>
+        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+          Auksjoner
+        </h2>
+        {auctionRows.length === 0 ? (
+          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            Ingen aktive auksjoner akkurat nå.
+          </p>
+        ) : (
+          <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+            {auctionRows.map((row) => {
+              const auctionStateLabel = auctionStateLabelNo(
+                nowMs,
+                row.auction_starts_at ?? null,
+                row.auction_ends_at ?? null,
+              );
 
               return (
                 <li
@@ -173,21 +208,13 @@ export default async function PublicProfilePage({ params }: PageProps) {
                     {row.title}
                   </Link>
                   <span className="text-zinc-600 dark:text-zinc-400">
-                    {typeLabel}
-                    {auctionStateLabel ? (
-                      <>
-                        <span className="mx-2 text-zinc-400">·</span>
-                        <span className="font-medium text-zinc-800 dark:text-zinc-200">
-                          {auctionStateLabel}
-                        </span>
-                      </>
-                    ) : null}
+                    Auksjon
                     <span className="mx-2 text-zinc-400">·</span>
-                    {rawType === "auction"
-                      ? `${highestNokByListing.get(row.id) ?? 0} NOK`
-                      : row.price_nok != null
-                        ? `${row.price_nok} NOK`
-                        : "—"}
+                    <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                      {auctionStateLabel}
+                    </span>
+                    <span className="mx-2 text-zinc-400">·</span>
+                    {highestNokByListing.get(row.id) ?? 0} NOK
                     <span className="mx-2 text-zinc-400">·</span>
                     {row.created_at
                       ? new Date(row.created_at).toLocaleString()
