@@ -224,7 +224,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <>
               <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
                 {rows.length} treff for{" "}
-                <span className="font-medium">{`"${query}"`}</span>.
+                <span className="font-medium">“{query}”</span>.
               </p>
               {rows.length === 0 ? (
                 <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
