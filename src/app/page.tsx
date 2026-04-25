@@ -9,6 +9,7 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { HomeCardFavoriteButton } from "@/app/home-card-favorite-button";
+import { HomeSearchAutocomplete } from "@/app/home-search-autocomplete";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
 import { formatAuctionTimeRemainingNo } from "@/lib/auction-time-remaining-no";
 import {
@@ -381,22 +382,7 @@ export default async function HomePage() {
           >
             Søk i annonser
           </h2>
-          <form action="/search" method="get" className="mt-4">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                type="search"
-                name="q"
-                placeholder="Hva leter du etter?"
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 placeholder:text-zinc-500 focus-visible:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
-              />
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
-              >
-                Søk
-              </button>
-            </div>
-          </form>
+          <HomeSearchAutocomplete />
         </section>
 
         <section aria-labelledby="home-auctions-heading">
