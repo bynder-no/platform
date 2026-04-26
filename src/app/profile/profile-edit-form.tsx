@@ -14,12 +14,14 @@ type ProfileEditFormProps = {
   defaultDisplayName: string;
   defaultUsername: string;
   defaultShopName: string;
+  defaultActiveTitle: string;
 };
 
 export function ProfileEditForm({
   defaultDisplayName,
   defaultUsername,
   defaultShopName,
+  defaultActiveTitle,
 }: ProfileEditFormProps) {
   const [state, formAction, pending] = useActionState(updateProfile, null);
 
@@ -64,6 +66,23 @@ export function ProfileEditForm({
           className={inputClass}
           placeholder="F.eks. Mikkels Pokeshop"
         />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+          Tittel
+        </span>
+        <select
+          name="active_title"
+          defaultValue={defaultActiveTitle}
+          className={inputClass}
+        >
+          <option value="Kortselger">Kortselger</option>
+          <option value="Pålitelig selger">Pålitelig selger</option>
+          <option value="Slab-spesialist">Slab-spesialist</option>
+          <option value="Sealed-samler">Sealed-samler</option>
+          <option value="Toppratet">Toppratet</option>
+        </select>
       </label>
 
       <button type="submit" disabled={pending} className={buttonClass}>

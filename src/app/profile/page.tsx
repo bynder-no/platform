@@ -50,7 +50,9 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("display_name, username, shop_name, sales_count, purchases_count")
+    .select(
+      "display_name, username, active_title, shop_name, sales_count, purchases_count",
+    )
     .eq("id", user.id)
     .maybeSingle();
 
@@ -103,6 +105,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
   const defaultDisplayName = profile?.display_name?.trim() ?? "";
   const defaultUsername = profile?.username?.trim() ?? "";
+  const activeTitle = profile?.active_title?.trim() || "Kortselger";
 
   const salesCountRaw = Number(profile?.sales_count);
   const purchasesCountRaw = Number(profile?.purchases_count);
@@ -130,6 +133,9 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                 Min Pokeshop
               </p>
               <h1 className={pageTitleClass}>{defaultDisplayName || "Min profil"}</h1>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {activeTitle} {defaultDisplayName || "—"}
+              </p>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 @{defaultUsername || "—"} · Rating: {ratingDisplayText}
               </p>
