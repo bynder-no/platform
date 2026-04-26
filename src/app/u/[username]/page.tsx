@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import {
@@ -15,6 +16,7 @@ import {
 } from "@/lib/page-layout";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
 import { startFixedPricePurchase } from "@/app/listings/[id]/actions";
+import { normalizeListingImageUrls } from "@/lib/listing-images";
 
 export const dynamic = "force-dynamic";
 
@@ -66,7 +68,7 @@ export default async function PublicProfilePage({
   const { data: listings, error: listingsError } = await supabase
     .from("listings")
     .select(
-      "id, title, price_nok, created_at, type, category, status, seller_id, auction_starts_at, auction_ends_at",
+      "id, title, price_nok, image_urls, created_at, type, category, status, seller_id, auction_starts_at, auction_ends_at",
     )
     .eq("seller_id", profile.id)
     .or(publicListingFeedOrFilter(nowIso))
@@ -243,6 +245,20 @@ export default async function PublicProfilePage({
                   className="rounded-lg border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
                 >
                   <div className="flex h-full flex-col justify-between gap-3">
+                    {normalizeListingImageUrls(row.image_urls)[0] ? (
+                      <Image
+                        src={normalizeListingImageUrls(row.image_urls)[0]}
+                        alt={row.title ?? "Annonsebilde"}
+                        width={320}
+                        height={144}
+                        unoptimized
+                        className="h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                      />
+                    ) : (
+                      <div className="flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+                        Ingen bilde
+                      </div>
+                    )}
                     <div className="space-y-1">
                       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         {row.category ?? "Uten kategori"}

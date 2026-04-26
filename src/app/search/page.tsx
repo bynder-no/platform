@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
@@ -9,6 +10,7 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
+import { normalizeListingImageUrls } from "@/lib/listing-images";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,7 @@ type SearchListingRow = {
   id: string;
   title: string | null;
   description: string | null;
+  image_urls: unknown;
   type: string | null;
   category: string | null;
   price_nok: number | string | null;
@@ -216,7 +219,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     let listingsQuery = supabase
       .from("listings")
       .select(
-        "id, title, description, type, category, price_nok, created_at, seller_id",
+        "id, title, description, image_urls, type, category, price_nok, created_at, seller_id",
       )
       .or(publicListingFeedOrFilter(nowIso))
       .neq("status", "deleted")
@@ -521,6 +524,20 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 <ul className="mt-4 grid gap-3">
                   {rows.map((row) => (
                     <li key={row.id} className={cardClass}>
+                      {normalizeListingImageUrls(row.image_urls)[0] ? (
+                        <Image
+                          src={normalizeListingImageUrls(row.image_urls)[0]}
+                          alt={row.title?.trim() || "Annonsebilde"}
+                          width={640}
+                          height={144}
+                          unoptimized
+                          className="mb-3 h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                        />
+                      ) : (
+                        <div className="mb-3 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+                          Ingen bilde
+                        </div>
+                      )}
                       <div className="flex flex-col gap-1">
                         <Link
                           href={`/listings/${row.id}`}
