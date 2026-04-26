@@ -15,6 +15,7 @@ import {
 } from "@/lib/page-layout";
 
 import { ProfileEditForm } from "./profile-edit-form";
+import { DeleteFixedPriceButton } from "./delete-fixed-price-button";
 
 export const dynamic = "force-dynamic";
 
@@ -269,6 +270,17 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                   >
                     Se produkt
                   </Link>
+                  {user.id && row.type === "fixed_price" ? (
+                    <Link
+                      href={`/listings/${row.id}/edit`}
+                      className="inline-flex rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      Rediger
+                    </Link>
+                  ) : null}
+                  {user.id && row.type === "fixed_price" ? (
+                    <DeleteFixedPriceButton listingId={row.id} />
+                  ) : null}
                 </div>
               </li>
             ))}
