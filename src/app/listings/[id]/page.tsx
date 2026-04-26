@@ -13,6 +13,7 @@ import {
 import { AuctionDealPanel } from "./auction-deal-panel";
 import { startFixedPricePurchase } from "./actions";
 import { ContactSellerForm } from "./contact-seller-form";
+import { DeleteFixedPriceForm } from "./delete-fixed-price-form";
 import { FavoriteButton } from "./favorite-button";
 import { PlaceBidForm } from "./place-bid-form";
 import { viewerAuctionBidPositionLabel } from "@/lib/auction-viewer-bid-status";
@@ -364,6 +365,9 @@ export default async function ListingDetailPage({ params }: PageProps) {
       (listing.status === "active" || listing.status === "public") &&
       user.id !== listing.seller_id,
   );
+  const showDeleteFixedPrice = Boolean(
+    user && listing.type === "fixed_price" && user.id === listing.seller_id,
+  );
 
   const showAuctionEndedNotice = listing.type === "auction" && auctionTimeEnded;
 
@@ -635,6 +639,17 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 Kjøp
               </button>
             </form>
+          </section>
+        ) : null}
+
+        {showDeleteFixedPrice ? (
+          <section aria-labelledby="listing-delete-heading">
+            <h2 id="listing-delete-heading" className={sectionLabelClass}>
+              Slett annonse
+            </h2>
+            <div className="mt-3">
+              <DeleteFixedPriceForm listingId={id} returnTo="/my-listings" />
+            </div>
           </section>
         ) : null}
 

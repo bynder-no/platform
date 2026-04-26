@@ -65,6 +65,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     .from("listings")
     .select("id, title, price_nok, status, created_at, type, category")
     .eq("seller_id", user.id)
+    .neq("status", "deleted")
     .order("created_at", { ascending: false });
 
   if (listingsError) {

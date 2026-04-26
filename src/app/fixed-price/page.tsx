@@ -143,6 +143,7 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
     .from("listings")
     .select(selectCols)
     .eq("type", "fixed_price")
+    .neq("status", "deleted")
     .eq("status", "active");
   if (textSearchOr != null) {
     listingsQuery = listingsQuery.or(textSearchOr);
@@ -183,6 +184,7 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
       .from("listings")
       .select("id", { count: "exact", head: true })
       .eq("type", "fixed_price")
+      .neq("status", "deleted")
       .eq("status", "active")
       .eq("category", option.slug);
     if (textSearchOr != null) {
@@ -195,6 +197,7 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
     .from("listings")
     .select("id", { count: "exact", head: true })
     .eq("type", "fixed_price")
+    .neq("status", "deleted")
     .eq("status", "active");
   if (textSearchOr != null) {
     allCountQuery = allCountQuery.or(textSearchOr);
