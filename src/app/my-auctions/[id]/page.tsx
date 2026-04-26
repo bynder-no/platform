@@ -81,7 +81,7 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, seller_id, type, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+      "title, seller_id, type, status, price_nok, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
     )
     .eq("id", id)
     .maybeSingle();
@@ -90,8 +90,127 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     throw new Error(`Could not load listing: ${listingError.message}`);
   }
 
-  if (!listing || listing.type !== "auction") {
+  if (!listing || (listing.type !== "auction" && listing.type !== "fixed_price")) {
     notFound();
+  }
+
+  if (listing.type === "fixed_price") {
+    const { data: fixedDeal, error: fixedDealErr } = await supabase
+      .from("listing_deals")
+      .select(
+        "seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
+      )
+      .eq("listing_id", id)
+      .maybeSingle();
+
+    if (fixedDealErr || !fixedDeal) {
+      notFound();
+    }
+
+    const fixedSellerId = String(fixedDeal.seller_id ?? "").trim();
+    const fixedBidderId = String(fixedDeal.bidder_id ?? "").trim();
+    const isFixedSeller = user.id === fixedSellerId;
+    const isFixedBuyer = user.id === fixedBidderId;
+    if (!isFixedSeller && !isFixedBuyer) {
+      notFound();
+    }
+
+    const counterpartUserId = isFixedSeller ? fixedBidderId : fixedSellerId;
+    let counterpartUsername: string | null = null;
+    if (counterpartUserId !== "") {
+      const { data: counterpartProfile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", counterpartUserId)
+        .maybeSingle();
+      const normalizedUsername = String(counterpartProfile?.username ?? "").trim();
+      counterpartUsername = normalizedUsername !== "" ? normalizedUsername : null;
+    }
+
+    const { data: fixedDealMessageRows, error: fixedDealMessagesError } =
+      await supabase
+        .from("listing_deal_messages")
+        .select("id, body, sender_id, created_at")
+        .eq("listing_id", id)
+        .order("created_at", { ascending: true });
+
+    if (fixedDealMessagesError) {
+      throw new Error(
+        `Could not load deal messages: ${fixedDealMessagesError.message}`,
+      );
+    }
+
+    const fixedDealMessages = fixedDealMessageRows ?? [];
+    const sellerDecision = String(fixedDeal.seller_decision ?? "pending");
+    const bidderDecision = String(fixedDeal.bidder_decision ?? "pending");
+    const fixedStatusLabel =
+      sellerDecision === "no_deal" || bidderDecision === "no_deal"
+        ? "Handelen ble ikke gjennomført"
+        : sellerDecision === "deal" && bidderDecision === "deal"
+          ? "Begge har godkjent handelen"
+          : "Venter på svar";
+
+    return (
+      <div className={pageShellClass}>
+        <header className={pageHeaderClass}>
+          <p className="text-sm">
+            <Link
+              href="/my-auctions"
+              className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+            >
+              ← Mine deals
+            </Link>
+          </p>
+          <h1 className={pageTitleClass}>Dealrom</h1>
+          <SignedInNavLinks />
+        </header>
+
+        <div className={`${pageBodyGapClass} space-y-8 text-sm`}>
+          <section aria-labelledby="dealroom-summary-heading">
+            <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
+              Dealoversikt
+            </h2>
+            <div className="mt-2 rounded-md border border-zinc-200 p-4 dark:border-zinc-700">
+              <p className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+                {listing.title?.trim() || "—"}
+              </p>
+              <p className="mt-2 text-zinc-700 dark:text-zinc-300">
+                Pris:{" "}
+                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                  {listing.price_nok != null ? `${listing.price_nok} NOK` : "—"}
+                </span>
+              </p>
+              <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+                Motpart:{" "}
+                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                  {counterpartUsername ?? "—"}
+                </span>
+              </p>
+              <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+                Du er:{" "}
+                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                  {isFixedSeller ? "Selger" : "Kjøper"}
+                </span>
+              </p>
+              <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                <p className={sectionLabelClass}>Status</p>
+                <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+                  {fixedStatusLabel}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section aria-labelledby="dealroom-chat-heading">
+            <h2 id="dealroom-chat-heading" className={sectionLabelClass}>
+              Meldinger
+            </h2>
+            <DealMessagesPanel messages={fixedDealMessages} currentUserId={user.id} />
+            <DealChatForm listingId={id} />
+          </section>
+        </div>
+      </div>
+    );
   }
 
   const now = new Date();

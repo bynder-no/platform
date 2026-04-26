@@ -146,34 +146,56 @@ export async function sendListingDealMessage(
   if (listingErr) {
     return { error: listingErr.message };
   }
-  if (!listing || listing.type !== "auction") {
+  if (
+    !listing ||
+    (listing.type !== "auction" && listing.type !== "fixed_price")
+  ) {
     return { error: "Annonsen finnes ikke." };
   }
 
-  const endsAtMs = listing.auction_ends_at
-    ? new Date(listing.auction_ends_at).getTime()
-    : Number.NaN;
-  if (!Number.isFinite(endsAtMs) || Date.now() < endsAtMs) {
-    return { error: "Auksjonen er ikke avsluttet." };
-  }
+  if (listing.type === "auction") {
+    const endsAtMs = listing.auction_ends_at
+      ? new Date(listing.auction_ends_at).getTime()
+      : Number.NaN;
+    if (!Number.isFinite(endsAtMs) || Date.now() < endsAtMs) {
+      return { error: "Auksjonen er ikke avsluttet." };
+    }
 
-  const { data: bidRows, error: bidsErr } = await supabase
-    .from("bids")
-    .select("amount_nok, created_at, bidder_id")
-    .eq("listing_id", listingId)
-    .order("created_at", { ascending: true });
+    const { data: bidRows, error: bidsErr } = await supabase
+      .from("bids")
+      .select("amount_nok, created_at, bidder_id")
+      .eq("listing_id", listingId)
+      .order("created_at", { ascending: true });
 
-  if (bidsErr) {
-    return { error: bidsErr.message };
-  }
+    if (bidsErr) {
+      return { error: bidsErr.message };
+    }
 
-  const bids = (bidRows ?? []) as BidRow[];
-  const leaderId = leadingBidderId(bids);
-  const isSeller = user.id === listing.seller_id;
-  const isLeader = leaderId != null && user.id === leaderId;
+    const bids = (bidRows ?? []) as BidRow[];
+    const leaderId = leadingBidderId(bids);
+    const isSeller = user.id === listing.seller_id;
+    const isLeader = leaderId != null && user.id === leaderId;
 
-  if (!isSeller && !isLeader) {
-    return { error: "Ingen tilgang." };
+    if (!isSeller && !isLeader) {
+      return { error: "Ingen tilgang." };
+    }
+  } else {
+    const { data: dealRow, error: dealRowErr } = await supabase
+      .from("listing_deals")
+      .select("seller_id, bidder_id")
+      .eq("listing_id", listingId)
+      .maybeSingle();
+    if (dealRowErr) {
+      return { error: dealRowErr.message };
+    }
+    if (!dealRow) {
+      return { error: "Handel finnes ikke." };
+    }
+    const sellerId = String(dealRow.seller_id ?? "").trim();
+    const bidderId = String(dealRow.bidder_id ?? "").trim();
+    if (user.id !== sellerId && user.id !== bidderId) {
+      return { error: "Ingen tilgang." };
+    }
   }
 
   const { error: insertErr } = await supabase
