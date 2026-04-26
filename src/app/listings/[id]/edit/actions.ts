@@ -69,6 +69,32 @@ export async function updateDraftListing(
     return { error: "Listing is required." };
   }
 
+  const { data: existingListing, error: existingListingError } = await supabase
+    .from("listings")
+    .select("type, status, seller_id")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (existingListingError) {
+    return { error: existingListingError.message };
+  }
+  if (!existingListing || existingListing.seller_id !== user.id) {
+    return { error: "Could not save changes." };
+  }
+  if (
+    existingListing.type === "auction" &&
+    existingListing.status !== "draft"
+  ) {
+    return { error: "Could not save changes." };
+  }
+  if (
+    existingListing.type === "fixed_price" &&
+    existingListing.status !== "draft" &&
+    existingListing.status !== "active"
+  ) {
+    return { error: "Could not save changes." };
+  }
+
   if (!title) {
     return { error: "Title is required." };
   }
@@ -165,7 +191,7 @@ export async function updateDraftListing(
     }
   }
 
-  const { data: updated, error } = await supabase
+  let updateQuery = supabase
     .from("listings")
     .update({
       title,
@@ -180,10 +206,15 @@ export async function updateDraftListing(
       contact_threshold_percent: contactThresholdPercent,
     })
     .eq("id", listingId)
-    .eq("seller_id", user.id)
-    .eq("status", "draft")
-    .select("id")
-    .maybeSingle();
+    .eq("seller_id", user.id);
+
+  if (existingListing.type === "fixed_price") {
+    updateQuery = updateQuery.in("status", ["draft", "active"]);
+  } else {
+    updateQuery = updateQuery.eq("status", "draft");
+  }
+
+  const { data: updated, error } = await updateQuery.select("id").maybeSingle();
 
   if (error) {
     return { error: error.message };

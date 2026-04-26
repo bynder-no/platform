@@ -43,7 +43,10 @@ export default async function EditListingPage({ params }: PageProps) {
   if (
     !listing ||
     listing.seller_id !== user.id ||
-    listing.status !== "draft"
+    (listing.type === "auction" && listing.status !== "draft") ||
+    (listing.type === "fixed_price" &&
+      listing.status !== "draft" &&
+      listing.status !== "active")
   ) {
     notFound();
   }
@@ -62,7 +65,7 @@ export default async function EditListingPage({ params }: PageProps) {
         </div>
         <SignedInNavLinks />
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          You can edit this listing while it is a draft.
+          Fastpris kan redigeres i utkast og aktiv status.
         </p>
       </header>
 
