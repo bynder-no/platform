@@ -26,6 +26,8 @@ export async function updateProfile(
   // Optional; blank clears to null (same as the profile form).
   const usernameRaw = String(formData.get("username") ?? "");
   const username = usernameRaw.trim() || null;
+  const shopNameRaw = String(formData.get("shop_name") ?? "");
+  const shop_name = shopNameRaw.trim() || null;
 
   if (username) {
     const { data: other, error: conflictError } = await supabase
@@ -46,7 +48,7 @@ export async function updateProfile(
 
   const { error } = await supabase
     .from("profiles")
-    .update({ display_name, username })
+    .update({ display_name, username, shop_name })
     .eq("id", user.id);
 
   if (error) {
