@@ -11,6 +11,7 @@ import {
 } from "@/lib/page-layout";
 
 import { AuctionDealPanel } from "./auction-deal-panel";
+import { startFixedPricePurchase } from "./actions";
 import { ContactSellerForm } from "./contact-seller-form";
 import { FavoriteButton } from "./favorite-button";
 import { PlaceBidForm } from "./place-bid-form";
@@ -357,6 +358,12 @@ export default async function ListingDetailPage({ params }: PageProps) {
       auctionTimeLive &&
       user.id !== listing.seller_id,
   );
+  const showBuyButton = Boolean(
+    user &&
+      listing.type === "fixed_price" &&
+      (listing.status === "active" || listing.status === "public") &&
+      user.id !== listing.seller_id,
+  );
 
   const showAuctionEndedNotice = listing.type === "auction" && auctionTimeEnded;
 
@@ -611,6 +618,23 @@ export default async function ListingDetailPage({ params }: PageProps) {
               listingId={id}
               minBidNok={minimumNextBidNok}
             />
+          </section>
+        ) : null}
+
+        {showBuyButton ? (
+          <section aria-labelledby="listing-buy-heading">
+            <h2 id="listing-buy-heading" className={sectionLabelClass}>
+              Kjøp
+            </h2>
+            <form action={startFixedPricePurchase} className="mt-3">
+              <input type="hidden" name="listing_id" value={id} />
+              <button
+                type="submit"
+                className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              >
+                Kjøp
+              </button>
+            </form>
           </section>
         ) : null}
 

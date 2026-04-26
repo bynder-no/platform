@@ -261,6 +261,108 @@ export async function sendListingMessage(
 
 export type PlaceBidState = { error: string } | null;
 
+export async function startFixedPricePurchase(
+  formData: FormData,
+): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  if (listingId === "") {
+    redirect("/dashboard");
+  }
+
+  const { data: listing, error: listingErr } = await supabase
+    .from("listings")
+    .select("id, seller_id, type, status")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (listingErr) {
+    console.error("fixed_price_purchase listing:", listingErr.message);
+    redirect(`/listings/${listingId}`);
+  }
+
+  if (
+    !listing ||
+    listing.type !== "fixed_price" ||
+    listing.status !== "active" ||
+    user.id === listing.seller_id
+  ) {
+    redirect(`/listings/${listingId}`);
+  }
+
+  const sellerId = String(listing.seller_id ?? "").trim();
+  if (sellerId === "") {
+    redirect(`/listings/${listingId}`);
+  }
+
+  const { data: existingDeal, error: existingDealErr } = await supabase
+    .from("listing_deals")
+    .select("listing_id")
+    .eq("listing_id", listingId)
+    .eq("bidder_id", user.id)
+    .maybeSingle();
+
+  if (existingDealErr) {
+    console.error("fixed_price_purchase listing_deals lookup:", existingDealErr.message);
+    redirect(`/listings/${listingId}`);
+  }
+
+  if (!existingDeal) {
+    const { error: insertDealErr } = await supabase.from("listing_deals").insert({
+      listing_id: listingId,
+      seller_id: sellerId,
+      bidder_id: user.id,
+      seller_decision: "pending",
+      bidder_decision: "pending",
+    });
+
+    if (
+      insertDealErr &&
+      insertDealErr.code !== "23505" &&
+      !insertDealErr.message.toLowerCase().includes("duplicate")
+    ) {
+      console.error("fixed_price_purchase listing_deals insert:", insertDealErr.message);
+      redirect(`/listings/${listingId}`);
+    }
+  }
+
+  const { data: existingUnreadNotification, error: existingNotifErr } =
+    await supabase
+      .from("notifications")
+      .select("id")
+      .eq("user_id", sellerId)
+      .eq("type", "deal_action_required")
+      .eq("listing_id", listingId)
+      .eq("message", "Noen vil kjøpe fastprisannonsen din")
+      .eq("is_read", false)
+      .limit(1)
+      .maybeSingle();
+
+  if (existingNotifErr) {
+    console.error("fixed_price_purchase notifications lookup:", existingNotifErr.message);
+  } else if (!existingUnreadNotification) {
+    await createNotification(
+      supabase,
+      sellerId,
+      "deal_action_required",
+      listingId,
+      "Noen vil kjøpe fastprisannonsen din",
+    );
+  }
+
+  revalidatePath(`/listings/${listingId}`);
+  revalidatePath(`/my-auctions/${listingId}`);
+  redirect(`/my-auctions/${listingId}`);
+}
+
 export async function placeBid(
   _prev: PlaceBidState,
   formData: FormData,

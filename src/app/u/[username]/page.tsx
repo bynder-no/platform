@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import {
+  LISTING_CATEGORY_OPTIONS,
+  parseListingCategory,
+} from "@/app/create/listing-categories";
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -19,6 +23,7 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ username: string }>;
+  searchParams: Promise<{ category?: string | string[] }>;
 };
 
 function auctionStateLabelNo(
@@ -33,12 +38,17 @@ function auctionStateLabelNo(
   return "Live";
 }
 
-export default async function PublicProfilePage({ params }: PageProps) {
+export default async function PublicProfilePage({
+  params,
+  searchParams,
+}: PageProps) {
   const { username: usernameParam } = await params;
+  const sp = await searchParams;
   const username = decodeURIComponent(usernameParam).trim();
   if (!username) {
     notFound();
   }
+  const selectedCategory = parseListingCategory(sp.category);
 
   const supabase = await createClient();
   const {
@@ -69,7 +79,9 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const nowMs = now.getTime();
   const { data: listings, error: listingsError } = await supabase
     .from("listings")
-    .select("id, title, price_nok, created_at, type, auction_starts_at, auction_ends_at")
+    .select(
+      "id, title, price_nok, created_at, type, category, auction_starts_at, auction_ends_at",
+    )
     .eq("seller_id", profile.id)
     .or(publicListingFeedOrFilter(nowIso))
     .order("created_at", { ascending: false });
@@ -79,7 +91,11 @@ export default async function PublicProfilePage({ params }: PageProps) {
   }
 
   const rows = listings ?? [];
-  const fixedPriceRows = rows.filter((row) => row.type === "fixed_price");
+  const fixedPriceRows = rows
+    .filter((row) => row.type === "fixed_price")
+    .filter((row) =>
+      selectedCategory == null ? true : row.category === selectedCategory,
+    );
   const auctionRows = rows.filter((row) => row.type === "auction");
 
   const listingIds = auctionRows.map((r) => r.id).filter(Boolean);
@@ -129,21 +145,32 @@ export default async function PublicProfilePage({ params }: PageProps) {
           Butikk
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
-          <span className="rounded-full border border-zinc-400 bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900">
+          <Link
+            href={`/u/${encodeURIComponent(username)}`}
+            className={`rounded-full border px-3 py-1 text-xs font-medium ${
+              selectedCategory == null
+                ? "border-zinc-400 bg-zinc-900 text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900"
+                : "border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            }`}
+          >
             Alle
-          </span>
-          <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
-            Singelkort
-          </span>
-          <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
-            PSA/slabs
-          </span>
-          <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
-            Sealed produkter
-          </span>
-          <span className="rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 dark:border-zinc-600 dark:text-zinc-300">
-            Bulk / mange kort
-          </span>
+          </Link>
+          {LISTING_CATEGORY_OPTIONS.map((option) => {
+            const active = selectedCategory === option.slug;
+            return (
+              <Link
+                key={option.slug}
+                href={`/u/${encodeURIComponent(username)}?category=${option.slug}`}
+                className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                  active
+                    ? "border-zinc-400 bg-zinc-900 text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900"
+                    : "border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }`}
+              >
+                {option.label}
+              </Link>
+            );
+          })}
         </div>
         {fixedPriceRows.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
