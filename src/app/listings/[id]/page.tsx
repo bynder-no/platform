@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
@@ -17,6 +18,7 @@ import { DeleteFixedPriceForm } from "./delete-fixed-price-form";
 import { FavoriteButton } from "./favorite-button";
 import { PlaceBidForm } from "./place-bid-form";
 import { viewerAuctionBidPositionLabel } from "@/lib/auction-viewer-bid-status";
+import { normalizeListingImageUrls } from "@/lib/listing-images";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +52,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, price_nok, min_bid_increment_nok, description, created_at, seller_id, type, status, auction_starts_at, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent, auction_outcome",
+      "title, price_nok, min_bid_increment_nok, description, image_urls, created_at, seller_id, type, status, auction_starts_at, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent, auction_outcome",
     )
     .eq("id", id)
     .maybeSingle();
@@ -416,6 +418,9 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
   const sectionLabelClass =
     "text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
+  const imageUrls = normalizeListingImageUrls(listing.image_urls);
+  const coverImage = imageUrls[0] ?? null;
+  const restImages = imageUrls.slice(1, 3);
 
   const navLinkClass =
     "text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300";
@@ -455,6 +460,42 @@ export default async function ListingDetailPage({ params }: PageProps) {
       </header>
 
       <div className={`${pageBodyGapClass} space-y-10 text-sm`}>
+        <section aria-labelledby="listing-images-heading">
+          <h2 id="listing-images-heading" className={sectionLabelClass}>
+            Bilder
+          </h2>
+          {coverImage ? (
+            <div className="mt-3 space-y-2">
+              <Image
+                src={coverImage}
+                alt={`Bilde av ${listing.title}`}
+                width={1280}
+                height={320}
+                unoptimized
+                className="h-80 w-full rounded-lg border border-zinc-200 bg-zinc-50 object-contain dark:border-zinc-700 dark:bg-zinc-900"
+              />
+              {restImages.length > 0 ? (
+                <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {restImages.map((url) => (
+                    <li key={url}>
+                      <Image
+                        src={url}
+                        alt={`Ekstra bilde av ${listing.title}`}
+                        width={160}
+                        height={96}
+                        unoptimized
+                        className="h-24 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-3 text-zinc-700 dark:text-zinc-300">Ingen bilder lagt til.</p>
+          )}
+        </section>
+
         <section aria-labelledby="listing-price-heading">
           <h2 id="listing-price-heading" className={sectionLabelClass}>
             Price

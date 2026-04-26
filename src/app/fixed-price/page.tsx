@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import {
   LISTING_CATEGORY_OPTIONS,
@@ -12,6 +13,7 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import { normalizeListingImageUrls } from "@/lib/listing-images";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +32,7 @@ type FixedRow = {
   id: string;
   title: string | null;
   price_nok: number | string | null;
+  image_urls: unknown;
   created_at: string | null;
   category: string | null;
 };
@@ -92,11 +95,26 @@ function FixedPriceListingCard({
   row: FixedRow;
   cardClass: string;
 }) {
+  const coverImage = normalizeListingImageUrls(row.image_urls)[0] ?? null;
   return (
     <Link
       href={`/listings/${row.id}`}
       className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
     >
+      {coverImage ? (
+        <Image
+          src={coverImage}
+          alt={row.title?.trim() || "Annonsebilde"}
+          width={224}
+          height={144}
+          unoptimized
+          className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+        />
+      ) : (
+        <span className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+          Ingen bilde
+        </span>
+      )}
       <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
         {row.title?.trim() || "—"}
       </span>
@@ -129,7 +147,8 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
     console.error("publish_due_auctions:", publishDueError.message);
   }
 
-  const selectCols = "id, title, description, price_nok, created_at, category";
+  const selectCols =
+    "id, title, description, price_nok, image_urls, created_at, category";
   const textSearchOr =
     query !== ""
       ? (() => {

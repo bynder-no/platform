@@ -3,6 +3,11 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  buildListingImageStoragePath,
+  getListingImageFilesFromFormData,
+  validateListingImageFiles,
+} from "@/lib/listing-images";
 
 import { parseListingCategory } from "./listing-categories";
 import { parseListingType } from "./listing-type";
@@ -79,9 +84,14 @@ export async function createListing(
     formData.get("contact_threshold_percent") ?? "",
   ).trim();
   const useReservePrice = formData.get("use_reserve_price") === "on";
+  const imageFiles = getListingImageFilesFromFormData(formData);
 
   if (!title) {
     return { error: "Title is required." };
+  }
+  const imageValidationError = validateListingImageFiles(imageFiles);
+  if (imageValidationError) {
+    return { error: imageValidationError };
   }
 
   let priceNok: number | null = null;
@@ -173,25 +183,64 @@ export async function createListing(
     }
   }
 
-  const { error } = await supabase.from("listings").insert({
-    seller_id: user.id,
-    title,
-    description,
-    category,
-    price_nok: priceNok,
-    image_urls: [],
-    status: listingType === "fixed_price" ? "active" : "draft",
-    type: listingType,
-    auction_starts_at: auctionStartsAt,
-    auction_ends_at: auctionEndsAt,
-    min_bid_increment_nok: minBidIncrementNok,
-    use_reserve_price: useReserve,
-    reserve_price_nok: reservePriceNok,
-    contact_threshold_percent: contactThresholdPercent,
-  });
+  const { data: insertedListing, error: insertError } = await supabase
+    .from("listings")
+    .insert({
+      seller_id: user.id,
+      title,
+      description,
+      category,
+      price_nok: priceNok,
+      image_urls: [],
+      status: listingType === "fixed_price" ? "active" : "draft",
+      type: listingType,
+      auction_starts_at: auctionStartsAt,
+      auction_ends_at: auctionEndsAt,
+      min_bid_increment_nok: minBidIncrementNok,
+      use_reserve_price: useReserve,
+      reserve_price_nok: reservePriceNok,
+      contact_threshold_percent: contactThresholdPercent,
+    })
+    .select("id")
+    .single();
 
-  if (error) {
-    return { error: error.message };
+  if (insertError || !insertedListing) {
+    return { error: insertError?.message ?? "Kunne ikke opprette annonse." };
+  }
+
+  if (imageFiles.length > 0) {
+    const publicUrls: string[] = [];
+    for (const file of imageFiles) {
+      const storagePath = buildListingImageStoragePath(
+        user.id,
+        insertedListing.id,
+        file.name,
+      );
+      const { error: uploadError } = await supabase.storage
+        .from("listing-images")
+        .upload(storagePath, file, {
+          contentType: file.type,
+          upsert: false,
+        });
+      if (uploadError) {
+        return { error: `Kunne ikke laste opp bilde: ${uploadError.message}` };
+      }
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("listing-images").getPublicUrl(storagePath);
+      publicUrls.push(publicUrl);
+    }
+
+    const { error: updateImageError } = await supabase
+      .from("listings")
+      .update({ image_urls: publicUrls })
+      .eq("id", insertedListing.id)
+      .eq("seller_id", user.id);
+    if (updateImageError) {
+      return {
+        error: `Annonsen ble opprettet, men bilder kunne ikke lagres: ${updateImageError.message}`,
+      };
+    }
   }
 
   redirect("/dashboard");

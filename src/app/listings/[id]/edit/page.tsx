@@ -8,6 +8,7 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import { normalizeListingImageUrls } from "@/lib/listing-images";
 
 import { EditListingForm } from "./edit-listing-form";
 
@@ -31,7 +32,7 @@ export default async function EditListingPage({ params }: PageProps) {
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "id, title, description, price_nok, type, status, seller_id, auction_starts_at, auction_ends_at, min_bid_increment_nok, reserve_price_nok, contact_threshold_percent, use_reserve_price",
+      "id, title, description, price_nok, image_urls, type, status, seller_id, auction_starts_at, auction_ends_at, min_bid_increment_nok, reserve_price_nok, contact_threshold_percent, use_reserve_price",
     )
     .eq("id", id)
     .maybeSingle();
@@ -75,6 +76,7 @@ export default async function EditListingPage({ params }: PageProps) {
         defaultDescription={listing.description ?? ""}
         defaultPriceNok={listing.price_nok ?? 0}
         defaultType={listing.type ?? "fixed_price"}
+        defaultImageUrls={normalizeListingImageUrls(listing.image_urls)}
         defaultAuctionStartsAt={listing.auction_starts_at}
         defaultAuctionEndsAt={listing.auction_ends_at}
         defaultMinBidIncrementNok={listing.min_bid_increment_nok}

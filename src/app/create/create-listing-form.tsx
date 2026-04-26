@@ -2,6 +2,8 @@
 
 import { useActionState, useMemo, useState } from "react";
 
+import { ListingImageSlotsInput } from "@/components/listing-image-slots-input";
+
 import { createListing } from "./actions";
 import type { ListingCategory } from "./listing-categories";
 import type { ListingTypeChoice } from "./listing-type";
@@ -101,6 +103,8 @@ export function CreateListingForm({
           placeholder="Hva tilbyr du?"
         />
       </label>
+
+      <ListingImageSlotsInput />
 
       {listingType === "auction" ? (
         <>

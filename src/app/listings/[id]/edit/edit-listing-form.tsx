@@ -2,6 +2,8 @@
 
 import { useActionState, useMemo, useState } from "react";
 
+import { ListingImageSlotsInput } from "@/components/listing-image-slots-input";
+
 import { updateDraftListing } from "./actions";
 
 const inputClass =
@@ -16,6 +18,7 @@ type EditListingFormProps = {
   defaultDescription: string;
   defaultPriceNok: number;
   defaultType: string;
+  defaultImageUrls: string[];
   defaultAuctionStartsAt: string | null;
   defaultAuctionEndsAt: string | null;
   defaultMinBidIncrementNok: number | null;
@@ -41,6 +44,7 @@ export function EditListingForm({
   defaultDescription,
   defaultPriceNok,
   defaultType,
+  defaultImageUrls,
   defaultAuctionStartsAt,
   defaultAuctionEndsAt,
   defaultMinBidIncrementNok,
@@ -150,6 +154,11 @@ export function EditListingForm({
           placeholder="Hva tilbyr du?"
         />
       </label>
+
+      <ListingImageSlotsInput
+        initialImageUrls={defaultImageUrls}
+        showReplaceNote
+      />
 
       {listingType === "auction" ? (
         <>

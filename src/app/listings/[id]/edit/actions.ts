@@ -3,6 +3,14 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import {
+  buildListingImageStoragePath,
+  getExistingImageUrlsBySlotFromFormData,
+  getListingImageFilesBySlotFromFormData,
+  getListingImageFilesFromFormData,
+  normalizeListingImageUrls,
+  validateListingImageFiles,
+} from "@/lib/listing-images";
 
 export type EditListingState = { error: string } | null;
 
@@ -64,6 +72,8 @@ export async function updateDraftListing(
     formData.get("contact_threshold_percent") ?? "",
   ).trim();
   const useReservePrice = formData.get("use_reserve_price") === "on";
+  const imageFiles = getListingImageFilesFromFormData(formData);
+  const imageFilesBySlot = getListingImageFilesBySlotFromFormData(formData);
 
   if (!listingId) {
     return { error: "Listing is required." };
@@ -71,7 +81,7 @@ export async function updateDraftListing(
 
   const { data: existingListing, error: existingListingError } = await supabase
     .from("listings")
-    .select("type, status, seller_id")
+    .select("type, status, seller_id, image_urls")
     .eq("id", listingId)
     .maybeSingle();
 
@@ -96,6 +106,10 @@ export async function updateDraftListing(
 
   if (!title) {
     return { error: "Title is required." };
+  }
+  const imageValidationError = validateListingImageFiles(imageFiles);
+  if (imageValidationError) {
+    return { error: imageValidationError };
   }
 
   if (listingType !== "fixed_price" && listingType !== "auction") {
@@ -220,6 +234,52 @@ export async function updateDraftListing(
 
   if (!updated) {
     return { error: "Could not save changes." };
+  }
+
+  if (imageFiles.length > 0) {
+    const existingFromForm = getExistingImageUrlsBySlotFromFormData(formData);
+    const existingFromDb = normalizeListingImageUrls(existingListing.image_urls);
+    const existingSlots = [0, 1, 2].map(
+      (index) => existingFromForm[index] ?? existingFromDb[index] ?? "",
+    );
+
+    const nextImageUrlsBySlot: string[] = [];
+    for (let slotIndex = 0; slotIndex < 3; slotIndex += 1) {
+      const file = imageFilesBySlot[slotIndex];
+      if (file) {
+        const storagePath = buildListingImageStoragePath(
+          user.id,
+          listingId,
+          file.name,
+        );
+        const { error: uploadError } = await supabase.storage
+          .from("listing-images")
+          .upload(storagePath, file, {
+            contentType: file.type,
+            upsert: false,
+          });
+        if (uploadError) {
+          return { error: `Kunne ikke laste opp bilde: ${uploadError.message}` };
+        }
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("listing-images").getPublicUrl(storagePath);
+        nextImageUrlsBySlot.push(publicUrl);
+      } else if (existingSlots[slotIndex]) {
+        nextImageUrlsBySlot.push(existingSlots[slotIndex]);
+      }
+    }
+
+    const { error: updateImageError } = await supabase
+      .from("listings")
+      .update({ image_urls: nextImageUrlsBySlot })
+      .eq("id", listingId)
+      .eq("seller_id", user.id);
+    if (updateImageError) {
+      return {
+        error: `Endringer lagret, men bilder kunne ikke lagres: ${updateImageError.message}`,
+      };
+    }
   }
 
   redirect(`/listings/${listingId}`);

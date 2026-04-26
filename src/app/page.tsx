@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,7 @@ import {
   viewerAuctionBidPositionLabel,
   type BidForLeadingRow,
 } from "@/lib/auction-viewer-bid-status";
+import { normalizeListingImageUrls } from "@/lib/listing-images";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,7 @@ type ListingCardRow = {
   title: string | null;
   type: string | null;
   price_nok: number | string | null;
+  image_urls: unknown;
   auction_starts_at: string | null;
   auction_ends_at: string | null;
   seller_id: string | null;
@@ -122,6 +125,7 @@ function HomeAuctionListingCard({
   auctionLeadingBidderByListingId,
   favoriteIdSet,
 }: HomeAuctionCardProps) {
+  const coverImage = normalizeListingImageUrls(row.image_urls)[0] ?? null;
   const state = auctionStateLabelNo(
     nowMs,
     row.auction_starts_at ?? null,
@@ -146,6 +150,20 @@ function HomeAuctionListingCard({
     <div
       className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
     >
+      {coverImage ? (
+        <Image
+          src={coverImage}
+          alt={row.title?.trim() || "Annonsebilde"}
+          width={224}
+          height={144}
+          unoptimized
+          className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+        />
+      ) : (
+        <div className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+          Ingen bilde
+        </div>
+      )}
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <Link
@@ -215,7 +233,7 @@ export default async function HomePage() {
   const nowMs = now.getTime();
 
   const selectCols =
-    "id, title, type, price_nok, auction_starts_at, auction_ends_at, created_at, seller_id";
+    "id, title, type, price_nok, image_urls, auction_starts_at, auction_ends_at, created_at, seller_id";
 
   const { data: auctionList, error: auctionErr } = await supabase
     .from("listings")
@@ -449,6 +467,20 @@ export default async function HomePage() {
                   <div
                     className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
                   >
+                    {normalizeListingImageUrls(row.image_urls)[0] ? (
+                      <Image
+                        src={normalizeListingImageUrls(row.image_urls)[0]}
+                        alt={row.title?.trim() || "Annonsebilde"}
+                        width={224}
+                        height={144}
+                        unoptimized
+                        className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                      />
+                    ) : (
+                      <div className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+                        Ingen bilde
+                      </div>
+                    )}
                     <div className="flex items-start gap-2">
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
                         <Link

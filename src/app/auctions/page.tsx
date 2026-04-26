@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import {
   LISTING_CATEGORY_OPTIONS,
@@ -24,6 +25,7 @@ import {
   viewerAuctionBidPositionLabel,
   type BidForLeadingRow,
 } from "@/lib/auction-viewer-bid-status";
+import { normalizeListingImageUrls } from "@/lib/listing-images";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,7 @@ type PageProps = {
 type AuctionRow = {
   id: string;
   title: string | null;
+  image_urls: unknown;
   auction_starts_at: string | null;
   auction_ends_at: string | null;
   created_at: string | null;
@@ -175,6 +178,7 @@ function AuctionsListingCard({
   favoriteIdSet,
   favoriteReturnTo,
 }: AuctionsListingCardProps) {
+  const coverImage = normalizeListingImageUrls(row.image_urls)[0] ?? null;
   const state = auctionStateLabelNo(
     nowMs,
     row.auction_starts_at ?? null,
@@ -199,6 +203,20 @@ function AuctionsListingCard({
     <div
       className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
     >
+      {coverImage ? (
+        <Image
+          src={coverImage}
+          alt={row.title?.trim() || "Annonsebilde"}
+          width={224}
+          height={144}
+          unoptimized
+          className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+        />
+      ) : (
+        <div className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+          Ingen bilde
+        </div>
+      )}
       <div className="flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <Link
@@ -287,7 +305,7 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
       : null;
 
   const selectCols =
-    "id, title, auction_starts_at, auction_ends_at, created_at, seller_id, price_nok";
+    "id, title, image_urls, auction_starts_at, auction_ends_at, created_at, seller_id, price_nok";
 
   let listingsQuery = supabase
     .from("listings")
