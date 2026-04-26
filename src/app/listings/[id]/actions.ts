@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { deleteOwnFixedPriceListingById } from "@/lib/fixed-price-delete";
 
 import { ANTI_SNIPE_WINDOW_MS } from "./bid-rules";
 import {
@@ -121,6 +122,55 @@ export async function deleteDraftListing(
   }
 
   redirect("/dashboard");
+}
+
+export async function deleteFixedPriceListing(
+  _prev: DeleteListingState,
+  formData: FormData,
+): Promise<DeleteListingState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const listingId = String(formData.get("listing_id") ?? "").trim();
+  if (!listingId) {
+    return { error: "Listing is required." };
+  }
+
+  console.log("DELETE FIXED PRICE START", { listingId });
+
+  const deleted = await deleteOwnFixedPriceListingById({
+    supabase,
+    listingId,
+    currentUserId: user.id,
+  });
+
+  const deletedOrUpdated = deleted;
+  console.log("DELETE FIXED PRICE RESULT", { listingId, deletedOrUpdated });
+
+  if (!deleted) {
+    return { error: "Could not delete this listing." };
+  }
+
+  const returnTo = String(formData.get("return_to") ?? "").trim();
+  revalidatePath("/profile");
+  revalidatePath("/my-listings");
+  revalidatePath("/");
+  revalidatePath("/fixed-price");
+  revalidatePath("/search");
+
+  if (returnTo === "/profile") {
+    redirect("/profile");
+  }
+  if (returnTo === "/my-listings") {
+    redirect("/my-listings");
+  }
+  redirect("/my-listings");
 }
 
 export type FavoriteState = { error: string } | null;

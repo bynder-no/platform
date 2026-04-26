@@ -219,6 +219,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         "id, title, description, type, category, price_nok, created_at, seller_id",
       )
       .or(publicListingFeedOrFilter(nowIso))
+      .neq("status", "deleted")
       .in("type", ["auction", "fixed_price"])
       .or(textSearchOr);
     if (typeFilters.length === 1) {
@@ -248,6 +249,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         .from("listings")
         .select("id", { count: "exact", head: true })
         .or(publicListingFeedOrFilter(nowIso))
+        .neq("status", "deleted")
         .in("type", ["auction", "fixed_price"])
         .or(textSearchOr);
       if (typeFilters.length === 1) {

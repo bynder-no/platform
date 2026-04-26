@@ -50,6 +50,7 @@ export async function GET(request: Request) {
     .from("listings")
     .select("id, title, type, category, price_nok, created_at")
     .or(publicListingFeedOrFilter(nowIso))
+    .neq("status", "deleted")
     .in("type", ["auction", "fixed_price"])
     .ilike("title", pattern)
     .order("created_at", { ascending: false })

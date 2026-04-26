@@ -17,6 +17,7 @@ import {
 
 import { DeleteDraftForm } from "../dashboard/delete-draft-form";
 import { PublishDraftForm } from "../dashboard/publish-draft-form";
+import { DeleteFixedPriceForm } from "../listings/[id]/delete-fixed-price-form";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +112,7 @@ export default async function MyListingsPage() {
       "id, title, price_nok, status, type, auction_starts_at, auction_ends_at",
     )
     .eq("seller_id", user.id)
+    .neq("status", "deleted")
     .order("created_at", { ascending: false });
 
   if (listingsError) {
@@ -258,9 +260,16 @@ export default async function MyListingsPage() {
                   {row.type === "auction" ? null : (
                     <PublishDraftForm listingId={row.id} />
                   )}
-                  <DeleteDraftForm listingId={row.id} />
+                  {row.type === "auction" ? (
+                    <DeleteDraftForm listingId={row.id} />
+                  ) : null}
                 </>
               )}
+            </div>
+          ) : null}
+          {row.type === "fixed_price" ? (
+            <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+              <DeleteFixedPriceForm listingId={row.id} returnTo="/my-listings" />
             </div>
           ) : null}
         </div>

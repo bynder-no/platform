@@ -221,6 +221,7 @@ export default async function HomePage() {
     .from("listings")
     .select(selectCols)
     .or(publicListingFeedOrFilter(nowIso))
+    .neq("status", "deleted")
     .eq("type", "auction")
     .order("created_at", { ascending: false })
     .limit(4);
@@ -233,6 +234,7 @@ export default async function HomePage() {
     .from("listings")
     .select(selectCols)
     .or(publicListingFeedOrFilter(nowIso))
+    .neq("status", "deleted")
     .eq("type", "fixed_price")
     .order("created_at", { ascending: false })
     .limit(4);
