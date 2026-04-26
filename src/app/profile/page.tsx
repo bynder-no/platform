@@ -14,7 +14,6 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 
-import { ProfileEditForm } from "./profile-edit-form";
 import { DeleteFixedPriceButton } from "./delete-fixed-price-button";
 
 export const dynamic = "force-dynamic";
@@ -51,7 +50,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("display_name, username, sales_count, purchases_count")
+    .select("display_name, username, shop_name, sales_count, purchases_count")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -118,10 +117,12 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     ratingCount === 0
       ? "Ingen vurderinger ennå"
       : `${ratingAverageDisplay} av 5 (${ratingCount})`;
+  const shopHeading = profile?.shop_name?.trim() || "Min butikk";
 
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
+        <SignedInNavLinks />
         <div className="w-full rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <div className="space-y-3">
             <div>
@@ -174,33 +175,27 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               >
                 Mine deals
               </Link>
+              <Link
+                href="/settings"
+                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Innstillinger
+              </Link>
             </div>
           </div>
         </div>
-        <SignedInNavLinks />
       </header>
-
-      <ProfileEditForm
-        defaultDisplayName={defaultDisplayName}
-        defaultUsername={defaultUsername}
-      />
 
       <section className={pageBodyGapClass}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-              Min butikk
+              {shopHeading}
             </h2>
             <p className="text-sm text-zinc-600 dark:text-zinc-400">
               Produkter med fastpris vises først i butikken din.
             </p>
           </div>
-          <Link
-            href="/create"
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            Legg til produkt
-          </Link>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
@@ -289,41 +284,6 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
         )}
       </section>
 
-      <section className={pageBodyGapClass}>
-        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-          Mine aktive auksjoner
-        </h2>
-        {auctionRows.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-            Ingen aktive auksjoner akkurat nå.
-          </p>
-        ) : (
-          <ul className="mt-4 grid gap-2">
-            {auctionRows.map((row) => (
-              <li
-                key={row.id}
-                className="flex flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm dark:border-zinc-700 dark:bg-zinc-900 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
-              >
-                <Link
-                  href={`/listings/${row.id}`}
-                  className="font-medium text-zinc-900 dark:text-zinc-100"
-                >
-                  {row.title}
-                </Link>
-                <span className="text-zinc-600 dark:text-zinc-400">
-                  Auksjon
-                  <span className="mx-2 text-zinc-400">·</span>
-                  {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
-                  <span className="mx-2 text-zinc-400">·</span>
-                  {row.created_at
-                    ? new Date(row.created_at).toLocaleString()
-                    : "—"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }
