@@ -17,7 +17,7 @@ export async function deleteOwnFixedPriceListingById({
 
   const { data: listing, error: listingErr } = await supabase
     .from("listings")
-    .select("id, seller_id, type")
+    .select("id, seller_id, type, status")
     .eq("id", listingId)
     .maybeSingle();
 
@@ -29,6 +29,7 @@ export async function deleteOwnFixedPriceListingById({
   if (
     !listing ||
     listing.type !== "fixed_price" ||
+    String(listing.status ?? "").trim() === "sold" ||
     String(listing.seller_id ?? "").trim() !== currentUserId
   ) {
     return false;

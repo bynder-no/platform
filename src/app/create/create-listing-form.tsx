@@ -319,7 +319,7 @@ export function CreateListingForm({
       )}
 
       <button type="submit" disabled={pending} className={buttonClass}>
-        {pending ? "Lagrer..." : "Lagre som kladd"}
+        {pending ? "Publiserer..." : "Publiser annonse"}
       </button>
 
       {state?.error ? (

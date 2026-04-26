@@ -243,8 +243,62 @@ export async function markBuyerReceivedCard(
   if (listingErr) {
     return { error: listingErr.message };
   }
-  if (!listing || listing.type !== "auction") {
+  if (!listing || (listing.type !== "auction" && listing.type !== "fixed_price")) {
     return { error: "Annonsen finnes ikke." };
+  }
+
+  if (listing.type === "fixed_price") {
+    const { data: deal, error: dealErr } = await supabase
+      .from("listing_deals")
+      .select(
+        "seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card",
+      )
+      .eq("listing_id", listingId)
+      .maybeSingle();
+    if (dealErr) {
+      return { error: dealErr.message };
+    }
+    if (!deal) {
+      return { error: "Handel finnes ikke." };
+    }
+    const bidderId = String(deal.bidder_id ?? "").trim();
+    if (bidderId === "" || user.id !== bidderId) {
+      return { error: "Bare kjøper kan gjøre dette." };
+    }
+    if (deal.seller_decision !== "deal" || deal.bidder_decision !== "deal") {
+      return { error: "Handelen er ikke godkjent av begge parter." };
+    }
+    if (deal.buyer_received_card === true) {
+      return { error: "Allerede registrert." };
+    }
+    const { error: updErr } = await supabase
+      .from("listing_deals")
+      .update({
+        buyer_received_card: true,
+      })
+      .eq("listing_id", listingId)
+      .eq("seller_decision", "deal")
+      .eq("bidder_decision", "deal")
+      .eq("buyer_received_card", false);
+    if (updErr) {
+      return { error: updErr.message };
+    }
+
+    const sellerId = String(deal.seller_id ?? "").trim();
+    if (sellerId !== "" && sellerId !== user.id) {
+      await sendCompletionNotification(
+        supabase,
+        listingId,
+        sellerId,
+        "Kjøper har mottatt pakken",
+        "buyer",
+        "buyer_received_card",
+      );
+    }
+
+    await maybeSetDealCompletedAt(supabase, listingId);
+    revalidatePath(`/my-auctions/${listingId}`);
+    redirect(`/my-auctions/${listingId}`);
   }
 
   const endsAtMs = listing.auction_ends_at
@@ -352,8 +406,62 @@ export async function markSellerReceivedPayment(
   if (listingErr) {
     return { error: listingErr.message };
   }
-  if (!listing || listing.type !== "auction") {
+  if (!listing || (listing.type !== "auction" && listing.type !== "fixed_price")) {
     return { error: "Annonsen finnes ikke." };
+  }
+
+  if (listing.type === "fixed_price") {
+    const { data: deal, error: dealErr } = await supabase
+      .from("listing_deals")
+      .select(
+        "seller_id, bidder_id, seller_decision, bidder_decision, seller_received_payment",
+      )
+      .eq("listing_id", listingId)
+      .maybeSingle();
+    if (dealErr) {
+      return { error: dealErr.message };
+    }
+    if (!deal) {
+      return { error: "Handel finnes ikke." };
+    }
+    const sellerId = String(deal.seller_id ?? "").trim();
+    if (sellerId === "" || user.id !== sellerId) {
+      return { error: "Bare selger kan gjøre dette." };
+    }
+    if (deal.seller_decision !== "deal" || deal.bidder_decision !== "deal") {
+      return { error: "Handelen er ikke godkjent av begge parter." };
+    }
+    if (deal.seller_received_payment === true) {
+      return { error: "Allerede registrert." };
+    }
+    const { error: updErr } = await supabase
+      .from("listing_deals")
+      .update({
+        seller_received_payment: true,
+      })
+      .eq("listing_id", listingId)
+      .eq("seller_decision", "deal")
+      .eq("bidder_decision", "deal")
+      .eq("seller_received_payment", false);
+    if (updErr) {
+      return { error: updErr.message };
+    }
+
+    const bidderId = String(deal.bidder_id ?? "").trim();
+    if (bidderId !== "" && bidderId !== user.id) {
+      await sendCompletionNotification(
+        supabase,
+        listingId,
+        bidderId,
+        "Selger har mottatt betalingen",
+        "seller",
+        "seller_received_payment",
+      );
+    }
+
+    await maybeSetDealCompletedAt(supabase, listingId);
+    revalidatePath(`/my-auctions/${listingId}`);
+    redirect(`/my-auctions/${listingId}`);
   }
 
   if (user.id !== listing.seller_id) {
@@ -456,71 +564,104 @@ export async function submitDealRating(
   if (listingErr) {
     return { error: listingErr.message };
   }
-  if (!listing || listing.type !== "auction") {
+  if (!listing || (listing.type !== "auction" && listing.type !== "fixed_price")) {
     return { error: "Annonsen finnes ikke." };
   }
 
-  const endsAtMs = listing.auction_ends_at
-    ? new Date(listing.auction_ends_at).getTime()
-    : Number.NaN;
-  if (!Number.isFinite(endsAtMs) || Date.now() < endsAtMs) {
-    return { error: "Auksjonen er ikke avsluttet." };
-  }
-
-  const { data: bidRows, error: bidsErr } = await supabase
-    .from("bids")
-    .select("amount_nok, created_at, bidder_id")
-    .eq("listing_id", listingId)
-    .order("created_at", { ascending: true });
-
-  if (bidsErr) {
-    return { error: bidsErr.message };
-  }
-
-  const bids = (bidRows ?? []) as BidRow[];
-  const leaderId = leadingBidderId(bids);
-  const listingSellerId = String(listing.seller_id ?? "").trim();
-  if (leaderId == null) {
-    return { error: "Ingen tilgang." };
-  }
-  const leaderNorm = String(leaderId).trim();
   const uid = user.id.trim();
-  const isSeller = uid === listingSellerId;
-  const isLeader = uid === leaderNorm;
-  if (!isSeller && !isLeader) {
-    return { error: "Ingen tilgang." };
+  let dealSellerId = "";
+  let dealBidderId = "";
+  let sellerCanRate = false;
+  let buyerCanRate = false;
+
+  if (listing.type === "fixed_price") {
+    const { data: deal, error: dealErr } = await supabase
+      .from("listing_deals")
+      .select(
+        "seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
+      )
+      .eq("listing_id", listingId)
+      .maybeSingle();
+    if (dealErr) {
+      return { error: dealErr.message };
+    }
+    if (
+      !deal ||
+      deal.seller_decision !== "deal" ||
+      deal.bidder_decision !== "deal"
+    ) {
+      return { error: "Handelen er ikke klar for vurdering." };
+    }
+    dealSellerId = String(deal.seller_id ?? "").trim();
+    dealBidderId = String(deal.bidder_id ?? "").trim();
+    if (uid !== dealSellerId && uid !== dealBidderId) {
+      return { error: "Ingen tilgang." };
+    }
+    sellerCanRate = uid === dealSellerId && deal.seller_received_payment === true;
+    buyerCanRate = uid === dealBidderId && deal.buyer_received_card === true;
+  } else {
+    const endsAtMs = listing.auction_ends_at
+      ? new Date(listing.auction_ends_at).getTime()
+      : Number.NaN;
+    if (!Number.isFinite(endsAtMs) || Date.now() < endsAtMs) {
+      return { error: "Auksjonen er ikke avsluttet." };
+    }
+
+    const { data: bidRows, error: bidsErr } = await supabase
+      .from("bids")
+      .select("amount_nok, created_at, bidder_id")
+      .eq("listing_id", listingId)
+      .order("created_at", { ascending: true });
+
+    if (bidsErr) {
+      return { error: bidsErr.message };
+    }
+
+    const bids = (bidRows ?? []) as BidRow[];
+    const leaderId = leadingBidderId(bids);
+    const listingSellerId = String(listing.seller_id ?? "").trim();
+    if (leaderId == null) {
+      return { error: "Ingen tilgang." };
+    }
+    const leaderNorm = String(leaderId).trim();
+    const isSeller = uid === listingSellerId;
+    const isLeader = uid === leaderNorm;
+    if (!isSeller && !isLeader) {
+      return { error: "Ingen tilgang." };
+    }
+
+    const { data: deal, error: dealErr } = await supabase
+      .from("listing_deals")
+      .select(
+        "seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
+      )
+      .eq("listing_id", listingId)
+      .maybeSingle();
+
+    if (dealErr) {
+      return { error: dealErr.message };
+    }
+    if (
+      !deal ||
+      deal.seller_decision !== "deal" ||
+      deal.bidder_decision !== "deal"
+    ) {
+      return { error: "Handelen er ikke klar for vurdering." };
+    }
+
+    dealSellerId = String(deal.seller_id ?? "").trim();
+    dealBidderId = String(deal.bidder_id ?? "").trim();
+    if (dealSellerId !== listingSellerId || dealBidderId !== leaderNorm) {
+      return { error: "Ingen tilgang." };
+    }
+    if (uid !== dealSellerId && uid !== dealBidderId) {
+      return { error: "Ingen tilgang." };
+    }
+
+    sellerCanRate = uid === dealSellerId && deal.seller_received_payment === true;
+    buyerCanRate = uid === dealBidderId && deal.buyer_received_card === true;
   }
 
-  const { data: deal, error: dealErr } = await supabase
-    .from("listing_deals")
-    .select(
-      "seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
-    )
-    .eq("listing_id", listingId)
-    .maybeSingle();
-
-  if (dealErr) {
-    return { error: dealErr.message };
-  }
-  if (
-    !deal ||
-    deal.seller_decision !== "deal" ||
-    deal.bidder_decision !== "deal"
-  ) {
-    return { error: "Handelen er ikke klar for vurdering." };
-  }
-
-  const dealSellerId = String(deal.seller_id ?? "").trim();
-  const dealBidderId = String(deal.bidder_id ?? "").trim();
-  if (dealSellerId !== listingSellerId || dealBidderId !== leaderNorm) {
-    return { error: "Ingen tilgang." };
-  }
-  if (uid !== dealSellerId && uid !== dealBidderId) {
-    return { error: "Ingen tilgang." };
-  }
-
-  const sellerCanRate = uid === dealSellerId && deal.seller_received_payment === true;
-  const buyerCanRate = uid === dealBidderId && deal.buyer_received_card === true;
   if (!sellerCanRate && !buyerCanRate) {
     return { error: "Handelen er ikke klar for vurdering." };
   }
