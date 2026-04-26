@@ -89,7 +89,6 @@ export async function updateDraftListing(
   }
   if (
     existingListing.type === "fixed_price" &&
-    existingListing.status !== "draft" &&
     existingListing.status !== "active"
   ) {
     return { error: "Could not save changes." };
@@ -197,6 +196,7 @@ export async function updateDraftListing(
       title,
       description,
       price_nok: priceNok,
+      status: listingType === "fixed_price" ? "active" : undefined,
       type: listingType,
       auction_starts_at: auctionStartsAt,
       auction_ends_at: auctionEndsAt,
@@ -208,9 +208,7 @@ export async function updateDraftListing(
     .eq("id", listingId)
     .eq("seller_id", user.id);
 
-  if (existingListing.type === "fixed_price") {
-    updateQuery = updateQuery.in("status", ["draft", "active"]);
-  } else {
+  if (existingListing.type === "auction") {
     updateQuery = updateQuery.eq("status", "draft");
   }
 

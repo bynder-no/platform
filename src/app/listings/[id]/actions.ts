@@ -647,8 +647,75 @@ export async function setListingDealDecision(
   if (!listing) {
     return { error: "Annonsen finnes ikke." };
   }
-  if (listing.type !== "auction") {
-    return { error: "Kun for auksjoner." };
+  if (listing.type !== "auction" && listing.type !== "fixed_price") {
+    return { error: "Kun for annonser med deal." };
+  }
+
+  if (listing.type === "fixed_price") {
+    const { data: fixedDeal, error: fixedDealErr } = await supabase
+      .from("listing_deals")
+      .select("seller_id, bidder_id")
+      .eq("listing_id", listingId)
+      .maybeSingle();
+
+    if (fixedDealErr) {
+      return { error: fixedDealErr.message };
+    }
+    if (!fixedDeal) {
+      return { error: "Handel finnes ikke." };
+    }
+
+    const fixedSellerId = String(fixedDeal.seller_id ?? "").trim();
+    const fixedBidderId = String(fixedDeal.bidder_id ?? "").trim();
+    if (role === "seller") {
+      if (user.id !== fixedSellerId) {
+        return { error: "Bare selger kan svare som selger." };
+      }
+    } else {
+      if (user.id !== fixedBidderId) {
+        return { error: "Bare kjøper kan svare som kjøper." };
+      }
+    }
+
+    const patch =
+      role === "seller"
+        ? { seller_decision: decision }
+        : { bidder_decision: decision };
+    const { error: fixedUpdateErr } = await supabase
+      .from("listing_deals")
+      .update(patch)
+      .eq("listing_id", listingId);
+
+    if (fixedUpdateErr) {
+      return { error: fixedUpdateErr.message };
+    }
+
+    // Fixed-price lifecycle: listing is marked sold as soon as seller accepts deal.
+    if (role === "seller" && decision === "deal") {
+      const { error: soldUpdateErr } = await supabase
+        .from("listings")
+        .update({ status: "sold" })
+        .eq("id", listingId)
+        .eq("seller_id", user.id)
+        .eq("type", "fixed_price");
+      if (soldUpdateErr) {
+        return { error: soldUpdateErr.message };
+      }
+    }
+
+    const returnTo = String(formData.get("return_to") ?? "").trim();
+    const dealRoomPath = `/my-auctions/${listingId}`;
+    revalidatePath(`/listings/${listingId}`);
+    revalidatePath("/profile");
+    revalidatePath("/my-listings");
+    revalidatePath("/");
+    revalidatePath("/fixed-price");
+    revalidatePath("/search");
+    if (returnTo === dealRoomPath) {
+      revalidatePath(dealRoomPath);
+      redirect(dealRoomPath);
+    }
+    redirect(`/listings/${listingId}`);
   }
 
   const endsAtMs = listing.auction_ends_at

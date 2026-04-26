@@ -43,7 +43,7 @@ export default async function CreateListingPage({ searchParams }: PageProps) {
         <div className="space-y-2">
           <h1 className={pageTitleClass}>Create listing</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            New listings are saved as drafts. Price is stored in NOK.
+            Fastpris publiseres med en gang. Auksjoner lagres som kladd. Pris lagres i NOK.
           </p>
         </div>
         <SignedInNavLinks />

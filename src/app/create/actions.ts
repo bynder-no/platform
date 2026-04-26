@@ -180,7 +180,7 @@ export async function createListing(
     category,
     price_nok: priceNok,
     image_urls: [],
-    status: "draft",
+    status: listingType === "fixed_price" ? "active" : "draft",
     type: listingType,
     auction_starts_at: auctionStartsAt,
     auction_ends_at: auctionEndsAt,

@@ -128,7 +128,7 @@ export default async function MyListingsPage() {
     (r) => r.type === "auction",
   );
   const activeFixedPriceRows = activeListingsRows.filter(
-    (r) => r.type === "fixed_price",
+    (r) => r.type === "fixed_price" && r.status === "active",
   );
 
   const auctionIdsForBids = rows
@@ -247,7 +247,7 @@ export default async function MyListingsPage() {
               Sluttet {new Date(row.auction_ends_at).toLocaleString()}
             </span>
           ) : null}
-          {row.status === "draft" ? (
+          {row.type === "auction" && row.status === "draft" ? (
             <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
               {auctionEditDeleteLocked ? null : (
                 <>
@@ -257,12 +257,8 @@ export default async function MyListingsPage() {
                   >
                     Rediger
                   </Link>
-                  {row.type === "auction" ? null : (
-                    <PublishDraftForm listingId={row.id} />
-                  )}
-                  {row.type === "auction" ? (
-                    <DeleteDraftForm listingId={row.id} />
-                  ) : null}
+                  <PublishDraftForm listingId={row.id} />
+                  <DeleteDraftForm listingId={row.id} />
                 </>
               )}
             </div>
@@ -332,7 +328,7 @@ export default async function MyListingsPage() {
             Mine aktive fastprisannonser
           </h2>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
-            Inkluderer utkast og publiserte fastprisannonser.
+            Viser aktive fastprisannonser.
           </p>
           {activeFixedPriceRows.length === 0 ? (
             <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">

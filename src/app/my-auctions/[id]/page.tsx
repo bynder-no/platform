@@ -143,12 +143,73 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     const fixedDealMessages = fixedDealMessageRows ?? [];
     const sellerDecision = String(fixedDeal.seller_decision ?? "pending");
     const bidderDecision = String(fixedDeal.bidder_decision ?? "pending");
+    const buyerReceivedCard = isPgBoolTrue(fixedDeal.buyer_received_card);
+    const sellerReceivedPayment = isPgBoolTrue(fixedDeal.seller_received_payment);
+    const showFixedSellerButtons =
+      isFixedSeller && sellerDecision === "pending";
+    const showFixedBuyerButtons = isFixedBuyer && bidderDecision === "pending";
+    const showFixedReceivedCardButton =
+      isFixedBuyer &&
+      sellerDecision === "deal" &&
+      bidderDecision === "deal" &&
+      buyerReceivedCard === false;
+    const showFixedSellerPaymentButton =
+      isFixedSeller &&
+      sellerDecision === "deal" &&
+      bidderDecision === "deal" &&
+      sellerReceivedPayment === false;
+    const showFixedDealCompletedMessage =
+      sellerDecision === "deal" &&
+      bidderDecision === "deal" &&
+      buyerReceivedCard === true &&
+      sellerReceivedPayment === true;
+    const showFixedRatingCta =
+      (isFixedBuyer &&
+        sellerDecision === "deal" &&
+        bidderDecision === "deal" &&
+        buyerReceivedCard === true) ||
+      (isFixedSeller &&
+        sellerDecision === "deal" &&
+        bidderDecision === "deal" &&
+        sellerReceivedPayment === true);
+    const fixedRatingFieldsetLegend = isFixedSeller
+      ? "Rate kjøper"
+      : "Rate selger";
+    const fixedRatingHelperText = isFixedSeller
+      ? "Handelen er fullført. Du kan nå rate kjøper."
+      : "Handelen er fullført. Du kan nå rate selger.";
+    let fixedUserHasRatedThisDeal = false;
+    if (showFixedRatingCta) {
+      const { data: myRatingRow, error: myRatingErr } = await supabase
+        .from("deal_ratings")
+        .select("id")
+        .eq("listing_id", id)
+        .eq("from_user_id", user.id)
+        .maybeSingle();
+      if (myRatingErr) {
+        console.error("deal_ratings:", myRatingErr.message);
+      } else {
+        fixedUserHasRatedThisDeal = myRatingRow != null;
+      }
+    }
     const fixedStatusLabel =
       sellerDecision === "no_deal" || bidderDecision === "no_deal"
         ? "Handelen ble ikke gjennomført"
-        : sellerDecision === "deal" && bidderDecision === "deal"
-          ? "Begge har godkjent handelen"
+        : showFixedDealCompletedMessage
+          ? "Deal fullført"
+          : sellerDecision === "deal" && bidderDecision === "deal"
+            ? "Deal bekreftet"
           : "Venter på svar";
+    const fixedStatusDetail =
+      sellerDecision === "deal" && bidderDecision === "deal"
+        ? postDealFulfillmentStatusText(
+            isFixedSeller ? "seller" : "bidder",
+            sellerDecision,
+            bidderDecision,
+            buyerReceivedCard,
+            sellerReceivedPayment,
+          )
+        : null;
 
     return (
       <div className={pageShellClass}>
@@ -197,9 +258,86 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
                 <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
                   {fixedStatusLabel}
                 </p>
+                {fixedStatusDetail ? (
+                  <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                    {fixedStatusDetail}
+                  </p>
+                ) : null}
               </div>
             </div>
           </section>
+
+          <section aria-labelledby="dealroom-deal-heading">
+            <h2 id="dealroom-deal-heading" className={sectionLabelClass}>
+              Handel
+            </h2>
+            <AuctionDealPanel
+              listingId={id}
+              returnToAfterDecision={`/my-auctions/${id}`}
+              sellerDecision={sellerDecision}
+              bidderDecision={bidderDecision}
+              showSellerButtons={showFixedSellerButtons}
+              showBidderButtons={showFixedBuyerButtons}
+            />
+          </section>
+
+          {showFixedDealCompletedMessage ? (
+            <section aria-labelledby="dealroom-completed-heading">
+              <h2
+                id="dealroom-completed-heading"
+                className={sectionLabelClass}
+              >
+                Fullført
+              </h2>
+              <p className="mt-2 text-zinc-700 dark:text-zinc-300">
+                Deal fullført
+              </p>
+            </section>
+          ) : (
+            <>
+              {showFixedReceivedCardButton ? (
+                <section aria-labelledby="dealroom-received-card-heading">
+                  <h2
+                    id="dealroom-received-card-heading"
+                    className={sectionLabelClass}
+                  >
+                    Kort mottatt
+                  </h2>
+                  <BuyerReceivedCardForm listingId={id} />
+                </section>
+              ) : null}
+              {showFixedSellerPaymentButton ? (
+                <section aria-labelledby="dealroom-received-payment-heading">
+                  <h2
+                    id="dealroom-received-payment-heading"
+                    className={sectionLabelClass}
+                  >
+                    Betaling mottatt
+                  </h2>
+                  <SellerReceivedPaymentForm listingId={id} />
+                </section>
+              ) : null}
+            </>
+          )}
+
+          {showFixedRatingCta ? (
+            <section aria-labelledby="dealroom-rating-heading">
+              <h2 id="dealroom-rating-heading" className={sectionLabelClass}>
+                Vurdering
+              </h2>
+              {fixedUserHasRatedThisDeal ? (
+                <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                  Du har ratet denne handelen.
+                </p>
+              ) : (
+                <DealRatingForm
+                  listingId={id}
+                  intro={fixedRatingHelperText}
+                  fieldsetLegend={fixedRatingFieldsetLegend}
+                />
+              )}
+            </section>
+          ) : null}
 
           <section aria-labelledby="dealroom-chat-heading">
             <h2 id="dealroom-chat-heading" className={sectionLabelClass}>
