@@ -417,6 +417,17 @@ export async function submitFixedPriceOffer(
       .maybeSingle();
 
     if (insertDealErr || !inserted?.id) {
+      if (insertDealErr) {
+        console.error("submitFixedPriceOffer listing_deals insert failed", {
+          code: insertDealErr.code,
+          message: insertDealErr.message,
+          details: insertDealErr.details,
+          hint: insertDealErr.hint,
+          listingId,
+          bidderId: user.id,
+        });
+      }
+
       if (
         insertDealErr &&
         (insertDealErr.code === "23505" ||
@@ -435,11 +446,27 @@ export async function submitFixedPriceOffer(
             .update({ offer_price_nok: offerPriceNok })
             .eq("id", dealId);
         } else {
-          return { error: "Kunne ikke lagre bud." };
+          const detail =
+            insertDealErr &&
+            typeof insertDealErr === "object" &&
+            "details" in insertDealErr &&
+            insertDealErr.details
+              ? String(insertDealErr.details)
+              : "";
+          const base = insertDealErr?.message ?? "Kunne ikke lagre bud.";
+          return {
+            error:
+              detail !== ""
+                ? `${base} (${detail})`
+                : `${base} — sjekk at databasen tillater flere kjøpere (fjern UNIQUE kun på listing_id).`,
+          };
         }
       } else {
-        console.error("submitFixedPriceOffer insert:", insertDealErr?.message);
-        return { error: insertDealErr?.message ?? "Kunne ikke lagre bud." };
+        return {
+          error:
+            insertDealErr?.message ??
+            "Kunne ikke lagre bud (ukjent årsak).",
+        };
       }
     } else {
       dealId = String(inserted.id);
