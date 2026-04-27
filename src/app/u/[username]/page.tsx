@@ -15,7 +15,6 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
-import { startFixedPricePurchase } from "@/app/listings/[id]/actions";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
 
 export const dynamic = "force-dynamic";
@@ -280,18 +279,15 @@ export default async function PublicProfilePage({
                       Se produkt
                     </Link>
                     {canBuy ? (
-                      <form action={startFixedPricePurchase}>
-                        <input type="hidden" name="listing_id" value={row.id} />
-                        <button
-                          type="submit"
-                          className="inline-flex rounded-md bg-zinc-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                        >
-                          Kjøp
-                        </button>
-                      </form>
+                      <Link
+                        href={`/listings/${row.id}`}
+                        className="inline-flex rounded-md bg-zinc-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                      >
+                        Gi bud
+                      </Link>
                     ) : user == null ? (
                       <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                        Logg inn for å kjøpe
+                        Logg inn for å gi bud
                       </p>
                     ) : null}
                   </div>

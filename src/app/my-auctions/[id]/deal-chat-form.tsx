@@ -12,9 +12,14 @@ const buttonClass =
 
 type DealChatFormProps = {
   listingId: string;
+  /** Fixed-price deal thread (buyer uuid for this row). */
+  dealBidderId?: string;
 };
 
-export function DealChatForm({ listingId }: DealChatFormProps) {
+export function DealChatForm({
+  listingId,
+  dealBidderId,
+}: DealChatFormProps) {
   const [state, formAction, pending] = useActionState(
     sendListingDealMessage,
     null,
@@ -23,6 +28,9 @@ export function DealChatForm({ listingId }: DealChatFormProps) {
   return (
     <form action={formAction} className="mt-3 flex flex-col gap-3">
       <input type="hidden" name="listing_id" value={listingId} />
+      {dealBidderId ? (
+        <input type="hidden" name="deal_bidder_id" value={dealBidderId} />
+      ) : null}
       <label className="flex flex-col text-sm text-zinc-800 dark:text-zinc-200">
         <span className="font-medium">Ny melding</span>
         <textarea

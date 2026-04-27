@@ -9,10 +9,13 @@ const buttonClass =
 
 type SellerReceivedPaymentFormProps = {
   listingId: string;
+  /** Fastpris med flere kjøpere: hvilken kjøper denne deal-raden gjelder. */
+  dealBidderId?: string;
 };
 
 export function SellerReceivedPaymentForm({
   listingId,
+  dealBidderId,
 }: SellerReceivedPaymentFormProps) {
   const [state, formAction, pending] = useActionState(
     markSellerReceivedPayment,
@@ -22,6 +25,9 @@ export function SellerReceivedPaymentForm({
   return (
     <form action={formAction} className="mt-2">
       <input type="hidden" name="listing_id" value={listingId} />
+      {dealBidderId ? (
+        <input type="hidden" name="deal_bidder_id" value={dealBidderId} />
+      ) : null}
       <button type="submit" disabled={pending} className={buttonClass}>
         {pending ? "Registrerer…" : "Betaling mottatt"}
       </button>

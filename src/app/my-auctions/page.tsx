@@ -72,6 +72,7 @@ type FixedPriceDealLite = {
   bidder_decision: string;
   buyer_received_card: boolean;
   seller_received_payment: boolean;
+  offer_price_nok: number | string | null;
 };
 
 type FixedPriceGroup =
@@ -126,7 +127,7 @@ function fixedPriceDealDetailText(
   if (sellerDecision === "pending" && bidderDecision === "pending") {
     return viewerRole === "buyer"
       ? "Venter på svar fra selger"
-      : "Kjøper ønsker å kjøpe";
+      : "Bud mottatt — svar kjøper";
   }
 
   if (bidderDecision === "deal" && sellerDecision === "pending") {
@@ -554,7 +555,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     const { data: sellerDealRows, error: sellerDealsErr } = await supabase
       .from("listing_deals")
       .select(
-        "listing_id, seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment",
+        "listing_id, seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, offer_price_nok",
       )
       .eq("seller_id", user.id);
     if (sellerDealsErr) {
@@ -568,12 +569,13 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       bidder_decision: String(row.bidder_decision ?? "pending"),
       buyer_received_card: isPgBoolTrue(row.buyer_received_card),
       seller_received_payment: isPgBoolTrue(row.seller_received_payment),
+      offer_price_nok: row.offer_price_nok,
     }));
 
     const { data: buyerDealRows, error: buyerDealsErr } = await supabase
       .from("listing_deals")
       .select(
-        "listing_id, seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment",
+        "listing_id, seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, offer_price_nok",
       )
       .eq("bidder_id", user.id);
     if (buyerDealsErr) {
@@ -587,6 +589,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       bidder_decision: String(row.bidder_decision ?? "pending"),
       buyer_received_card: isPgBoolTrue(row.buyer_received_card),
       seller_received_payment: isPgBoolTrue(row.seller_received_payment),
+      offer_price_nok: row.offer_price_nok,
     }));
   }
 
@@ -764,10 +767,16 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       if (deal.listing_id === "") return null;
       const listing = fixedPriceListingById.get(deal.listing_id);
       if (listing?.status === "deleted") return null;
+      const offerRaw = deal.offer_price_nok;
+      const offerNok =
+        offerRaw != null && Number.isFinite(Number(offerRaw))
+          ? Math.trunc(Number(offerRaw))
+          : null;
       return {
         listingId: listing?.id ?? deal.listing_id,
         title: listing?.title ?? "Annonse ikke tilgjengelig",
         priceNok: listing?.price_nok ?? null,
+        offerNok,
         sellerDecision: deal.seller_decision,
         bidderDecision: deal.bidder_decision,
         buyerReceivedCard: deal.buyer_received_card,
@@ -784,10 +793,16 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       if (deal.listing_id === "") return null;
       const listing = fixedPriceListingById.get(deal.listing_id);
       if (listing?.status === "deleted") return null;
+      const offerRaw = deal.offer_price_nok;
+      const offerNok =
+        offerRaw != null && Number.isFinite(Number(offerRaw))
+          ? Math.trunc(Number(offerRaw))
+          : null;
       return {
         listingId: listing?.id ?? deal.listing_id,
         title: listing?.title ?? "Annonse ikke tilgjengelig",
         priceNok: listing?.price_nok ?? null,
+        offerNok,
         sellerDecision: deal.seller_decision,
         bidderDecision: deal.bidder_decision,
         buyerReceivedCard: deal.buyer_received_card,
@@ -1109,9 +1124,16 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                   const counterpart =
                                     usernameByUserId.get(String(row.counterpartId).trim()) ??
                                     null;
+                                  const counterpartIdRaw = String(
+                                    row.counterpartId ?? "",
+                                  ).trim();
+                                  const buyerQs =
+                                    counterpartIdRaw !== ""
+                                      ? `?buyer=${encodeURIComponent(counterpartIdRaw)}`
+                                      : "";
                                   return (
                                     <li
-                                      key={row.listingId}
+                                      key={`${row.listingId}-${counterpartIdRaw}`}
                                       className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
                                     >
                                       <div className="space-y-1">
@@ -1133,6 +1155,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             NOK
                                           </p>
                                         )}
+                                        {row.offerNok != null ? (
+                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                            Bud:{" "}
+                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                              {row.offerNok}
+                                            </span>{" "}
+                                            NOK
+                                          </p>
+                                        ) : null}
                                         <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                                           {row.heading}
                                         </p>
@@ -1152,7 +1183,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                         ) : null}
                                       </div>
                                       <Link
-                                        href={`/my-auctions/${row.listingId}`}
+                                        href={`/my-auctions/${row.listingId}${buyerQs}`}
                                         className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
                                       >
                                         Gå til deal
@@ -1319,6 +1350,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             NOK
                                           </p>
                                         )}
+                                        {row.offerNok != null ? (
+                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                            Bud:{" "}
+                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                              {row.offerNok}
+                                            </span>{" "}
+                                            NOK
+                                          </p>
+                                        ) : null}
                                         <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                                           {row.heading}
                                         </p>

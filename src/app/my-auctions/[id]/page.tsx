@@ -21,6 +21,7 @@ export const dynamic = "force-dynamic";
 
 type PageProps = {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ buyer?: string | string[] }>;
 };
 
 type BidRow = {
@@ -62,8 +63,18 @@ function dealVenterActionHint(
   return "Venter på svar fra motpart";
 }
 
-export default async function MyAuctionDealRoomPage({ params }: PageProps) {
+export default async function MyAuctionDealRoomPage({
+  params,
+  searchParams,
+}: PageProps) {
   const { id } = await params;
+  const sp = searchParams ? await searchParams : {};
+  const buyerParamRaw =
+    typeof sp.buyer === "string"
+      ? sp.buyer.trim()
+      : Array.isArray(sp.buyer)
+        ? String(sp.buyer[0] ?? "").trim()
+        : "";
   const supabase = await createClient();
   const {
     data: { user },
@@ -95,25 +106,148 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
   }
 
   if (listing.type === "fixed_price") {
-    const { data: fixedDeal, error: fixedDealErr } = await supabase
+    const { data: dealsForListing, error: dealsForListingErr } = await supabase
       .from("listing_deals")
       .select(
-        "seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
+        "id, seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at, offer_price_nok",
       )
-      .eq("listing_id", id)
-      .maybeSingle();
+      .eq("listing_id", id);
 
-    if (fixedDealErr || !fixedDeal) {
+    if (dealsForListingErr) {
+      throw new Error(
+        `Could not load listing deals: ${dealsForListingErr.message}`,
+      );
+    }
+
+    const dealsList = dealsForListing ?? [];
+    if (dealsList.length === 0) {
       notFound();
     }
 
-    const fixedSellerId = String(fixedDeal.seller_id ?? "").trim();
-    const fixedBidderId = String(fixedDeal.bidder_id ?? "").trim();
+    const fixedSellerId = String(listing.seller_id ?? "").trim();
     const isFixedSeller = user.id === fixedSellerId;
-    const isFixedBuyer = user.id === fixedBidderId;
+    const isFixedBuyer = dealsList.some(
+      (d) => String(d.bidder_id ?? "").trim() === user.id,
+    );
+
     if (!isFixedSeller && !isFixedBuyer) {
       notFound();
     }
+
+    if (
+      isFixedSeller &&
+      dealsList.length > 1 &&
+      buyerParamRaw === ""
+    ) {
+      const bidderIds = [
+        ...new Set(
+          dealsList
+            .map((d) => String(d.bidder_id ?? "").trim())
+            .filter((x) => x !== ""),
+        ),
+      ];
+      const { data: bidderProfiles } = await supabase
+        .from("profiles")
+        .select("id, username")
+        .in("id", bidderIds);
+      const usernameByBidder = new Map<string, string>();
+      for (const p of bidderProfiles ?? []) {
+        const uid = String(p.id ?? "").trim();
+        const un = String(p.username ?? "").trim();
+        if (uid !== "") usernameByBidder.set(uid, un || uid);
+      }
+
+      return (
+        <div className={pageShellClass}>
+          <header className={pageHeaderClass}>
+            <p className="text-sm">
+              <Link
+                href="/my-auctions"
+                className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+              >
+                ← Mine deals
+              </Link>
+            </p>
+            <h1 className={pageTitleClass}>Velg kjøper</h1>
+            <SignedInNavLinks />
+          </header>
+          <div className={`${pageBodyGapClass} space-y-4 text-sm`}>
+            <p className="text-zinc-700 dark:text-zinc-300">
+              Flere kjøpere har gitt bud på{" "}
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                {listing.title?.trim() || "denne annonsen"}
+              </span>
+              . Åpne dealrommet for den du vil svare.
+            </p>
+            <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+              {dealsList.map((d) => {
+                const bid = String(d.bidder_id ?? "").trim();
+                const label =
+                  bid !== "" ? usernameByBidder.get(bid) ?? bid : "—";
+                const offer =
+                  d.offer_price_nok != null &&
+                  Number.isFinite(Number(d.offer_price_nok))
+                    ? Math.trunc(Number(d.offer_price_nok))
+                    : null;
+                return (
+                  <li
+                    key={`${d.id}-${bid}`}
+                    className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div>
+                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {label}
+                      </p>
+                      {offer != null ? (
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                          Bud:{" "}
+                          <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                            {offer} NOK
+                          </span>
+                        </p>
+                      ) : null}
+                    </div>
+                    <Link
+                      href={`/my-auctions/${id}?buyer=${encodeURIComponent(bid)}`}
+                      className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      Gå til deal
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </div>
+      );
+    }
+
+    let fixedDeal = dealsList[0];
+    if (isFixedBuyer) {
+      const mine = dealsList.find(
+        (d) => String(d.bidder_id ?? "").trim() === user.id,
+      );
+      if (!mine) {
+        notFound();
+      }
+      fixedDeal = mine;
+    } else if (isFixedSeller) {
+      if (dealsList.length === 1) {
+        fixedDeal = dealsList[0];
+      } else {
+        const match = dealsList.find(
+          (d) => String(d.bidder_id ?? "").trim() === buyerParamRaw,
+        );
+        if (!match) {
+          notFound();
+        }
+        fixedDeal = match;
+      }
+    }
+
+    const fixedDealRowId = String(fixedDeal.id ?? "").trim();
+    const fixedBidderId = String(fixedDeal.bidder_id ?? "").trim();
+    const isFixedBuyerResolved = user.id === fixedBidderId;
 
     const counterpartUserId = isFixedSeller ? fixedBidderId : fixedSellerId;
     let counterpartUsername: string | null = null;
@@ -127,12 +261,22 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
       counterpartUsername = normalizedUsername !== "" ? normalizedUsername : null;
     }
 
+    let fixedDealMessagesQuery = supabase
+      .from("listing_deal_messages")
+      .select("id, body, sender_id, created_at")
+      .order("created_at", { ascending: true });
+
+    if (fixedDealRowId !== "") {
+      fixedDealMessagesQuery = fixedDealMessagesQuery.eq(
+        "deal_id",
+        fixedDealRowId,
+      );
+    } else {
+      fixedDealMessagesQuery = fixedDealMessagesQuery.eq("listing_id", id);
+    }
+
     const { data: fixedDealMessageRows, error: fixedDealMessagesError } =
-      await supabase
-        .from("listing_deal_messages")
-        .select("id, body, sender_id, created_at")
-        .eq("listing_id", id)
-        .order("created_at", { ascending: true });
+      await fixedDealMessagesQuery;
 
     if (fixedDealMessagesError) {
       throw new Error(
@@ -147,9 +291,10 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
     const sellerReceivedPayment = isPgBoolTrue(fixedDeal.seller_received_payment);
     const showFixedSellerButtons =
       isFixedSeller && sellerDecision === "pending";
-    const showFixedBuyerButtons = isFixedBuyer && bidderDecision === "pending";
+    const showFixedBuyerButtons =
+      isFixedBuyerResolved && bidderDecision === "pending";
     const showFixedReceivedCardButton =
-      isFixedBuyer &&
+      isFixedBuyerResolved &&
       sellerDecision === "deal" &&
       bidderDecision === "deal" &&
       buyerReceivedCard === false;
@@ -164,7 +309,7 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
       buyerReceivedCard === true &&
       sellerReceivedPayment === true;
     const showFixedRatingCta =
-      (isFixedBuyer &&
+      (isFixedBuyerResolved &&
         sellerDecision === "deal" &&
         bidderDecision === "deal" &&
         buyerReceivedCard === true) ||
@@ -211,6 +356,12 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
           )
         : null;
 
+    const offerNokDisplay =
+      fixedDeal.offer_price_nok != null &&
+      Number.isFinite(Number(fixedDeal.offer_price_nok))
+        ? Math.trunc(Number(fixedDeal.offer_price_nok))
+        : null;
+
     return (
       <div className={pageShellClass}>
         <header className={pageHeaderClass}>
@@ -235,9 +386,23 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
               <p className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
                 {listing.title?.trim() || "—"}
               </p>
-              <p className="mt-2 text-zinc-700 dark:text-zinc-300">
-                Pris:{" "}
-                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+              {offerNokDisplay != null ? (
+                <p className="mt-2 text-zinc-700 dark:text-zinc-300">
+                  Bud:{" "}
+                  <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                    {offerNokDisplay} NOK
+                  </span>
+                </p>
+              ) : null}
+              <p
+                className={
+                  offerNokDisplay != null ? "mt-1" : "mt-2"
+                }
+              >
+                <span className="text-zinc-700 dark:text-zinc-300">
+                  Fastpris i annonsen:{" "}
+                </span>
+                <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
                   {listing.price_nok != null ? `${listing.price_nok} NOK` : "—"}
                 </span>
               </p>
@@ -273,11 +438,12 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
             </h2>
             <AuctionDealPanel
               listingId={id}
-              returnToAfterDecision={`/my-auctions/${id}`}
+              returnToAfterDecision={`/my-auctions/${id}${fixedBidderId !== "" ? `?buyer=${encodeURIComponent(fixedBidderId)}` : ""}`}
               sellerDecision={sellerDecision}
               bidderDecision={bidderDecision}
               showSellerButtons={showFixedSellerButtons}
               showBidderButtons={showFixedBuyerButtons}
+              dealBidderId={fixedBidderId}
             />
           </section>
 
@@ -314,7 +480,10 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
                   >
                     Betaling mottatt
                   </h2>
-                  <SellerReceivedPaymentForm listingId={id} />
+                  <SellerReceivedPaymentForm
+                    listingId={id}
+                    dealBidderId={fixedBidderId}
+                  />
                 </section>
               ) : null}
             </>
@@ -332,6 +501,7 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
               ) : (
                 <DealRatingForm
                   listingId={id}
+                  dealBidderId={fixedBidderId}
                   intro={fixedRatingHelperText}
                   fieldsetLegend={fixedRatingFieldsetLegend}
                 />
@@ -344,7 +514,7 @@ export default async function MyAuctionDealRoomPage({ params }: PageProps) {
               Meldinger
             </h2>
             <DealMessagesPanel messages={fixedDealMessages} currentUserId={user.id} />
-            <DealChatForm listingId={id} />
+            <DealChatForm listingId={id} dealBidderId={fixedBidderId} />
           </section>
         </div>
       </div>
