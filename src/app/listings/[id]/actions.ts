@@ -16,7 +16,8 @@ import {
 type NotificationType =
   | "outbid"
   | "deal_action_required"
-  | "seller_bid_received";
+  | "seller_bid_received"
+  | "fixed_price_offer";
 
 async function createNotification(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -311,9 +312,12 @@ export async function sendListingMessage(
 
 export type PlaceBidState = { error: string } | null;
 
-export async function startFixedPricePurchase(
+export type FixedPriceOfferState = { error: string } | null;
+
+export async function submitFixedPriceOffer(
+  _prev: FixedPriceOfferState,
   formData: FormData,
-): Promise<void> {
+): Promise<FixedPriceOfferState> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -324,8 +328,24 @@ export async function startFixedPricePurchase(
   }
 
   const listingId = String(formData.get("listing_id") ?? "").trim();
+  const priceRaw = String(formData.get("offer_price_nok") ?? "").trim();
+  const messageBody = String(formData.get("message") ?? "").trim();
+
   if (listingId === "") {
-    redirect("/dashboard");
+    return { error: "Annonse mangler." };
+  }
+
+  if (!/^\d+$/.test(priceRaw)) {
+    return { error: "Bud må være et heltall i NOK." };
+  }
+
+  const offerPriceNok = Number(priceRaw);
+  if (
+    !Number.isSafeInteger(offerPriceNok) ||
+    offerPriceNok < 1 ||
+    offerPriceNok > 100_000_000
+  ) {
+    return { error: "Ugyldig budbeløp." };
   }
 
   const { data: listing, error: listingErr } = await supabase
@@ -335,78 +355,117 @@ export async function startFixedPricePurchase(
     .maybeSingle();
 
   if (listingErr) {
-    console.error("fixed_price_purchase listing:", listingErr.message);
-    redirect(`/listings/${listingId}`);
+    console.error("submitFixedPriceOffer listing:", listingErr.message);
+    return { error: listingErr.message };
   }
 
-  if (
-    !listing ||
-    listing.type !== "fixed_price" ||
-    listing.status !== "active" ||
-    user.id === listing.seller_id
-  ) {
-    redirect(`/listings/${listingId}`);
+  if (!listing || listing.type !== "fixed_price") {
+    return { error: "Kun fastprisannonser kan få bud her." };
+  }
+
+  const st = String(listing.status ?? "").trim();
+  if (st !== "active" && st !== "public") {
+    return { error: "Annonsen er ikke aktiv." };
+  }
+
+  if (user.id === listing.seller_id) {
+    return { error: "Du kan ikke by på egen annonse." };
   }
 
   const sellerId = String(listing.seller_id ?? "").trim();
   if (sellerId === "") {
-    redirect(`/listings/${listingId}`);
+    return { error: "Selger mangler." };
   }
 
   const { data: existingDeal, error: existingDealErr } = await supabase
     .from("listing_deals")
-    .select("listing_id")
+    .select("id")
     .eq("listing_id", listingId)
     .eq("bidder_id", user.id)
     .maybeSingle();
 
   if (existingDealErr) {
-    console.error("fixed_price_purchase listing_deals lookup:", existingDealErr.message);
-    redirect(`/listings/${listingId}`);
+    console.error("submitFixedPriceOffer listing_deals lookup:", existingDealErr.message);
+    return { error: existingDealErr.message };
   }
 
-  if (!existingDeal) {
-    const { error: insertDealErr } = await supabase.from("listing_deals").insert({
-      listing_id: listingId,
-      seller_id: sellerId,
-      bidder_id: user.id,
-      seller_decision: "pending",
-      bidder_decision: "pending",
-    });
+  let dealId: string;
+  if (existingDeal?.id) {
+    dealId = String(existingDeal.id);
+    const { error: updErr } = await supabase
+      .from("listing_deals")
+      .update({
+        offer_price_nok: offerPriceNok,
+      })
+      .eq("id", dealId)
+      .eq("bidder_id", user.id);
+    if (updErr) {
+      return { error: updErr.message };
+    }
+  } else {
+    const { data: inserted, error: insertDealErr } = await supabase
+      .from("listing_deals")
+      .insert({
+        listing_id: listingId,
+        seller_id: sellerId,
+        bidder_id: user.id,
+        seller_decision: "pending",
+        bidder_decision: "pending",
+        offer_price_nok: offerPriceNok,
+      })
+      .select("id")
+      .maybeSingle();
 
-    if (
-      insertDealErr &&
-      insertDealErr.code !== "23505" &&
-      !insertDealErr.message.toLowerCase().includes("duplicate")
-    ) {
-      console.error("fixed_price_purchase listing_deals insert:", insertDealErr.message);
-      redirect(`/listings/${listingId}`);
+    if (insertDealErr || !inserted?.id) {
+      if (
+        insertDealErr &&
+        (insertDealErr.code === "23505" ||
+          insertDealErr.message.toLowerCase().includes("duplicate"))
+      ) {
+        const { data: raceDeal } = await supabase
+          .from("listing_deals")
+          .select("id")
+          .eq("listing_id", listingId)
+          .eq("bidder_id", user.id)
+          .maybeSingle();
+        if (raceDeal?.id) {
+          dealId = String(raceDeal.id);
+          await supabase
+            .from("listing_deals")
+            .update({ offer_price_nok: offerPriceNok })
+            .eq("id", dealId);
+        } else {
+          return { error: "Kunne ikke lagre bud." };
+        }
+      } else {
+        console.error("submitFixedPriceOffer insert:", insertDealErr?.message);
+        return { error: insertDealErr?.message ?? "Kunne ikke lagre bud." };
+      }
+    } else {
+      dealId = String(inserted.id);
     }
   }
 
-  const { data: existingUnreadNotification, error: existingNotifErr } =
-    await supabase
-      .from("notifications")
-      .select("id")
-      .eq("user_id", sellerId)
-      .eq("type", "deal_action_required")
-      .eq("listing_id", listingId)
-      .eq("message", "Noen vil kjøpe fastprisannonsen din")
-      .eq("is_read", false)
-      .limit(1)
-      .maybeSingle();
-
-  if (existingNotifErr) {
-    console.error("fixed_price_purchase notifications lookup:", existingNotifErr.message);
-  } else if (!existingUnreadNotification) {
-    await createNotification(
-      supabase,
-      sellerId,
-      "deal_action_required",
-      listingId,
-      "Noen vil kjøpe fastprisannonsen din",
-    );
+  if (messageBody !== "") {
+    const { error: msgErr } = await supabase.from("listing_deal_messages").insert({
+      listing_id: listingId,
+      deal_id: dealId,
+      sender_id: user.id,
+      body: messageBody,
+    });
+    if (msgErr) {
+      console.error("submitFixedPriceOffer message:", msgErr.message);
+      return { error: msgErr.message };
+    }
   }
+
+  await createNotification(
+    supabase,
+    sellerId,
+    "fixed_price_offer",
+    listingId,
+    "Du har fått et bud på fastprisannonsen din",
+  );
 
   revalidatePath(`/listings/${listingId}`);
   revalidatePath(`/my-auctions/${listingId}`);
@@ -652,10 +711,16 @@ export async function setListingDealDecision(
   }
 
   if (listing.type === "fixed_price") {
+    const dealBidderId = String(formData.get("deal_bidder_id") ?? "").trim();
+    if (dealBidderId === "") {
+      return { error: "Kjøpers deal mangler." };
+    }
+
     const { data: fixedDeal, error: fixedDealErr } = await supabase
       .from("listing_deals")
       .select("seller_id, bidder_id")
       .eq("listing_id", listingId)
+      .eq("bidder_id", dealBidderId)
       .maybeSingle();
 
     if (fixedDealErr) {
@@ -684,13 +749,14 @@ export async function setListingDealDecision(
     const { error: fixedUpdateErr } = await supabase
       .from("listing_deals")
       .update(patch)
-      .eq("listing_id", listingId);
+      .eq("listing_id", listingId)
+      .eq("bidder_id", dealBidderId);
 
     if (fixedUpdateErr) {
       return { error: fixedUpdateErr.message };
     }
 
-    // Fixed-price lifecycle: listing is marked sold as soon as seller accepts deal.
+    // Fixed-price lifecycle: listing is marked sold only when seller accepts one buyer's deal.
     if (role === "seller" && decision === "deal") {
       const { error: soldUpdateErr } = await supabase
         .from("listings")
@@ -701,6 +767,16 @@ export async function setListingDealDecision(
       if (soldUpdateErr) {
         return { error: soldUpdateErr.message };
       }
+      await supabase
+        .from("listing_deals")
+        .update({
+          seller_decision: "no_deal",
+          bidder_decision: "no_deal",
+        })
+        .eq("listing_id", listingId)
+        .neq("bidder_id", dealBidderId)
+        .eq("seller_decision", "pending")
+        .eq("bidder_decision", "pending");
     }
 
     const returnTo = String(formData.get("return_to") ?? "").trim();

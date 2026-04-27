@@ -11,12 +11,14 @@ type DealRatingFormProps = {
   listingId: string;
   intro: string;
   fieldsetLegend: string;
+  dealBidderId?: string;
 };
 
 export function DealRatingForm({
   listingId,
   intro,
   fieldsetLegend,
+  dealBidderId,
 }: DealRatingFormProps) {
   const [state, formAction, pending] = useActionState(submitDealRating, null);
 
@@ -25,6 +27,9 @@ export function DealRatingForm({
       <p className="text-zinc-600 dark:text-zinc-400">{intro}</p>
       <form action={formAction} className="mt-3">
         <input type="hidden" name="listing_id" value={listingId} />
+        {dealBidderId ? (
+          <input type="hidden" name="deal_bidder_id" value={dealBidderId} />
+        ) : null}
         <fieldset>
           <legend className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
             {fieldsetLegend}

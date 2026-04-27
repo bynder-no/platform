@@ -84,15 +84,23 @@ async function sendRatingNotification(
   }
 }
 
+function fixedPriceDealRoomPath(listingId: string, dealBidderId: string): string {
+  return `/my-auctions/${listingId}?buyer=${encodeURIComponent(dealBidderId)}`;
+}
+
 async function maybeSetDealCompletedAt(
   supabase: Awaited<ReturnType<typeof createClient>>,
   listingId: string,
+  fixedBidderId?: string,
 ): Promise<void> {
-  const { data: row, error: selErr } = await supabase
+  let q = supabase
     .from("listing_deals")
     .select("buyer_received_card, seller_received_payment, completed_at")
-    .eq("listing_id", listingId)
-    .maybeSingle();
+    .eq("listing_id", listingId);
+  if (fixedBidderId != null && fixedBidderId !== "") {
+    q = q.eq("bidder_id", fixedBidderId);
+  }
+  const { data: row, error: selErr } = await q.maybeSingle();
 
   if (selErr || !row) {
     return;
@@ -106,11 +114,15 @@ async function maybeSetDealCompletedAt(
   }
 
   const completedAt = new Date().toISOString();
-  await supabase
+  let uq = supabase
     .from("listing_deals")
     .update({ completed_at: completedAt })
     .eq("listing_id", listingId)
     .is("completed_at", null);
+  if (fixedBidderId != null && fixedBidderId !== "") {
+    uq = uq.eq("bidder_id", fixedBidderId);
+  }
+  await uq;
 }
 
 export async function sendListingDealMessage(
@@ -180,10 +192,16 @@ export async function sendListingDealMessage(
       return { error: "Ingen tilgang." };
     }
   } else {
+    const dealBidderScope = String(formData.get("deal_bidder_id") ?? "").trim();
+    if (dealBidderScope === "") {
+      return { error: "Deal mangler." };
+    }
+
     const { data: dealRow, error: dealRowErr } = await supabase
       .from("listing_deals")
-      .select("seller_id, bidder_id")
+      .select("id, seller_id, bidder_id")
       .eq("listing_id", listingId)
+      .eq("bidder_id", dealBidderScope)
       .maybeSingle();
     if (dealRowErr) {
       return { error: dealRowErr.message };
@@ -196,6 +214,32 @@ export async function sendListingDealMessage(
     if (user.id !== sellerId && user.id !== bidderId) {
       return { error: "Ingen tilgang." };
     }
+
+    const dealPk = String(dealRow.id ?? "").trim();
+    const insertPayload: {
+      listing_id: string;
+      sender_id: string;
+      body: string;
+      deal_id?: string;
+    } = {
+      listing_id: listingId,
+      sender_id: user.id,
+      body,
+    };
+    if (dealPk !== "") {
+      insertPayload.deal_id = dealPk;
+    }
+
+    const { error: insertErr } = await supabase
+      .from("listing_deal_messages")
+      .insert(insertPayload);
+
+    if (insertErr) {
+      return { error: insertErr.message };
+    }
+
+    revalidatePath(`/my-auctions/${listingId}`);
+    redirect(fixedPriceDealRoomPath(listingId, dealBidderScope));
   }
 
   const { error: insertErr } = await supabase
@@ -254,6 +298,7 @@ export async function markBuyerReceivedCard(
         "seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card",
       )
       .eq("listing_id", listingId)
+      .eq("bidder_id", user.id)
       .maybeSingle();
     if (dealErr) {
       return { error: dealErr.message };
@@ -277,6 +322,7 @@ export async function markBuyerReceivedCard(
         buyer_received_card: true,
       })
       .eq("listing_id", listingId)
+      .eq("bidder_id", user.id)
       .eq("seller_decision", "deal")
       .eq("bidder_decision", "deal")
       .eq("buyer_received_card", false);
@@ -296,9 +342,9 @@ export async function markBuyerReceivedCard(
       );
     }
 
-    await maybeSetDealCompletedAt(supabase, listingId);
+    await maybeSetDealCompletedAt(supabase, listingId, user.id);
     revalidatePath(`/my-auctions/${listingId}`);
-    redirect(`/my-auctions/${listingId}`);
+    redirect(fixedPriceDealRoomPath(listingId, user.id));
   }
 
   const endsAtMs = listing.auction_ends_at
@@ -411,12 +457,18 @@ export async function markSellerReceivedPayment(
   }
 
   if (listing.type === "fixed_price") {
+    const scopeBidder = String(formData.get("deal_bidder_id") ?? "").trim();
+    if (scopeBidder === "") {
+      return { error: "Kjøper mangler." };
+    }
+
     const { data: deal, error: dealErr } = await supabase
       .from("listing_deals")
       .select(
         "seller_id, bidder_id, seller_decision, bidder_decision, seller_received_payment",
       )
       .eq("listing_id", listingId)
+      .eq("bidder_id", scopeBidder)
       .maybeSingle();
     if (dealErr) {
       return { error: dealErr.message };
@@ -440,6 +492,7 @@ export async function markSellerReceivedPayment(
         seller_received_payment: true,
       })
       .eq("listing_id", listingId)
+      .eq("bidder_id", scopeBidder)
       .eq("seller_decision", "deal")
       .eq("bidder_decision", "deal")
       .eq("seller_received_payment", false);
@@ -459,9 +512,9 @@ export async function markSellerReceivedPayment(
       );
     }
 
-    await maybeSetDealCompletedAt(supabase, listingId);
+    await maybeSetDealCompletedAt(supabase, listingId, scopeBidder);
     revalidatePath(`/my-auctions/${listingId}`);
-    redirect(`/my-auctions/${listingId}`);
+    redirect(fixedPriceDealRoomPath(listingId, scopeBidder));
   }
 
   if (user.id !== listing.seller_id) {
@@ -575,12 +628,18 @@ export async function submitDealRating(
   let buyerCanRate = false;
 
   if (listing.type === "fixed_price") {
+    const ratingBidderScope = String(formData.get("deal_bidder_id") ?? "").trim();
+    if (ratingBidderScope === "") {
+      return { error: "Deal mangler." };
+    }
+
     const { data: deal, error: dealErr } = await supabase
       .from("listing_deals")
       .select(
         "seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
       )
       .eq("listing_id", listingId)
+      .eq("bidder_id", ratingBidderScope)
       .maybeSingle();
     if (dealErr) {
       return { error: dealErr.message };
@@ -705,5 +764,13 @@ export async function submitDealRating(
   }
 
   revalidatePath(`/my-auctions/${listingId}`);
+  if (listing.type === "fixed_price") {
+    const ratingReturnBidder = String(
+      formData.get("deal_bidder_id") ?? "",
+    ).trim();
+    if (ratingReturnBidder !== "") {
+      redirect(fixedPriceDealRoomPath(listingId, ratingReturnBidder));
+    }
+  }
   redirect(`/my-auctions/${listingId}`);
 }
