@@ -11,6 +11,11 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import {
+  dealStatusGroupLabel,
+  resolveDealStatusGroup,
+  type DealStatusGroup,
+} from "./deal-status-ui";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
@@ -75,75 +80,6 @@ type FixedPriceDealLite = {
   offer_price_nok: number | string | null;
 };
 
-type FixedPriceGroup =
-  | "deal_venter"
-  | "deal_bekreftet"
-  | "no_deal"
-  | "deal_fullfort";
-
-function fixedPriceDealStatusLabelAndGroup(
-  sellerDecision: string,
-  bidderDecision: string,
-  buyerReceivedCard: boolean,
-  sellerReceivedPayment: boolean,
-): { heading: string; group: FixedPriceGroup } {
-  if (sellerDecision === "deal" && bidderDecision === "deal") {
-    if (buyerReceivedCard === true && sellerReceivedPayment === true) {
-      return { heading: "Deal fullført", group: "deal_fullfort" };
-    }
-    return { heading: "Deal bekreftet", group: "deal_bekreftet" };
-  }
-  if (sellerDecision === "no_deal" || bidderDecision === "no_deal") {
-    return { heading: "No deal", group: "no_deal" };
-  }
-  return { heading: "Deal venter", group: "deal_venter" };
-}
-
-function fixedPriceDealDetailText(
-  viewerRole: "seller" | "buyer",
-  sellerDecision: string,
-  bidderDecision: string,
-  buyerReceivedCard: boolean,
-  sellerReceivedPayment: boolean,
-): string {
-  if (sellerDecision === "no_deal" || bidderDecision === "no_deal") {
-    return "Handelen ble ikke noe av";
-  }
-
-  if (sellerDecision === "deal" && bidderDecision === "deal") {
-    if (buyerReceivedCard === false) {
-      return viewerRole === "buyer"
-        ? "Bekreft når du har mottatt kortet"
-        : "Venter på at kjøper mottar kortet";
-    }
-    if (sellerReceivedPayment === false) {
-      return viewerRole === "seller"
-        ? "Bekreft når du har mottatt betaling"
-        : "Venter på at selger bekrefter betaling";
-    }
-    return "Handelen er fullført";
-  }
-
-  if (sellerDecision === "pending" && bidderDecision === "pending") {
-    return viewerRole === "buyer"
-      ? "Venter på svar fra selger"
-      : "Bud mottatt — svar kjøper";
-  }
-
-  if (bidderDecision === "deal" && sellerDecision === "pending") {
-    return viewerRole === "buyer"
-      ? "Venter på svar fra selger"
-      : "Kjøper har sagt deal - din tur";
-  }
-
-  if (sellerDecision === "deal" && bidderDecision === "pending") {
-    return viewerRole === "seller"
-      ? "Venter på svar fra kjøper"
-      : "Selger har sagt deal - din tur";
-  }
-
-  return "Venter på svar";
-}
 
 function isPgBoolTrue(value: unknown): boolean {
   return value === true;
@@ -154,45 +90,6 @@ function normalizeCompletedAtIso(value: unknown): string | null {
   const s = String(value).trim();
   if (s === "" || s.toLowerCase() === "null") return null;
   return s;
-}
-
-/** Post-auction deal status for list display only (Norwegian). */
-function myAuctionsStatusLabel(
-  deal: DealRowLite | null | undefined,
-  userId: string,
-  listingSellerId: string,
-  leadingBidderId: string | null,
-): string {
-  if (!deal) {
-    return "Avsluttet";
-  }
-  const s = deal.seller_decision;
-  const b = deal.bidder_decision;
-  if (s === "no_deal" || b === "no_deal") {
-    return "Ingen deal";
-  }
-  if (s === "deal" && b === "deal") {
-    if (deal.buyer_received_card === true) {
-      return "Fullført";
-    }
-    if (userId === listingSellerId) {
-      return "Deal bekreftet – Mottaker venter på kort";
-    }
-    if (leadingBidderId != null && userId === leadingBidderId) {
-      return "Deal bekreftet – Du venter på ditt kort";
-    }
-    return "Deal bekreftet";
-  }
-  if (s === "pending" && b === "pending") {
-    return "Deal venter";
-  }
-  if (
-    (s === "deal" && b === "pending") ||
-    (s === "pending" && b === "deal")
-  ) {
-    return "Deal venter";
-  }
-  return "Deal venter";
 }
 
 function isEndedAuctionForMyAuctionsPage(
@@ -210,30 +107,7 @@ function isEndedAuctionForMyAuctionsPage(
   return true;
 }
 
-function sellerMineAnnonserStatusLabel(
-  deal: DealRowLite | null | undefined,
-  hasBids: boolean,
-  contactUnlocked: boolean,
-  userId: string,
-  listingSellerId: string,
-  leadingBidderId: string | null,
-): string {
-  if (!hasBids) return "Ingen bud";
-  if (!contactUnlocked) return "Krav ikke møtt";
-  if (!deal) return "Deal venter";
-  return myAuctionsStatusLabel(
-    deal,
-    userId,
-    listingSellerId,
-    leadingBidderId,
-  );
-}
-
-type PostAuctionOutcomeGroup =
-  | "ikke_resultat"
-  | "deal_venter"
-  | "deal_bekreftet"
-  | "deal_fullfort";
+type PostAuctionOutcomeGroup = DealStatusGroup;
 
 function isSellerDealFullyCompleted(deal: DealRowLite): boolean {
   return (
@@ -253,33 +127,61 @@ function dealCardHandlingHint(
   viewerRole: "seller" | "bidder",
   deal: DealRowLite | null | undefined,
   group: PostAuctionOutcomeGroup,
-): "Handling kreves fra deg" | "Venter på motpart" | null {
-  if (group === "ikke_resultat" || group === "deal_fullfort") {
-    return null;
+): "Krever handling fra deg" | "Venter på motpart" | null {
+  if (group === "no_deal" || group === "deal_fullfort") {
+    return "Venter på motpart";
   }
   if (group === "deal_venter") {
     const s = deal?.seller_decision ?? "pending";
     const b = deal?.bidder_decision ?? "pending";
     const mine = viewerRole === "seller" ? s : b;
     const theirs = viewerRole === "seller" ? b : s;
-    if (mine === "pending") return "Handling kreves fra deg";
+    if (mine === "pending") return "Krever handling fra deg";
     if (theirs === "pending") return "Venter på motpart";
     return "Venter på motpart";
   }
   // deal_bekreftet
   if (!deal) return null;
   if (deal.seller_decision !== "deal" || deal.bidder_decision !== "deal") {
-    return null;
+    return "Venter på motpart";
   }
   if (!deal.buyer_received_card) {
     return viewerRole === "bidder"
-      ? "Handling kreves fra deg"
+      ? "Krever handling fra deg"
       : "Venter på motpart";
   }
   if (!deal.seller_received_payment) {
     return viewerRole === "seller"
-      ? "Handling kreves fra deg"
+      ? "Krever handling fra deg"
       : "Venter på motpart";
+  }
+  return "Venter på motpart";
+}
+
+function fixedDealHandlingHint(
+  viewerRole: "seller" | "buyer",
+  row: {
+    group: DealStatusGroup;
+    sellerDecision: string;
+    bidderDecision: string;
+    buyerReceivedCard: boolean;
+    sellerReceivedPayment: boolean;
+  },
+): "Krever handling fra deg" | "Venter på motpart" {
+  if (row.group === "no_deal" || row.group === "deal_fullfort") {
+    return "Venter på motpart";
+  }
+  if (row.group === "deal_venter") {
+    const mine = viewerRole === "seller" ? row.sellerDecision : row.bidderDecision;
+    return mine === "pending" ? "Krever handling fra deg" : "Venter på motpart";
+  }
+  if (row.group === "deal_bekreftet") {
+    if (!row.buyerReceivedCard) {
+      return viewerRole === "buyer" ? "Krever handling fra deg" : "Venter på motpart";
+    }
+    if (!row.sellerReceivedPayment) {
+      return viewerRole === "seller" ? "Krever handling fra deg" : "Venter på motpart";
+    }
   }
   return "Venter på motpart";
 }
@@ -289,40 +191,16 @@ function postAuctionOutcomeGroup(
   hasBids: boolean,
   contactUnlocked: boolean,
 ): PostAuctionOutcomeGroup {
-  if (!hasBids) return "ikke_resultat";
-  if (!contactUnlocked) return "ikke_resultat";
+  if (!hasBids) return "no_deal";
+  if (!contactUnlocked) return "no_deal";
   if (!deal) return "deal_venter";
-  const s = deal.seller_decision;
-  const b = deal.bidder_decision;
-  if (s === "no_deal" || b === "no_deal") {
-    return "ikke_resultat";
-  }
-  if (isSellerDealFullyCompleted(deal)) {
-    return "deal_fullfort";
-  }
-  if (s === "deal" && b === "deal") {
-    return "deal_bekreftet";
-  }
-  return "deal_venter";
-}
-
-function bidderMineDealsStatusLabel(
-  deal: DealRowLite | null | undefined,
-  hasBids: boolean,
-  contactUnlocked: boolean,
-  userId: string,
-  listingSellerId: string,
-  leadingBidderId: string | null,
-): string {
-  if (!hasBids) return "—";
-  if (!contactUnlocked) return "Krav ikke møtt";
-  if (!deal) return "Deal venter";
-  return myAuctionsStatusLabel(
-    deal,
-    userId,
-    listingSellerId,
-    leadingBidderId,
-  );
+  return resolveDealStatusGroup({
+    sellerDecision: deal.seller_decision,
+    bidderDecision: deal.bidder_decision,
+    buyerReceivedCard: deal.buyer_received_card,
+    sellerReceivedPayment: deal.seller_received_payment,
+    isCompleted: isSellerDealFullyCompleted(deal),
+  });
 }
 
 export default async function MyAuctionsPage({ searchParams }: PageProps) {
@@ -637,17 +515,9 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
   const postAuctionOutcomeGroupOrder: PostAuctionOutcomeGroup[] = [
     "deal_venter",
     "deal_bekreftet",
+    "no_deal",
     "deal_fullfort",
-    "ikke_resultat",
   ];
-
-  const postAuctionOutcomeGroupTitle: Record<PostAuctionOutcomeGroup, string> =
-    {
-      ikke_resultat: "Ikke resultat",
-      deal_venter: "Deal venter",
-      deal_bekreftet: "Deal bekreftet",
-      deal_fullfort: "Deal fullført",
-    };
 
   const sellerRowVms = sellerRowsSorted.map((row) => {
     const bidRows = bidsByListing.get(row.id) ?? [];
@@ -662,20 +532,12 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     });
     const deal = dealsByListing.get(row.id);
     const group = postAuctionOutcomeGroup(deal, hasBids, contactUnlocked);
-    const statusLabel = sellerMineAnnonserStatusLabel(
-      deal,
-      hasBids,
-      contactUnlocked,
-      user.id,
-      row.seller_id,
-      leadingBidderId,
-    );
-    return { row, highestNok, statusLabel, group, leadingBidderId, deal };
+    return { row, highestNok, group, leadingBidderId, deal };
   });
 
   const bidderMineDealsRowVms = bidderWinRowsSorted.map((row) => {
     const bidRows = bidsByListing.get(row.id) ?? [];
-    const { highestNok, leadingBidderId } = leadingBidForListing(bidRows);
+    const { highestNok } = leadingBidForListing(bidRows);
     const hasBids = bidRows.length > 0;
     const contactUnlocked = qualifiesAuctionContactFromHighestBid({
       useReservePrice: row.use_reserve_price,
@@ -686,15 +548,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     });
     const deal = dealsByListing.get(row.id);
     const group = postAuctionOutcomeGroup(deal, hasBids, contactUnlocked);
-    const statusLabel = bidderMineDealsStatusLabel(
-      deal,
-      hasBids,
-      contactUnlocked,
-      user.id,
-      row.seller_id,
-      leadingBidderId,
-    );
-    return { row, highestNok, statusLabel, group, deal };
+    return { row, highestNok, group, deal };
   });
 
   const titleMatchesSearch = (title: string | null | undefined): boolean => {
@@ -814,57 +668,38 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     .filter((v): v is NonNullable<typeof v> => v != null)
     .filter((v) => titleMatchesSearch(v.title));
 
-  const fixedGroupOrder: FixedPriceGroup[] = [
+  const fixedGroupOrder: DealStatusGroup[] = [
     "deal_venter",
     "deal_bekreftet",
     "no_deal",
     "deal_fullfort",
   ];
-  const fixedGroupTitle: Record<FixedPriceGroup, string> = {
-    deal_venter: "Deal venter",
-    deal_bekreftet: "Deal bekreftet",
-    no_deal: "No deal",
-    deal_fullfort: "Deal fullført",
-  };
-
   const fixedSellerGrouped = fixedSellerVms.map((row) => {
-    const outcome = fixedPriceDealStatusLabelAndGroup(
-      row.sellerDecision,
-      row.bidderDecision,
-      row.buyerReceivedCard,
-      row.sellerReceivedPayment,
-    );
+    const group = resolveDealStatusGroup({
+      sellerDecision: row.sellerDecision,
+      bidderDecision: row.bidderDecision,
+      buyerReceivedCard: row.buyerReceivedCard,
+      sellerReceivedPayment: row.sellerReceivedPayment,
+      isCompleted: row.buyerReceivedCard && row.sellerReceivedPayment,
+    });
     return {
       ...row,
-      heading: outcome.heading,
-      group: outcome.group,
-      detail: fixedPriceDealDetailText(
-        "seller",
-        row.sellerDecision,
-        row.bidderDecision,
-        row.buyerReceivedCard,
-        row.sellerReceivedPayment,
-      ),
+      heading: dealStatusGroupLabel(group),
+      group,
     };
   });
   const fixedBuyerGrouped = fixedBuyerVms.map((row) => {
-    const outcome = fixedPriceDealStatusLabelAndGroup(
-      row.sellerDecision,
-      row.bidderDecision,
-      row.buyerReceivedCard,
-      row.sellerReceivedPayment,
-    );
+    const group = resolveDealStatusGroup({
+      sellerDecision: row.sellerDecision,
+      bidderDecision: row.bidderDecision,
+      buyerReceivedCard: row.buyerReceivedCard,
+      sellerReceivedPayment: row.sellerReceivedPayment,
+      isCompleted: row.buyerReceivedCard && row.sellerReceivedPayment,
+    });
     return {
       ...row,
-      heading: outcome.heading,
-      group: outcome.group,
-      detail: fixedPriceDealDetailText(
-        "buyer",
-        row.sellerDecision,
-        row.bidderDecision,
-        row.buyerReceivedCard,
-        row.sellerReceivedPayment,
-      ),
+      heading: dealStatusGroupLabel(group),
+      group,
     };
   });
 
@@ -876,7 +711,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
   const counterpartProfileIds = new Set<string>();
   for (const v of visibleSellerRowVms) {
     if (
-      v.group !== "ikke_resultat" &&
+      v.group !== "no_deal" &&
       v.leadingBidderId != null &&
       String(v.leadingBidderId).trim() !== ""
     ) {
@@ -1010,7 +845,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                         return (
                           <div key={groupKey}>
                             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                              {postAuctionOutcomeGroupTitle[groupKey]}
+                              {dealStatusGroupLabel(groupKey)}
                             </h3>
                             {items.length === 0 ? (
                               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
@@ -1022,13 +857,12 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                   ({
                                     row,
                                     highestNok,
-                                    statusLabel,
                                     group,
                                     leadingBidderId,
                                     deal,
                                   }) => {
                                     const bidderUn =
-                                      group !== "ikke_resultat" && leadingBidderId
+                                      group !== "no_deal" && leadingBidderId
                                         ? usernameByUserId.get(
                                             String(leadingBidderId).trim(),
                                           ) ?? null
@@ -1048,22 +882,16 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             {row.title?.trim() || "—"}
                                           </p>
                                           <p className="text-zinc-600 dark:text-zinc-400">
-                                            Auksjon{" "}
-                                            <span className="mx-2 text-zinc-400">·</span>
                                             Høyeste bud:{" "}
                                             <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
                                               {highestNok > 0 ? highestNok : 0}
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                                            {statusLabel}
+                                          <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
+                                            {dealStatusGroupLabel(group)}
                                           </p>
-                                          {handlingHint ? (
-                                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                                              {handlingHint}
-                                            </p>
-                                          ) : null}
+                                          <p className="text-xs text-zinc-600 dark:text-zinc-400">{handlingHint}</p>
                                           {bidderUn ? (
                                             <p className="text-xs text-zinc-600 dark:text-zinc-400">
                                               Budgiver:{" "}
@@ -1112,7 +940,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                         return (
                           <div key={groupKey}>
                             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                              {fixedGroupTitle[groupKey]}
+                              {dealStatusGroupLabel(groupKey)}
                             </h3>
                             {items.length === 0 ? (
                               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
@@ -1140,21 +968,6 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                         <p className="font-medium text-zinc-900 dark:text-zinc-100">
                                           {row.title}
                                         </p>
-                                        {row.isListingMissing ? (
-                                          <p className="text-zinc-600 dark:text-zinc-400">
-                                            Annonse ikke tilgjengelig
-                                          </p>
-                                        ) : (
-                                          <p className="text-zinc-600 dark:text-zinc-400">
-                                            Fastpris:{" "}
-                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
-                                              {row.priceNok != null
-                                                ? row.priceNok
-                                                : "Pris mangler"}
-                                            </span>{" "}
-                                            NOK
-                                          </p>
-                                        )}
                                         {row.offerNok != null ? (
                                           <p className="text-zinc-600 dark:text-zinc-400">
                                             Bud:{" "}
@@ -1163,12 +976,22 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </span>{" "}
                                             NOK
                                           </p>
-                                        ) : null}
-                                        <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                        ) : row.isListingMissing ? (
+                                          <p className="text-zinc-600 dark:text-zinc-400">Annonse ikke tilgjengelig</p>
+                                        ) : (
+                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                            Pris:{" "}
+                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                              {row.priceNok != null ? row.priceNok : "Pris mangler"}
+                                            </span>{" "}
+                                            NOK
+                                          </p>
+                                        )}
+                                        <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
                                           {row.heading}
                                         </p>
                                         <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                                          {row.detail}
+                                          {fixedDealHandlingHint("seller", row)}
                                         </p>
                                         {counterpart ? (
                                           <p className="text-xs text-zinc-600 dark:text-zinc-400">
@@ -1221,7 +1044,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                         return (
                           <div key={groupKey}>
                             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                              {postAuctionOutcomeGroupTitle[groupKey]}
+                              {dealStatusGroupLabel(groupKey)}
                             </h3>
                             {items.length === 0 ? (
                               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
@@ -1230,7 +1053,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                             ) : (
                               <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
                                 {items.map(
-                                  ({ row, highestNok, statusLabel, group, deal }) => {
+                                  ({ row, highestNok, group, deal }) => {
                                     const sellerUn =
                                       usernameByUserId.get(
                                         String(row.seller_id).trim(),
@@ -1258,14 +1081,10 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
-                                            {statusLabel}
+                                          <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
+                                            {dealStatusGroupLabel(group)}
                                           </p>
-                                          {handlingHint ? (
-                                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                                              {handlingHint}
-                                            </p>
-                                          ) : null}
+                                          <p className="text-xs text-zinc-600 dark:text-zinc-400">{handlingHint}</p>
                                           {sellerUn ? (
                                             <p className="text-xs text-zinc-600 dark:text-zinc-400">
                                               Selger:{" "}
@@ -1314,7 +1133,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                         return (
                           <div key={groupKey}>
                             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                              {fixedGroupTitle[groupKey]}
+                              {dealStatusGroupLabel(groupKey)}
                             </h3>
                             {items.length === 0 ? (
                               <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
@@ -1335,21 +1154,6 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                         <p className="font-medium text-zinc-900 dark:text-zinc-100">
                                           {row.title}
                                         </p>
-                                        {row.isListingMissing ? (
-                                          <p className="text-zinc-600 dark:text-zinc-400">
-                                            Annonse ikke tilgjengelig
-                                          </p>
-                                        ) : (
-                                          <p className="text-zinc-600 dark:text-zinc-400">
-                                            Fastpris:{" "}
-                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
-                                              {row.priceNok != null
-                                                ? row.priceNok
-                                                : "Pris mangler"}
-                                            </span>{" "}
-                                            NOK
-                                          </p>
-                                        )}
                                         {row.offerNok != null ? (
                                           <p className="text-zinc-600 dark:text-zinc-400">
                                             Bud:{" "}
@@ -1358,12 +1162,22 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </span>{" "}
                                             NOK
                                           </p>
-                                        ) : null}
-                                        <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                        ) : row.isListingMissing ? (
+                                          <p className="text-zinc-600 dark:text-zinc-400">Annonse ikke tilgjengelig</p>
+                                        ) : (
+                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                            Pris:{" "}
+                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                              {row.priceNok != null ? row.priceNok : "Pris mangler"}
+                                            </span>{" "}
+                                            NOK
+                                          </p>
+                                        )}
+                                        <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
                                           {row.heading}
                                         </p>
                                         <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                                          {row.detail}
+                                          {fixedDealHandlingHint("buyer", row)}
                                         </p>
                                         {counterpart ? (
                                           <p className="text-xs text-zinc-600 dark:text-zinc-400">

@@ -674,6 +674,9 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <FixedPriceOfferForm
               listingId={id}
               defaultOfferNok={listingPriceNok ?? 1}
+              listingTitle={listing.title?.trim() || "Annonse"}
+              originalPriceNok={listingPriceNok}
+              thumbnailUrl={coverImage}
             />
           </section>
         ) : null}
