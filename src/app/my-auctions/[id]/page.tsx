@@ -11,6 +11,11 @@ import { postDealFulfillmentStatusText } from "./deal-status";
 import { SellerReceivedPaymentForm } from "./seller-received-payment-form";
 import { createClient } from "@/lib/supabase/server";
 import {
+  dealStatusDetailText,
+  dealStatusGroupLabel,
+  resolveDealStatusGroup,
+} from "../deal-status-ui";
+import {
   pageBodyGapClass,
   pageHeaderClass,
   pageShellClass,
@@ -337,24 +342,23 @@ export default async function MyAuctionDealRoomPage({
         fixedUserHasRatedThisDeal = myRatingRow != null;
       }
     }
-    const fixedStatusLabel =
-      sellerDecision === "no_deal" || bidderDecision === "no_deal"
-        ? "Handelen ble ikke gjennomført"
-        : showFixedDealCompletedMessage
-          ? "Deal fullført"
-          : sellerDecision === "deal" && bidderDecision === "deal"
-            ? "Deal bekreftet"
-          : "Venter på svar";
-    const fixedStatusDetail =
-      sellerDecision === "deal" && bidderDecision === "deal"
-        ? postDealFulfillmentStatusText(
-            isFixedSeller ? "seller" : "bidder",
-            sellerDecision,
-            bidderDecision,
-            buyerReceivedCard,
-            sellerReceivedPayment,
-          )
-        : null;
+    const fixedStatusGroup = resolveDealStatusGroup({
+      sellerDecision,
+      bidderDecision,
+      buyerReceivedCard,
+      sellerReceivedPayment,
+      isCompleted: showFixedDealCompletedMessage,
+    });
+    const fixedStatusLabel = dealStatusGroupLabel(fixedStatusGroup);
+    const fixedStatusDetail = dealStatusDetailText({
+      group: fixedStatusGroup,
+      viewerRole: isFixedSeller ? "seller" : "buyer",
+      isFixedPrice: true,
+      sellerDecision,
+      bidderDecision,
+      buyerReceivedCard,
+      sellerReceivedPayment,
+    });
 
     const offerNokDisplay =
       fixedDeal.offer_price_nok != null &&
@@ -418,16 +422,14 @@ export default async function MyAuctionDealRoomPage({
                   {isFixedSeller ? "Selger" : "Kjøper"}
                 </span>
               </p>
-              <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-                <p className={sectionLabelClass}>Status</p>
-                <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+              <div className="mt-4 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+                <p className={sectionLabelClass}>Status nå</p>
+                <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
                   {fixedStatusLabel}
                 </p>
-                {fixedStatusDetail ? (
-                  <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-                    {fixedStatusDetail}
-                  </p>
-                ) : null}
+                <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                  Neste steg: {fixedStatusDetail}
+                </p>
               </div>
             </div>
           </section>
@@ -805,30 +807,27 @@ export default async function MyAuctionDealRoomPage({
       ? dealVenterActionHint(isSeller ? "seller" : "bidder", dealRow)
       : undefined;
 
-  const topStatusLabel =
-    eligibleForAuctionDeal &&
-    dealRow != null &&
-    dealRow.seller_decision === "deal" &&
-    dealRow.bidder_decision === "deal"
-      ? showDealCompletedMessage
-        ? "Fullført"
-        : "Deal bekreftet"
-      : "Deal venter";
-
-  const topStatusHelperText =
-    topStatusLabel === "Fullført"
-      ? "Begge parter har bekreftet handelen."
-      : topStatusLabel === "Deal bekreftet"
-        ? postDealFulfillmentStatusText(
-            isSeller ? "seller" : "bidder",
-            dealRow?.seller_decision ?? "pending",
-            dealRow?.bidder_decision ?? "pending",
-            dealRow?.buyer_received_card ?? false,
-            dealRow?.seller_received_payment ?? false,
-          ) || "Deal er bekreftet. Følg neste steg for å fullføre."
-        : dealRow
-          ? dealVenterActionHint(isSeller ? "seller" : "bidder", dealRow)
-          : "Venter på at begge svarer på deal.";
+  const auctionStatusGroup = !hasAuctionBids || !contactUnlockedPostAuction
+    ? "no_deal"
+    : dealRow == null
+      ? "deal_venter"
+      : resolveDealStatusGroup({
+          sellerDecision: dealRow.seller_decision,
+          bidderDecision: dealRow.bidder_decision,
+          buyerReceivedCard: dealRow.buyer_received_card,
+          sellerReceivedPayment: dealRow.seller_received_payment,
+          isCompleted: showDealCompletedMessage,
+        });
+  const topStatusLabel = dealStatusGroupLabel(auctionStatusGroup);
+  const topStatusHelperText = dealStatusDetailText({
+    group: auctionStatusGroup,
+    viewerRole: isSeller ? "seller" : "buyer",
+    isFixedPrice: false,
+    sellerDecision: dealRow?.seller_decision ?? "pending",
+    bidderDecision: dealRow?.bidder_decision ?? "pending",
+    buyerReceivedCard: dealRow?.buyer_received_card ?? false,
+    sellerReceivedPayment: dealRow?.seller_received_payment ?? false,
+  });
 
   return (
     <div className={pageShellClass}>
@@ -866,12 +865,13 @@ export default async function MyAuctionDealRoomPage({
                 {isSeller ? "Selger" : "Kjøper"}
               </span>
             </p>
-            <div className="mt-4 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-              <p className={sectionLabelClass}>Status</p>
-              <p className="mt-1 font-medium text-zinc-900 dark:text-zinc-100">
+            <div className="mt-4 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+              <p className={sectionLabelClass}>Status nå</p>
+              <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
                 {topStatusLabel}
               </p>
-              <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+              <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                Neste steg:{" "}
                 {topStatusHelperText}
               </p>
             </div>
