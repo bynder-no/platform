@@ -73,6 +73,12 @@ export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
       <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
         ·
       </span>
+      <Link href="/following" className={navLinkClass}>
+        Følger
+      </Link>
+      <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+        ·
+      </span>
       <Link href="/messages" className={navLinkClass}>
         Messages
       </Link>
