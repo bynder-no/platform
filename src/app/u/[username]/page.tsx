@@ -57,6 +57,31 @@ export default async function PublicProfilePage({
   if (!profile) {
     notFound();
   }
+  const [
+    { count: followersCountRaw, error: followersCountError },
+    { count: followingCountRaw, error: followingCountError },
+  ] = await Promise.all([
+    supabase
+      .from("user_follows")
+      .select("*", { count: "exact", head: true })
+      .eq("following_id", profile.id),
+    supabase
+      .from("user_follows")
+      .select("*", { count: "exact", head: true })
+      .eq("follower_id", profile.id),
+  ]);
+  if (followersCountError) {
+    throw new Error(`Could not load follower count: ${followersCountError.message}`);
+  }
+  if (followingCountError) {
+    throw new Error(`Could not load following count: ${followingCountError.message}`);
+  }
+  const followersCount = Number.isFinite(Number(followersCountRaw))
+    ? Number(followersCountRaw)
+    : 0;
+  const followingCount = Number.isFinite(Number(followingCountRaw))
+    ? Number(followingCountRaw)
+    : 0;
 
   const isOwnProfile = user != null && user.id === profile.id;
   let isFollowingProfile = false;
@@ -181,6 +206,21 @@ export default async function PublicProfilePage({
               </p>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 @{usernameLabel} · Rating: {ratingDisplayText}
+              </p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                <Link
+                  href={`/u/${encodeURIComponent(username)}/followers`}
+                  className="hover:underline"
+                >
+                  Følgere: {followersCount}
+                </Link>
+                {" · "}
+                <Link
+                  href={`/u/${encodeURIComponent(username)}/following`}
+                  className="hover:underline"
+                >
+                  Følger: {followingCount}
+                </Link>
               </p>
             </div>
             {!isOwnProfile && user ? (

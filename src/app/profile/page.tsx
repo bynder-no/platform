@@ -61,6 +61,31 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   if (profileError) {
     throw new Error(`Could not load profile: ${profileError.message}`);
   }
+  const [
+    { count: followersCountRaw, error: followersCountError },
+    { count: followingCountRaw, error: followingCountError },
+  ] = await Promise.all([
+    supabase
+      .from("user_follows")
+      .select("*", { count: "exact", head: true })
+      .eq("following_id", user.id),
+    supabase
+      .from("user_follows")
+      .select("*", { count: "exact", head: true })
+      .eq("follower_id", user.id),
+  ]);
+  if (followersCountError) {
+    throw new Error(`Could not load follower count: ${followersCountError.message}`);
+  }
+  if (followingCountError) {
+    throw new Error(`Could not load following count: ${followingCountError.message}`);
+  }
+  const followersCount = Number.isFinite(Number(followersCountRaw))
+    ? Number(followersCountRaw)
+    : 0;
+  const followingCount = Number.isFinite(Number(followingCountRaw))
+    ? Number(followingCountRaw)
+    : 0;
   const sp = await searchParams;
   const selectedCategory = parseListingCategory(sp.category);
 
@@ -107,6 +132,8 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
 
   const defaultDisplayName = profile?.display_name?.trim() ?? "";
   const defaultUsername = profile?.username?.trim() ?? "";
+  const defaultUsernamePath =
+    defaultUsername !== "" ? encodeURIComponent(defaultUsername) : "";
   const activeTitle = profile?.active_title?.trim() || "Kortselger";
 
   const salesCountRaw = Number(profile?.sales_count);
@@ -140,6 +167,27 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               </p>
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 @{defaultUsername || "—"} · Rating: {ratingDisplayText}
+              </p>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                {defaultUsernamePath !== "" ? (
+                  <>
+                    <Link
+                      href={`/u/${defaultUsernamePath}/followers`}
+                      className="hover:underline"
+                    >
+                      Følgere: {followersCount}
+                    </Link>
+                    {" · "}
+                    <Link
+                      href={`/u/${defaultUsernamePath}/following`}
+                      className="hover:underline"
+                    >
+                      Følger: {followingCount}
+                    </Link>
+                  </>
+                ) : (
+                  <>Følgere: {followersCount} · Følger: {followingCount}</>
+                )}
               </p>
             </div>
             <div className="grid gap-2 sm:grid-cols-3">
