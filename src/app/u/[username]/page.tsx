@@ -6,7 +6,11 @@ import {
   LISTING_CATEGORY_OPTIONS,
   parseListingCategory,
 } from "@/app/create/listing-categories";
-import { followUser, unfollowUser } from "@/app/u/[username]/actions";
+import {
+  followUser,
+  startConversationThread,
+  unfollowUser,
+} from "@/app/u/[username]/actions";
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -224,20 +228,31 @@ export default async function PublicProfilePage({
               </p>
             </div>
             {!isOwnProfile && user ? (
-              <form action={isFollowingProfile ? unfollowUser : followUser}>
-                <input type="hidden" name="followingId" value={profile.id} />
-                <input type="hidden" name="username" value={username} />
-                <button
-                  type="submit"
-                  className={`inline-flex rounded-md px-3 py-1.5 text-sm font-medium ${
-                    isFollowingProfile
-                      ? "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                      : "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                  }`}
-                >
-                  {isFollowingProfile ? "Følger · Slutt å følge" : "Følg"}
-                </button>
-              </form>
+              <div className="flex flex-wrap items-center gap-2">
+                <form action={isFollowingProfile ? unfollowUser : followUser}>
+                  <input type="hidden" name="followingId" value={profile.id} />
+                  <input type="hidden" name="username" value={username} />
+                  <button
+                    type="submit"
+                    className={`inline-flex rounded-md px-3 py-1.5 text-sm font-medium ${
+                      isFollowingProfile
+                        ? "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                        : "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                    }`}
+                  >
+                    {isFollowingProfile ? "Følger · Slutt å følge" : "Følg"}
+                  </button>
+                </form>
+                <form action={startConversationThread}>
+                  <input type="hidden" name="recipientId" value={profile.id} />
+                  <button
+                    type="submit"
+                    className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    Send melding
+                  </button>
+                </form>
+              </div>
             ) : null}
             <div className="grid gap-2 sm:grid-cols-3">
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950">

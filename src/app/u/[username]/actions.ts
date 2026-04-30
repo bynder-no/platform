@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
 import { createClient } from "@/lib/supabase/server";
@@ -64,4 +65,52 @@ export async function unfollowUser(formData: FormData) {
     revalidatePath(`/u/${encodeURIComponent(username)}`);
   }
   revalidatePath("/following");
+}
+
+export async function startConversationThread(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const recipientId = normalizedId(formData.get("recipientId"));
+  if (!recipientId || recipientId === user.id) {
+    return;
+  }
+
+  const { data: existingThread, error: existingThreadError } = await supabase
+    .from("conversation_threads")
+    .select("id")
+    .or(
+      `and(requester_id.eq.${user.id},recipient_id.eq.${recipientId}),and(requester_id.eq.${recipientId},recipient_id.eq.${user.id})`,
+    )
+    .maybeSingle();
+
+  if (existingThreadError) {
+    throw new Error(`Could not load conversation thread: ${existingThreadError.message}`);
+  }
+
+  if (existingThread?.id) {
+    redirect(`/messages/${existingThread.id}`);
+  }
+
+  const { data: newThread, error: insertError } = await supabase
+    .from("conversation_threads")
+    .insert({
+      requester_id: user.id,
+      recipient_id: recipientId,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (insertError) {
+    throw new Error(`Could not create conversation thread: ${insertError.message}`);
+  }
+
+  redirect(`/messages/${newThread.id}`);
 }
