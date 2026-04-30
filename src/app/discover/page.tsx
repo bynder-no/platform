@@ -40,7 +40,10 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   const sp = await searchParams;
   const query = parseQuery(sp.q);
   const seed = crypto.randomUUID();
-  const shuffledItems = await getDiscoverShuffledItems(seed);
+  const shuffledItems = await getDiscoverShuffledItems({
+    seed,
+    viewerUserId: user?.id ?? null,
+  });
 
   let userResults: ProfileRow[] = [];
   if (query !== "") {

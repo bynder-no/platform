@@ -10,23 +10,22 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 
-import { MessageReplyForm } from "./message-reply-form";
-
 export const dynamic = "force-dynamic";
 
-type MessageRow = {
+type ThreadRow = {
   id: string;
-  body: string;
-  created_at: string | null;
-  listing_id: string;
-  sender_id: string;
+  requester_id: string;
   recipient_id: string;
+  status: string;
+  updated_at: string | null;
 };
 
-function threadKey(m: MessageRow) {
-  const [a, b] = [m.sender_id, m.recipient_id].sort();
-  return `${m.listing_id}|${a}|${b}`;
-}
+type ConversationMessageRow = {
+  id: string;
+  thread_id: string;
+  body: string;
+  created_at: string | null;
+};
 
 function profileLabel(
   p:
@@ -34,8 +33,15 @@ function profileLabel(
     | undefined
     | null,
 ) {
-  if (!p) return "Member";
-  return p.display_name?.trim() || p.username?.trim() || "Member";
+  if (!p) return "Medlem";
+  return p.display_name?.trim() || p.username?.trim() || "Medlem";
+}
+
+function previewText(body: string | null | undefined) {
+  const text = String(body ?? "").trim();
+  if (!text) return "Ingen meldinger ennå";
+  if (text.length <= 64) return text;
+  return `${text.slice(0, 64)}...`;
 }
 
 export default async function MessagesPage() {
@@ -48,67 +54,23 @@ export default async function MessagesPage() {
     redirect("/login");
   }
 
-  const { data: messageRows, error: messagesError } = await supabase
-    .from("messages")
-    .select("id, body, created_at, listing_id, sender_id, recipient_id")
-    .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
-    .order("created_at", { ascending: false });
+  const { data: threadRows, error: threadsError } = await supabase
+    .from("conversation_threads")
+    .select("id, requester_id, recipient_id, status, updated_at")
+    .or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`)
+    .order("updated_at", { ascending: false });
 
-  if (messagesError) {
-    throw new Error(`Could not load messages: ${messagesError.message}`);
+  if (threadsError) {
+    throw new Error(`Could not load conversation threads: ${threadsError.message}`);
   }
 
-  const messages = (messageRows ?? []) as MessageRow[];
-
-  const groupMap = new Map<string, MessageRow[]>();
-  for (const m of messages) {
-    const key = threadKey(m);
-    const list = groupMap.get(key);
-    if (list) {
-      list.push(m);
-    } else {
-      groupMap.set(key, [m]);
-    }
-  }
-
-  const threads = [...groupMap.entries()].map(([key, msgs]) => {
-    const sorted = [...msgs].sort((a, b) => {
-      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-      if (ta !== tb) return ta - tb;
-      return a.id.localeCompare(b.id);
-    });
-    const last = sorted[sorted.length - 1];
-    const lastAt = last?.created_at
-      ? new Date(last.created_at).getTime()
-      : 0;
-    return { key, messages: sorted, lastAt };
-  });
-
-  threads.sort((a, b) => b.lastAt - a.lastAt);
-
-  const listingIds = [...new Set(messages.map((m) => m.listing_id))];
+  const threads = (threadRows ?? []) as ThreadRow[];
+  const threadIds = threads.map((row) => row.id);
   const profileIds = [
     ...new Set(
-      messages.flatMap((m) => [m.sender_id, m.recipient_id]),
+      threads.flatMap((t) => [t.requester_id, t.recipient_id]),
     ),
   ];
-
-  const listingById = new Map<string, { id: string; title: string | null }>();
-  if (listingIds.length > 0) {
-    const { data: listings, error: listingsError } = await supabase
-      .from("listings")
-      .select("id, title")
-      .in("id", listingIds);
-
-    if (listingsError) {
-      throw new Error(`Could not load listings: ${listingsError.message}`);
-    }
-
-    for (const row of listings ?? []) {
-      listingById.set(row.id, row);
-    }
-  }
 
   const profileById = new Map<
     string,
@@ -129,87 +91,143 @@ export default async function MessagesPage() {
     }
   }
 
+  const lastMessageByThreadId = new Map<
+    string,
+    { body: string; created_at: string | null }
+  >();
+  if (threadIds.length > 0) {
+    const { data: messagesData, error: messagesError } = await supabase
+      .from("conversation_messages")
+      .select("id, thread_id, body, created_at")
+      .in("thread_id", threadIds)
+      .order("created_at", { ascending: false });
+
+    if (messagesError) {
+      throw new Error(`Could not load conversation messages: ${messagesError.message}`);
+    }
+
+    for (const message of (messagesData ?? []) as ConversationMessageRow[]) {
+      if (!lastMessageByThreadId.has(message.thread_id)) {
+        lastMessageByThreadId.set(message.thread_id, {
+          body: message.body,
+          created_at: message.created_at,
+        });
+      }
+    }
+  }
+
+  const requests = threads.filter(
+    (thread) => thread.status === "pending" && thread.recipient_id === user.id,
+  );
+  const inbox = threads.filter((thread) => {
+    if (thread.status === "accepted") return true;
+    if (thread.status === "pending" && thread.requester_id === user.id) return true;
+    return false;
+  });
+
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
-        <h1 className={pageTitleClass}>Messages</h1>
+        <h1 className={pageTitleClass}>Meldinger</h1>
         <SignedInNavLinks />
       </header>
 
       <section className={pageBodyGapClass}>
-        {messages.length === 0 ? (
+        {threads.length === 0 ? (
           <div className="text-sm text-zinc-600 dark:text-zinc-400">
             <p className="font-medium text-zinc-800 dark:text-zinc-200">
-              No messages yet
+              Ingen meldinger ennå
             </p>
             <p className="mt-2">
-              When someone contacts you about a listing, or you contact a
-              seller, messages appear here.
+              Start en chat fra en offentlig profil med knappen &quot;Send melding&quot;.
             </p>
           </div>
         ) : (
-          <ul className="mt-4 space-y-10 text-sm">
-            {threads.map(({ key, messages: threadMessages }) => {
-              const first = threadMessages[0];
-              const latest = threadMessages[threadMessages.length - 1];
-              const listing = listingById.get(first.listing_id);
-              const listingTitle = listing?.title?.trim() || "Listing";
-              const otherId =
-                first.sender_id === user.id
-                  ? first.recipient_id
-                  : first.sender_id;
-              const otherProfile = profileById.get(otherId);
-              const otherName = profileLabel(otherProfile);
-
-              return (
-                <li key={key} className="space-y-3">
-                  <div className="space-y-1">
-                    <p>
-                      <Link
-                        href={`/listings/${first.listing_id}`}
-                        className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
-                      >
-                        {listingTitle}
-                      </Link>
-                    </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      With {otherName}
-                    </p>
-                  </div>
-                  <ul className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-                    {threadMessages.map((msg) => {
-                      const sender = profileById.get(msg.sender_id);
-                      const senderName = profileLabel(sender);
-                      const isOutgoing = msg.sender_id === user.id;
-                      const speaker = isOutgoing ? "You" : senderName;
-                      const when = msg.created_at
-                        ? new Date(msg.created_at).toLocaleString()
-                        : "—";
-
-                      return (
-                        <li key={msg.id} className="space-y-1">
-                          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {speaker}
-                            <span className="text-zinc-300 dark:text-zinc-600">
-                              {" "}
-                              ·{" "}
-                            </span>
-                            {when}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                Innboks
+              </h2>
+              {inbox.length === 0 ? (
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  Ingen aktive samtaler.
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-700">
+                  {inbox.map((thread) => {
+                    const otherId =
+                      thread.requester_id === user.id
+                        ? thread.recipient_id
+                        : thread.requester_id;
+                    const other = profileById.get(otherId);
+                    const otherName = profileLabel(other);
+                    const last = lastMessageByThreadId.get(thread.id);
+                    const preview = previewText(last?.body);
+                    const when = last?.created_at ?? thread.updated_at;
+                    return (
+                      <li key={thread.id} className="py-2">
+                        <Link
+                          href={`/messages/${thread.id}`}
+                          className="block rounded-md px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {otherName}
                           </p>
-                          <p className="whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
-                            {msg.body}
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                            {thread.status === "pending" && thread.requester_id === user.id
+                              ? "Venter på godkjenning"
+                              : preview}
                           </p>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  <div className="border-t border-zinc-200 pt-3 dark:border-zinc-700">
-                    <MessageReplyForm parentMessageId={latest.id} />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {when ? new Date(when).toLocaleString("nb-NO") : "—"}
+                          </p>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+
+            <section className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                Forespørsler
+              </h2>
+              {requests.length === 0 ? (
+                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                  Ingen nye forespørsler.
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-700">
+                  {requests.map((thread) => {
+                    const other = profileById.get(thread.requester_id);
+                    const otherName = profileLabel(other);
+                    const last = lastMessageByThreadId.get(thread.id);
+                    return (
+                      <li key={thread.id} className="py-2">
+                        <Link
+                          href={`/messages/${thread.id}`}
+                          className="block rounded-md px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {otherName}
+                          </p>
+                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                            {previewText(last?.body)}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                            {thread.updated_at
+                              ? new Date(thread.updated_at).toLocaleString("nb-NO")
+                              : "—"}
+                          </p>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </section>
+          </div>
         )}
       </section>
     </div>

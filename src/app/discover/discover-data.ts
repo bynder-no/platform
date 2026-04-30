@@ -23,6 +23,8 @@ type ListingRow = {
   image_urls: unknown;
   seller_id: string | null;
   created_at: string | null;
+  auction_starts_at: string | null;
+  auction_ends_at: string | null;
 };
 
 function hash32(input: string) {
@@ -45,13 +47,24 @@ function seededShuffle(rows: ListingRow[], seed: string) {
   });
 }
 
-export async function getDiscoverShuffledItems(seed: string) {
+export async function getDiscoverShuffledItems({
+  seed,
+  viewerUserId,
+}: {
+  seed: string;
+  viewerUserId: string | null;
+}) {
   const supabase = await createClient();
+  const nowIso = new Date().toISOString();
 
   const { data: listingRows, error: listingsError } = await supabase
     .from("listings")
-    .select("id, title, type, status, price_nok, image_urls, seller_id, created_at")
-    .or("and(type.eq.fixed_price,status.eq.active),and(type.eq.auction,status.eq.active)")
+    .select(
+      "id, title, type, status, price_nok, image_urls, seller_id, created_at, auction_starts_at, auction_ends_at",
+    )
+    .or(
+      `and(type.eq.fixed_price,status.eq.active),and(type.eq.auction,status.eq.active,auction_ends_at.gt."${nowIso}",auction_starts_at.is.null),and(type.eq.auction,status.eq.active,auction_ends_at.gt."${nowIso}",auction_starts_at.lte."${nowIso}")`,
+    )
     .order("created_at", { ascending: false })
     .limit(DISCOVER_POOL_SIZE);
 
@@ -59,7 +72,26 @@ export async function getDiscoverShuffledItems(seed: string) {
     throw new Error(`Could not load discover listings: ${listingsError.message}`);
   }
 
-  const shuffled = seededShuffle((listingRows ?? []) as ListingRow[], seed);
+  const filteredRows = ((listingRows ?? []) as ListingRow[]).filter((row) => {
+    const sellerId = String(row.seller_id ?? "").trim();
+    if (viewerUserId != null && sellerId !== "" && sellerId === viewerUserId) {
+      return false;
+    }
+    if (row.type === "fixed_price") {
+      return row.status === "active";
+    }
+    if (row.type === "auction") {
+      if (row.status !== "active") return false;
+      const endsAtMs = row.auction_ends_at ? new Date(row.auction_ends_at).getTime() : Number.NaN;
+      if (!Number.isFinite(endsAtMs) || endsAtMs <= Date.now()) return false;
+      if (!row.auction_starts_at) return true;
+      const startsAtMs = new Date(row.auction_starts_at).getTime();
+      return Number.isFinite(startsAtMs) && startsAtMs <= Date.now();
+    }
+    return false;
+  });
+
+  const shuffled = seededShuffle(filteredRows, seed);
 
   const listingIds = shuffled
     .map((row) => String(row.id ?? "").trim())
