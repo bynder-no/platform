@@ -11,7 +11,6 @@ import {
   startConversationThread,
   unfollowUser,
 } from "@/app/u/[username]/actions";
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -168,31 +167,29 @@ export default async function PublicProfilePage({
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
-        {user ? (
-          <SignedInNavLinks />
-        ) : (
+        {user ? null : (
           <nav className="flex flex-wrap gap-x-3 gap-y-2 text-sm">
             <Link
               href="/"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Hjem
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/login"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Logg inn
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/signup"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Registrer
             </Link>
@@ -201,17 +198,17 @@ export default async function PublicProfilePage({
         <div className="ui-card w-full p-4">
           <div className="space-y-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
                 Min Pokeshop
               </p>
               <h1 className={pageTitleClass}>{displayName}</h1>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-zinc-600">
                 {activeTitle} {displayName}
               </p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-zinc-600">
                 @{usernameLabel} · Rating: {ratingDisplayText}
               </p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-zinc-600">
                 <Link
                   href={`/u/${encodeURIComponent(username)}/followers`}
                   className="hover:underline"
@@ -236,8 +233,8 @@ export default async function PublicProfilePage({
                     type="submit"
                     className={`inline-flex rounded-md px-3 py-1.5 text-sm font-medium ${
                       isFollowingProfile
-                        ? "border border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                        : "bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                        ? "border border-zinc-300 text-zinc-700 hover:bg-zinc-100"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
                     }`}
                   >
                     {isFollowingProfile ? "Følger · Slutt å følge" : "Følg"}
@@ -247,7 +244,7 @@ export default async function PublicProfilePage({
                   <input type="hidden" name="recipientId" value={profile.id} />
                   <button
                     type="submit"
-                    className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
                   >
                     Send melding
                   </button>
@@ -255,23 +252,23 @@ export default async function PublicProfilePage({
               </div>
             ) : null}
             <div className="grid gap-2 sm:grid-cols-3">
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950">
-                <p className="text-zinc-500 dark:text-zinc-400">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
+                <p className="text-zinc-500">
                   Aktive fastprisannonser
                 </p>
-                <p className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                <p className="font-semibold tabular-nums text-zinc-900">
                   {fixedPriceRows.length}
                 </p>
               </div>
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950">
-                <p className="text-zinc-500 dark:text-zinc-400">Aktive auksjoner</p>
-                <p className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
+                <p className="text-zinc-500">Aktive auksjoner</p>
+                <p className="font-semibold tabular-nums text-zinc-900">
                   {auctionRows.length}
                 </p>
               </div>
-              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950">
-                <p className="text-zinc-500 dark:text-zinc-400">Fullførte handler</p>
-                <p className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
+                <p className="text-zinc-500">Fullførte handler</p>
+                <p className="font-semibold tabular-nums text-zinc-900">
                   {completedDealsCount}
                 </p>
               </div>
@@ -281,7 +278,7 @@ export default async function PublicProfilePage({
       </header>
 
       <section className={pageBodyGapClass}>
-        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+        <h2 className="text-base font-semibold text-zinc-900">
           {shopHeading}
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -289,8 +286,8 @@ export default async function PublicProfilePage({
             href={`/u/${encodeURIComponent(username)}`}
             className={`rounded-full border px-3 py-1 text-xs font-medium ${
               selectedCategory == null
-                ? "border-zinc-400 bg-zinc-900 text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900"
-                : "border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                ? "border-blue-600 bg-blue-600 text-white"
+                : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
             }`}
           >
             Alle
@@ -303,8 +300,8 @@ export default async function PublicProfilePage({
                 href={`/u/${encodeURIComponent(username)}?category=${option.slug}`}
                 className={`rounded-full border px-3 py-1 text-xs font-medium ${
                   active
-                    ? "border-zinc-400 bg-zinc-900 text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900"
-                    : "border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    ? "border-blue-600 bg-blue-600 text-white"
+                    : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
                 }`}
               >
                 {option.label}
@@ -313,7 +310,7 @@ export default async function PublicProfilePage({
           })}
         </div>
         {fixedPriceRows.length === 0 ? (
-          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-3 text-sm text-zinc-600">
             Ingen aktive fastprisannonser i butikken akkurat nå.
           </p>
         ) : (
@@ -336,10 +333,10 @@ export default async function PublicProfilePage({
                         width={320}
                         height={144}
                         unoptimized
-                        className="h-40 w-full rounded-xl border border-zinc-200 object-cover dark:border-zinc-700"
+                        className="h-40 w-full rounded-xl border border-zinc-200 object-cover"
                       />
                     ) : (
-                      <div className="flex h-40 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+                      <div className="flex h-40 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
                         Ingen bilde
                       </div>
                     )}
@@ -349,11 +346,11 @@ export default async function PublicProfilePage({
                       </span>
                       <Link
                         href={`/listings/${row.id}`}
-                        className="line-clamp-2 font-semibold text-zinc-900 hover:underline dark:text-zinc-100"
+                        className="line-clamp-2 font-semibold text-zinc-900 hover:underline"
                       >
                         {row.title}
                       </Link>
-                      <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                      <p className="text-base font-semibold text-zinc-900">
                         {row.price_nok != null ? `${row.price_nok} NOK` : "Pris mangler"}
                       </p>
                     </div>
@@ -371,7 +368,7 @@ export default async function PublicProfilePage({
                         Gi bud
                       </Link>
                     ) : user == null ? (
-                      <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                      <p className="text-xs text-zinc-600">
                         Logg inn for å gi bud
                       </p>
                     ) : null}

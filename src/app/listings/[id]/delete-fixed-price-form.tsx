@@ -10,7 +10,7 @@ type DeleteFixedPriceFormProps = {
 };
 
 const buttonClass =
-  "rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800";
+  "rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100";
 
 export function DeleteFixedPriceForm({
   listingId,
@@ -35,7 +35,7 @@ export function DeleteFixedPriceForm({
         {pending ? "Sletter..." : "Slett"}
       </button>
       {state?.error ? (
-        <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p>
+        <p className="text-xs text-red-600">{state.error}</p>
       ) : null}
     </form>
   );

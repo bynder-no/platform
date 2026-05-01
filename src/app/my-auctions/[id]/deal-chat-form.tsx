@@ -5,10 +5,10 @@ import { useActionState } from "react";
 import { sendListingDealMessage } from "./actions";
 
 const textareaClass =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
+  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2";
 
 const buttonClass =
-  "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50";
 
 type DealChatFormProps = {
   listingId: string;
@@ -31,7 +31,7 @@ export function DealChatForm({
       {dealBidderId ? (
         <input type="hidden" name="deal_bidder_id" value={dealBidderId} />
       ) : null}
-      <label className="flex flex-col text-sm text-zinc-800 dark:text-zinc-200">
+      <label className="flex flex-col text-sm text-zinc-800">
         <span className="font-medium">Ny melding</span>
         <textarea
           name="body"
@@ -45,7 +45,7 @@ export function DealChatForm({
         {pending ? "Sender…" : "Send"}
       </button>
       {state?.error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
+        <p className="text-sm text-red-600">{state.error}</p>
       ) : null}
     </form>
   );

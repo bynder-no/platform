@@ -30,14 +30,14 @@ export function ListingImageSlotsInput({
 
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Bilder</p>
+      <p className="text-sm font-medium text-zinc-800">Bilder</p>
       <div className="grid grid-cols-3 gap-2">
         {[0, 1, 2].map((slotIndex) => (
           <div key={slotIndex} className="space-y-1">
             <button
               type="button"
               onClick={() => fileInputRefs.current[slotIndex]?.click()}
-              className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-2xl font-semibold text-zinc-500 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md border border-zinc-300 bg-zinc-50 text-2xl font-semibold text-zinc-500 hover:bg-zinc-100"
             >
               {previews[slotIndex] ? (
                 <Image
@@ -79,11 +79,11 @@ export function ListingImageSlotsInput({
           </div>
         ))}
       </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="text-xs text-zinc-500">
         Du kan laste opp maks 3 bilder
       </p>
       {showReplaceNote ? (
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="text-xs text-zinc-500">
           Bytt et bilde ved å klikke på sloten.
         </p>
       ) : null}

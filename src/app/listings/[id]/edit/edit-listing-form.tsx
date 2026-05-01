@@ -7,10 +7,10 @@ import { ListingImageSlotsInput } from "@/components/listing-image-slots-input";
 import { updateDraftListing } from "./actions";
 
 const inputClass =
-  "rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
+  "rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 outline-none ring-zinc-400 focus:ring-2";
 
 const buttonClass =
-  "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50";
 
 type EditListingFormProps = {
   listingId: string;
@@ -100,10 +100,10 @@ export function EditListingForm({
       <input type="hidden" name="listing_id" value={listingId} />
 
       <fieldset className="flex flex-col gap-2 text-sm">
-        <legend className="font-medium text-zinc-800 dark:text-zinc-200">
+        <legend className="font-medium text-zinc-800">
           Annonsetype
         </legend>
-        <label className="flex cursor-pointer items-center gap-2 text-zinc-800 dark:text-zinc-200">
+        <label className="flex cursor-pointer items-center gap-2 text-zinc-800">
           <input
             type="radio"
             name="type"
@@ -111,25 +111,25 @@ export function EditListingForm({
             checked={listingType === "fixed_price"}
             onChange={() => setListingType("fixed_price")}
             required
-            className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+            className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400"
           />
           <span>Fastpris</span>
         </label>
-        <label className="flex cursor-pointer items-center gap-2 text-zinc-800 dark:text-zinc-200">
+        <label className="flex cursor-pointer items-center gap-2 text-zinc-800">
           <input
             type="radio"
             name="type"
             value="auction"
             checked={listingType === "auction"}
             onChange={() => setListingType("auction")}
-            className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+            className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400"
           />
           <span>Auksjon</span>
         </label>
       </fieldset>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+        <span className="font-medium text-zinc-800">
           Tittel
         </span>
         <input
@@ -143,7 +143,7 @@ export function EditListingForm({
       </label>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+        <span className="font-medium text-zinc-800">
           Beskrivelse
         </span>
         <textarea
@@ -163,7 +163,7 @@ export function EditListingForm({
       {listingType === "auction" ? (
         <>
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="font-medium text-zinc-800">
               Startdato
             </span>
             <input
@@ -177,7 +177,7 @@ export function EditListingForm({
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="font-medium text-zinc-800">
               Starttid
             </span>
             <select
@@ -204,7 +204,7 @@ export function EditListingForm({
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="font-medium text-zinc-800">
               Sluttdato
             </span>
             <input
@@ -218,7 +218,7 @@ export function EditListingForm({
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="font-medium text-zinc-800">
               Sluttid
             </span>
             <select
@@ -242,13 +242,13 @@ export function EditListingForm({
                 </option>
               ))}
             </select>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-zinc-500">
               Auksjonen bruker norsk tid.
             </span>
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="font-medium text-zinc-800">
               Minste budøkning
             </span>
             <input
@@ -262,13 +262,13 @@ export function EditListingForm({
               className={inputClass}
               placeholder="5"
             />
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-zinc-500">
               Hvert nye bud må være minst dette beløpet høyere enn gjeldende høyeste bud.
             </span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-zinc-500">
               Startbud settes automatisk til samme beløp.
             </span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs text-zinc-500">
               {minBidIncrementNok && /^\d+$/.test(minBidIncrementNok)
                 ? `Startbud blir ${minBidIncrementNok} kr`
                 : "Startbud blir satt automatisk når du velger minste budøkning."}
@@ -276,28 +276,28 @@ export function EditListingForm({
           </label>
 
           <fieldset className="space-y-2 text-sm">
-            <legend className="font-medium text-zinc-800 dark:text-zinc-200">
+            <legend className="font-medium text-zinc-800">
               Vil du ha minstepris?
             </legend>
-            <label className="flex cursor-pointer items-center gap-2 text-zinc-800 dark:text-zinc-200">
+            <label className="flex cursor-pointer items-center gap-2 text-zinc-800">
               <input
                 type="radio"
                 name="use_reserve_price"
                 value="on"
                 checked={useReservePrice}
                 onChange={() => setUseReservePrice(true)}
-                className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+                className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400"
               />
               <span>Ja</span>
             </label>
-            <label className="flex cursor-pointer items-center gap-2 text-zinc-800 dark:text-zinc-200">
+            <label className="flex cursor-pointer items-center gap-2 text-zinc-800">
               <input
                 type="radio"
                 name="use_reserve_price"
                 value="off"
                 checked={!useReservePrice}
                 onChange={() => setUseReservePrice(false)}
-                className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+                className="h-4 w-4 border-zinc-300 text-zinc-900 focus:ring-zinc-400"
               />
               <span>Nei</span>
             </label>
@@ -306,7 +306,7 @@ export function EditListingForm({
           {useReservePrice ? (
             <>
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                <span className="font-medium text-zinc-800">
                   Minstepris
                 </span>
                 <input
@@ -320,13 +320,13 @@ export function EditListingForm({
                   className={inputClass}
                   placeholder="5"
                 />
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs text-zinc-500">
                   Må være minst 5 kr. Denne vises ikke til budgivere.
                 </span>
               </label>
 
               <label className="flex flex-col gap-2 text-sm">
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                <span className="font-medium text-zinc-800">
                   Kontaktgrense (%)
                 </span>
                 <input
@@ -340,38 +340,38 @@ export function EditListingForm({
                     const next = Number(e.target.value);
                     if (Number.isFinite(next)) setContactThresholdPercent(next);
                   }}
-                  className="accent-zinc-900 dark:accent-zinc-100"
+                  className="accent-zinc-900"
                 />
-                <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                <p className="text-sm font-medium text-zinc-800">
                   {contactThresholdPercent}%
                 </p>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs text-zinc-500">
                   Kontakt apnes ved{" "}
                   {contactOpensAtNok != null && Number.isFinite(contactOpensAtNok)
                     ? `${contactOpensAtNok} kr`
                     : "fyll inn minstepris"}
                 </span>
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="text-xs text-zinc-500">
                   {reservePriceNok
                     ? `Dette er ${contactThresholdPercent}% av ${reservePriceNok} kr`
                     : "Legg inn minstepris for å se beregningen."}
                 </span>
               </label>
 
-              <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+              <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
                 Nar auksjonen er ferdig, apnes kontakt bare hvis hoyeste bud nar
                 kontaktgrensen du har valgt.
               </p>
             </>
           ) : (
-            <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+            <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
               Når auksjonen er ferdig, får høyeste budgiver kontakt med deg uansett bud.
             </p>
           )}
         </>
       ) : (
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium text-zinc-800 dark:text-zinc-200">
+          <span className="font-medium text-zinc-800">
             Pris (NOK)
           </span>
           <input
@@ -392,7 +392,7 @@ export function EditListingForm({
       </button>
 
       {state?.error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
+        <p className="text-sm text-red-600">{state.error}</p>
       ) : null}
     </form>
   );

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import {
   PROFILE_TITLE_OPTIONS,
   TITLE_KORTSELGER,
@@ -75,41 +74,41 @@ export default async function SettingsPage() {
     [TITLE_TOPPRATET]: "Lås opp med rating 5.0 og minst 5 vurderinger",
   };
   const inputClass =
-    "rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
+    "rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 placeholder-zinc-400 outline-none focus:ring-2 focus:ring-blue-500";
   const buttonClass =
-    "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
+    "rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700";
   async function submitSettingsForm(formData: FormData): Promise<void> {
     "use server";
     await updateProfile(null, formData);
   }
 
   return (
-    <div className={pageShellClass}>
+    <div className="min-h-screen bg-zinc-50">
+      <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <div className="space-y-2">
           <p className="text-sm">
             <Link
               href="/profile"
-              className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+              className="font-medium text-zinc-700 underline-offset-2 hover:underline"
             >
               ← Til Pokeshop
             </Link>
           </p>
           <h1 className={pageTitleClass}>Innstillinger</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-600">
             Oppdater kontoinfoen din.
           </p>
         </div>
-        <SignedInNavLinks />
       </header>
 
       <section className={pageBodyGapClass}>
-        <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
+        <h2 className="text-base font-semibold text-zinc-900">
           Profilinnstillinger
         </h2>
         <form action={submitSettingsForm} className="mt-10 flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="font-medium text-zinc-800">
               Display name
             </span>
             <input
@@ -123,7 +122,7 @@ export default async function SettingsPage() {
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="font-medium text-zinc-800">
               Username
             </span>
             <input
@@ -137,7 +136,7 @@ export default async function SettingsPage() {
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="font-medium text-zinc-800">
               Butikknavn
             </span>
             <input
@@ -150,7 +149,7 @@ export default async function SettingsPage() {
           </label>
 
           <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            <span className="font-medium text-zinc-800">
               Tittel
             </span>
             <select
@@ -172,7 +171,7 @@ export default async function SettingsPage() {
               )}
             </select>
           </label>
-          <ul className="text-xs text-zinc-600 dark:text-zinc-400">
+          <ul className="text-xs text-zinc-600">
             {PROFILE_TITLE_OPTIONS.map(
               (title) => (
                 <li key={title}>
@@ -187,6 +186,7 @@ export default async function SettingsPage() {
           </button>
         </form>
       </section>
+      </div>
     </div>
   );
 }

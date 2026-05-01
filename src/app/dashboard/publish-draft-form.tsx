@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { publishListing } from "@/app/listings/[id]/actions";
 
 const buttonClass =
-  "rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50";
 
 export function PublishDraftForm({ listingId }: { listingId: string }) {
   const [state, formAction, pending] = useActionState(publishListing, null);
@@ -17,7 +17,7 @@ export function PublishDraftForm({ listingId }: { listingId: string }) {
         {pending ? "Publishing…" : "Publish"}
       </button>
       {state?.error ? (
-        <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p>
+        <p className="text-xs text-red-600">{state.error}</p>
       ) : null}
     </form>
   );

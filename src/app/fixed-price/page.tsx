@@ -5,7 +5,6 @@ import {
   LISTING_CATEGORY_OPTIONS,
   parseListingCategory,
 } from "@/app/create/listing-categories";
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -99,7 +98,7 @@ function FixedPriceListingCard({
   return (
     <Link
       href={`/listings/${row.id}`}
-      className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
+      className={`${cardClass} hover:border-zinc-300`}
     >
       {coverImage ? (
         <Image
@@ -108,17 +107,17 @@ function FixedPriceListingCard({
           width={224}
           height={144}
           unoptimized
-          className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+          className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover"
         />
       ) : (
-        <span className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+        <span className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
           Ingen bilde
         </span>
       )}
-      <span className="line-clamp-2 font-medium text-zinc-900 dark:text-zinc-100">
+      <span className="line-clamp-2 font-medium text-zinc-900">
         {row.title?.trim() || "—"}
       </span>
-      <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+      <span className="tabular-nums text-zinc-600">
         {priceText(row.price_nok)}
       </span>
     </Link>
@@ -193,7 +192,7 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
   const rows = rawRows.slice(0, PAGE_SIZE);
 
   const cardClass =
-    "flex min-w-[11rem] max-w-[14rem] flex-1 shrink-0 flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
+    "flex min-w-[11rem] max-w-[14rem] flex-1 shrink-0 flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm shadow-sm";
 
   const selectedSortLabel =
     SORT_FILTERS.find((item) => item.value === sortFilter)?.label ?? "Nyeste";
@@ -252,43 +251,41 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
         <p className="text-sm">
           <Link
             href="/"
-            className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+            className="font-medium text-zinc-700 underline-offset-2 hover:underline"
           >
             ← Hjem
           </Link>
         </p>
         <div className="space-y-2">
           <h1 className={pageTitleClass}>Fastpris</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-600">
             Finn fastprisannonser med søk, kategori og sortering.
           </p>
         </div>
 
-        {user ? (
-          <SignedInNavLinks />
-        ) : (
+        {user ? (null) : (
           <nav className="flex flex-wrap gap-x-3 gap-y-2 text-sm">
             <Link
               href="/"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Hjem
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/login"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Logg inn
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/signup"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Registrer
             </Link>
@@ -300,7 +297,7 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
         <section aria-labelledby="fixed-price-browse-heading">
           <h2
             id="fixed-price-browse-heading"
-            className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+            className="text-base font-semibold text-zinc-900"
           >
             Bla i fastpris
           </h2>
@@ -311,7 +308,7 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
                 name="q"
                 placeholder="Hva leter du etter?"
                 defaultValue={query}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 placeholder:text-zinc-500 focus-visible:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 placeholder:text-zinc-500 focus-visible:ring-2"
               />
               <input
                 type="hidden"
@@ -325,27 +322,27 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
               />
               <button
                 type="submit"
-                className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
               >
                 Søk
               </button>
               <details className="relative">
-                <summary className="inline-flex cursor-pointer list-none items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700">
+                <summary className="inline-flex cursor-pointer list-none items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200">
                   Kategorier
                 </summary>
-                <div className="absolute right-0 z-10 mt-2 w-72 rounded-md border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="absolute right-0 z-10 mt-2 w-72 rounded-md border border-zinc-200 bg-white p-2 shadow-lg">
                   <ul className="space-y-1">
                     <li>
                       <Link
                         href={buildBrowseHref({ nextCategory: null })}
                         className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${
                           category == null
-                            ? "bg-zinc-100 font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                            : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                            ? "bg-zinc-100 font-medium text-zinc-900"
+                            : "text-zinc-700 hover:bg-zinc-100"
                         }`}
                       >
                         <span>Alle kategorier</span>
-                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <span className="text-xs text-zinc-500">
                           {allCategoryCount ?? 0}
                         </span>
                       </Link>
@@ -356,12 +353,12 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
                           href={buildBrowseHref({ nextCategory: item.slug })}
                           className={`flex items-center justify-between rounded px-2 py-1.5 text-sm ${
                             category === item.slug
-                              ? "bg-zinc-100 font-medium text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                              : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                              ? "bg-zinc-100 font-medium text-zinc-900"
+                              : "text-zinc-700 hover:bg-zinc-100"
                           }`}
                         >
                           <span>{item.label}</span>
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="text-xs text-zinc-500">
                             {categoryCounts.get(item.slug) ?? 0}
                           </span>
                         </Link>
@@ -373,7 +370,7 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
             </div>
           </form>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Sortering
             </span>
             {SORT_FILTERS.map((item) => {
@@ -384,8 +381,8 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
                   href={buildBrowseHref({ nextSort: item.value })}
                   className={
                     active
-                      ? "rounded-full border border-zinc-400 bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900"
-                      : "rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      ? "rounded-full border border-blue-600 bg-blue-600 px-3 py-1 text-xs font-medium text-white"
+                      : "rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
                   }
                 >
                   {item.label}
@@ -398,17 +395,17 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
         <section aria-labelledby="fixed-price-list-heading">
           <h2
             id="fixed-price-list-heading"
-            className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+            className="text-base font-semibold text-zinc-900"
           >
             Annonser
           </h2>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-xs text-zinc-500">
             Aktivt filter:{" "}
             {categoryLabel != null ? categoryLabel : "Alle kategorier"} ·{" "}
             {selectedSortLabel}
           </p>
           {rows.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-3 text-sm text-zinc-600">
               Ingen fastprisannonser å vise akkurat nå.
             </p>
           ) : (
@@ -424,7 +421,7 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
                 <p className="mt-6">
                   <Link
                     href={nextHref}
-                    className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+                    className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
                   >
                     Se mer
                   </Link>

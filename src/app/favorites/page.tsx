@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -65,13 +64,12 @@ export default async function FavoritesPage() {
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <h1 className={pageTitleClass}>Favorites</h1>
-        <SignedInNavLinks />
       </header>
 
       <section className={pageBodyGapClass}>
         {rows.length === 0 ? (
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            <p className="font-medium text-zinc-800 dark:text-zinc-200">
+          <div className="text-sm text-zinc-600">
+            <p className="font-medium text-zinc-800">
               No favorites yet
             </p>
             <p className="mt-2">
@@ -79,7 +77,7 @@ export default async function FavoritesPage() {
             </p>
           </div>
         ) : (
-          <ul className="ui-card mt-4 divide-y divide-zinc-200 overflow-hidden p-0 dark:divide-zinc-700">
+          <ul className="ui-card mt-4 divide-y divide-zinc-200 overflow-hidden p-0">
             {rows.map((row) => {
               const rawType =
                 typeof row.type === "string" ? row.type.trim() : "";
@@ -93,20 +91,20 @@ export default async function FavoritesPage() {
               return (
                 <li
                   key={row.id}
-                  className="flex flex-col gap-2 px-4 py-3 text-sm transition hover:bg-blue-50/40 dark:hover:bg-sky-950/25 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                  className="flex flex-col gap-2 px-4 py-3 text-sm transition hover:bg-blue-50/40 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                 >
                   <Link
                     href={`/listings/${row.id}`}
-                    className="min-w-0 font-semibold text-zinc-900 hover:underline dark:text-zinc-100"
+                    className="min-w-0 font-semibold text-zinc-900 hover:underline"
                   >
                     {row.title}
                   </Link>
                   <div className="flex flex-wrap items-center gap-2 text-xs sm:justify-end">
                     <span className="ui-badge ui-badge-accent">{typeLabel}</span>
-                    <span className="tabular-nums text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                    <span className="tabular-nums text-base font-semibold text-zinc-900">
                       {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
                     </span>
-                    <span className="text-zinc-500 dark:text-zinc-400">
+                    <span className="text-zinc-500">
                       {row.created_at
                         ? new Date(row.created_at).toLocaleString()
                         : "—"}

@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { FixedPriceOfferForm } from "@/app/listings/[id]/fixed-price-offer-form";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -156,16 +155,15 @@ export default async function FollowingPage() {
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <h1 className={pageTitleClass}>Følger</h1>
-        <SignedInNavLinks />
       </header>
 
       <section className={pageBodyGapClass}>
         {followingIds.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-600">
             Du følger ingen ennå. Gå til en offentlig profil for å følge brukere.
           </p>
         ) : listings.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-600">
             Ingen aktive annonser fra brukere du følger akkurat nå.
           </p>
         ) : (
@@ -206,7 +204,7 @@ export default async function FollowingPage() {
                 <li key={row.id} className="ui-card overflow-hidden text-sm">
                   <div className="flex flex-col">
                     <div className="space-y-1 px-4 py-3">
-                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      <p className="text-sm font-semibold text-zinc-900">
                         {sellerHref ? (
                           <Link href={sellerHref} className="hover:underline">
                             {sellerName ?? "Ukjent selger"}
@@ -215,7 +213,7 @@ export default async function FollowingPage() {
                           sellerName ?? "Ukjent selger"
                         )}
                       </p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      <p className="text-xs text-zinc-500">
                         la ut en annonse · {formatPostedAt(row.created_at).replace("Lagt ut: ", "")}
                       </p>
                     </div>
@@ -226,10 +224,10 @@ export default async function FollowingPage() {
                         width={960}
                         height={540}
                         unoptimized
-                        className="h-72 w-full border-y border-zinc-200 object-cover dark:border-zinc-700"
+                        className="h-72 w-full border-y border-zinc-200 object-cover"
                       />
                     ) : (
-                      <div className="flex h-72 w-full items-center justify-center border-y border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+                      <div className="flex h-72 w-full items-center justify-center border-y border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
                         Ingen bilde
                       </div>
                     )}
@@ -239,11 +237,11 @@ export default async function FollowingPage() {
                       </p>
                       <Link
                         href={`/listings/${row.id}`}
-                        className="line-clamp-2 text-base font-semibold text-zinc-900 hover:underline dark:text-zinc-100"
+                        className="line-clamp-2 text-base font-semibold text-zinc-900 hover:underline"
                       >
                         {row.title?.trim() || "—"}
                       </Link>
-                      <p className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                      <p className="text-base font-semibold text-zinc-900">
                         {priceLabel}
                       </p>
                       <div className="flex flex-wrap items-center gap-4 pt-1 text-sm">
@@ -253,7 +251,7 @@ export default async function FollowingPage() {
                         >
                           Se annonse
                         </Link>
-                        <span className="text-zinc-600 dark:text-zinc-400">
+                        <span className="text-zinc-600">
                           ♡ Favoritt
                         </span>
                         {showFixedPriceOffer ? (

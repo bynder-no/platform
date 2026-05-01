@@ -5,7 +5,7 @@ import { useActionState } from "react";
 import { markBuyerReceivedCard } from "./actions";
 
 const buttonClass =
-  "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50";
 
 type BuyerReceivedCardFormProps = {
   listingId: string;
@@ -24,7 +24,7 @@ export function BuyerReceivedCardForm({ listingId }: BuyerReceivedCardFormProps)
         {pending ? "Registrerer…" : "Kort mottatt"}
       </button>
       {state?.error ? (
-        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+        <p className="mt-2 text-sm text-red-600">
           {state.error}
         </p>
       ) : null}

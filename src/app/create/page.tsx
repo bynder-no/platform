@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageHeaderClass,
@@ -38,15 +37,15 @@ export default async function CreateListingPage({ searchParams }: PageProps) {
   const listingType = parseListingType(sp.type);
 
   return (
-    <div className={pageShellClass}>
+    <div className="min-h-screen bg-zinc-50">
+      <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <div className="space-y-2">
           <h1 className={pageTitleClass}>Create listing</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-600">
             Fastpris publiseres med en gang. Auksjoner lagres som kladd. Pris lagres i NOK.
           </p>
         </div>
-        <SignedInNavLinks />
       </header>
       {category == null ? (
         <CreateCategorySelection />
@@ -55,6 +54,7 @@ export default async function CreateListingPage({ searchParams }: PageProps) {
       ) : (
         <CreateListingForm category={category} listingType={listingType} />
       )}
+      </div>
     </div>
   );
 }

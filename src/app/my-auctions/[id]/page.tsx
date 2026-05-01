@@ -2,7 +2,6 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { AuctionDealPanel } from "@/app/listings/[id]/auction-deal-panel";
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { BuyerReceivedCardForm } from "./buyer-received-card-form";
 import { DealRatingForm } from "./deal-rating-form";
 import { DealChatForm } from "./deal-chat-form";
@@ -37,7 +36,7 @@ type BidRow = {
 };
 
 const sectionLabelClass =
-  "text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
+  "text-xs font-semibold uppercase tracking-wide text-zinc-500";
 
 /** Only literal `true` counts — avoids `Boolean("f")` / other truthy non-booleans. */
 function isPgBoolTrue(value: unknown): boolean {
@@ -168,23 +167,23 @@ export default async function MyAuctionDealRoomPage({
             <p className="text-sm">
               <Link
                 href="/my-auctions"
-                className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+                className="font-medium text-zinc-700 underline-offset-2 hover:underline"
               >
                 ← Mine deals
               </Link>
             </p>
             <h1 className={pageTitleClass}>Velg kjøper</h1>
-            <SignedInNavLinks />
+            
           </header>
           <div className={`${pageBodyGapClass} space-y-4 text-sm`}>
-            <p className="text-zinc-700 dark:text-zinc-300">
+            <p className="text-zinc-700">
               Flere kjøpere har gitt bud på{" "}
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">
+              <span className="font-medium text-zinc-900">
                 {listing.title?.trim() || "denne annonsen"}
               </span>
               . Åpne dealrommet for den du vil svare.
             </p>
-            <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+            <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200">
               {dealsList.map((d) => {
                 const bid = String(d.bidder_id ?? "").trim();
                 const label =
@@ -200,13 +199,13 @@ export default async function MyAuctionDealRoomPage({
                     className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div>
-                      <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                      <p className="font-medium text-zinc-900">
                         {label}
                       </p>
                       {offer != null ? (
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                        <p className="text-xs text-zinc-600">
                           Bud:{" "}
-                          <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                          <span className="tabular-nums font-medium text-zinc-800">
                             {offer} NOK
                           </span>
                         </p>
@@ -214,7 +213,7 @@ export default async function MyAuctionDealRoomPage({
                     </div>
                     <Link
                       href={`/my-auctions/${id}?buyer=${encodeURIComponent(bid)}`}
-                      className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                      className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
                     >
                       Gå til deal
                     </Link>
@@ -372,13 +371,13 @@ export default async function MyAuctionDealRoomPage({
           <p className="text-sm">
             <Link
               href="/my-auctions"
-              className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+              className="font-medium text-zinc-700 underline-offset-2 hover:underline"
             >
               ← Mine deals
             </Link>
           </p>
           <h1 className={pageTitleClass}>Dealrom</h1>
-          <SignedInNavLinks />
+          
         </header>
 
         <div className={`${pageBodyGapClass} space-y-8 text-sm`}>
@@ -386,14 +385,14 @@ export default async function MyAuctionDealRoomPage({
             <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
               Dealoversikt
             </h2>
-            <div className="mt-2 rounded-md border border-zinc-200 p-4 dark:border-zinc-700">
-              <p className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+            <div className="mt-2 rounded-md border border-zinc-200 p-4">
+              <p className="text-lg font-semibold text-zinc-950">
                 {listing.title?.trim() || "—"}
               </p>
               {offerNokDisplay != null ? (
-                <p className="mt-2 text-zinc-700 dark:text-zinc-300">
+                <p className="mt-2 text-zinc-700">
                   Bud:{" "}
-                  <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                  <span className="font-medium tabular-nums text-zinc-900">
                     {offerNokDisplay} NOK
                   </span>
                 </p>
@@ -403,31 +402,31 @@ export default async function MyAuctionDealRoomPage({
                   offerNokDisplay != null ? "mt-1" : "mt-2"
                 }
               >
-                <span className="text-zinc-700 dark:text-zinc-300">
+                <span className="text-zinc-700">
                   Fastpris i annonsen:{" "}
                 </span>
-                <span className="font-medium tabular-nums text-zinc-900 dark:text-zinc-100">
+                <span className="font-medium tabular-nums text-zinc-900">
                   {listing.price_nok != null ? `${listing.price_nok} NOK` : "—"}
                 </span>
               </p>
-              <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+              <p className="mt-1 text-zinc-700">
                 Motpart:{" "}
-                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="font-medium text-zinc-900">
                   {counterpartUsername ?? "—"}
                 </span>
               </p>
-              <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+              <p className="mt-1 text-zinc-700">
                 Du er:{" "}
-                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="font-medium text-zinc-900">
                   {isFixedSeller ? "Selger" : "Kjøper"}
                 </span>
               </p>
-              <div className="mt-4 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+              <div className="mt-4 rounded-md border border-zinc-200 p-3">
                 <p className={sectionLabelClass}>Status nå</p>
-                <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
+                <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
                   {fixedStatusLabel}
                 </p>
-                <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                <p className="mt-2 text-zinc-600">
                   Neste steg: {fixedStatusDetail}
                 </p>
               </div>
@@ -457,7 +456,7 @@ export default async function MyAuctionDealRoomPage({
               >
                 Fullført
               </h2>
-              <p className="mt-2 text-zinc-700 dark:text-zinc-300">
+              <p className="mt-2 text-zinc-700">
                 Deal fullført
               </p>
             </section>
@@ -497,7 +496,7 @@ export default async function MyAuctionDealRoomPage({
                 Vurdering
               </h2>
               {fixedUserHasRatedThisDeal ? (
-                <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+                <p className="mt-2 text-zinc-600">
                   Du har ratet denne handelen.
                 </p>
               ) : (
@@ -835,13 +834,13 @@ export default async function MyAuctionDealRoomPage({
         <p className="text-sm">
           <Link
             href="/my-auctions"
-            className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+            className="font-medium text-zinc-700 underline-offset-2 hover:underline"
           >
             ← Mine deals
           </Link>
         </p>
         <h1 className={pageTitleClass}>Dealrom</h1>
-        <SignedInNavLinks />
+        
       </header>
 
       <div className={`${pageBodyGapClass} space-y-8 text-sm`}>
@@ -849,28 +848,28 @@ export default async function MyAuctionDealRoomPage({
           <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
             Dealoversikt
           </h2>
-          <div className="mt-2 rounded-md border border-zinc-200 p-4 dark:border-zinc-700">
-            <p className="text-lg font-semibold text-zinc-950 dark:text-zinc-50">
+          <div className="mt-2 rounded-md border border-zinc-200 p-4">
+            <p className="text-lg font-semibold text-zinc-950">
               {listing.title?.trim() || "—"}
             </p>
-            <p className="mt-2 text-zinc-700 dark:text-zinc-300">
+            <p className="mt-2 text-zinc-700">
               Motpart:{" "}
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">
+              <span className="font-medium text-zinc-900">
                 {counterpartUsername ?? "—"}
               </span>
             </p>
-            <p className="mt-1 text-zinc-700 dark:text-zinc-300">
+            <p className="mt-1 text-zinc-700">
               Du er:{" "}
-              <span className="font-medium text-zinc-900 dark:text-zinc-100">
+              <span className="font-medium text-zinc-900">
                 {isSeller ? "Selger" : "Kjøper"}
               </span>
             </p>
-            <div className="mt-4 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+            <div className="mt-4 rounded-md border border-zinc-200 p-3">
               <p className={sectionLabelClass}>Status nå</p>
-              <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
+              <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
                 {topStatusLabel}
               </p>
-              <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+              <p className="mt-2 text-zinc-600">
                 Neste steg:{" "}
                 {topStatusHelperText}
               </p>
@@ -882,9 +881,9 @@ export default async function MyAuctionDealRoomPage({
           <h2 id="dealroom-bid-heading" className={sectionLabelClass}>
             Høyeste bud
           </h2>
-          <p className="mt-2 tabular-nums text-zinc-800 dark:text-zinc-200">
+          <p className="mt-2 tabular-nums text-zinc-800">
             {highestBidNok > 0 ? highestBidNok : 0}{" "}
-            <span className="text-zinc-500 dark:text-zinc-400">NOK</span>
+            <span className="text-zinc-500">NOK</span>
           </p>
         </section>
 
@@ -892,7 +891,7 @@ export default async function MyAuctionDealRoomPage({
           <h2 id="dealroom-contact-heading" className={sectionLabelClass}>
             Kontakt
           </h2>
-          <p className="mt-2 text-zinc-700 dark:text-zinc-300">
+          <p className="mt-2 text-zinc-700">
             {auctionEndedContactMessage}
           </p>
         </section>
@@ -930,7 +929,7 @@ export default async function MyAuctionDealRoomPage({
                     dealRow.seller_received_payment,
                   );
                   return line ? (
-                    <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+                    <p className="mt-3 text-zinc-700">
                       {line}
                     </p>
                   ) : null;
@@ -947,7 +946,7 @@ export default async function MyAuctionDealRoomPage({
             >
               Fullført
             </h2>
-            <p className="mt-2 text-zinc-700 dark:text-zinc-300">Fullført</p>
+            <p className="mt-2 text-zinc-700">Fullført</p>
           </section>
         ) : (
           <>
@@ -982,7 +981,7 @@ export default async function MyAuctionDealRoomPage({
               Vurdering
             </h2>
             {userHasRatedThisDeal ? (
-              <p className="mt-2 text-zinc-600 dark:text-zinc-400">
+              <p className="mt-2 text-zinc-600">
                 Du har ratet denne handelen.
               </p>
             ) : (

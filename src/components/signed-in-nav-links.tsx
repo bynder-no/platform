@@ -17,25 +17,25 @@ export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let unreadNotificationCount = 0;
-  if (user) {
-    const { count, error } = await supabase
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("is_read", false);
+  if (!user) {
+    return null;
+  }
 
-    if (error) {
-      console.error("notifications unread count:", error.message);
-    } else {
-      unreadNotificationCount = count ?? 0;
-    }
+  let unreadNotificationCount = 0;
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("is_read", false);
+
+  if (error) {
+    console.error("notifications unread count:", error.message);
+  } else {
+    unreadNotificationCount = count ?? 0;
   }
 
   const varslerLabel =
-    user && unreadNotificationCount > 0
-      ? `Varsler (${unreadNotificationCount})`
-      : "Varsler";
+    unreadNotificationCount > 0 ? `Varsler (${unreadNotificationCount})` : "Varsler";
 
   const links: NavLinkItem[] = [
     { href: "/", label: "Home" },
@@ -48,24 +48,28 @@ export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
   ];
 
   return (
-    <nav
-      aria-label="Account"
-      className={[
-        "flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white p-2 text-sm shadow-sm",
-        className,
-      ]
-        .filter(Boolean)
-        .join(" ")}
-    >
-      <SignedInNavLinksClient links={links} />
-      <form action={signOut} className="inline">
-        <button
-          type="submit"
-          className="ui-nav-chip cursor-pointer text-zinc-500 hover:border-red-300 hover:bg-red-50 hover:text-red-800"
+    <div className="sticky top-0 z-50 border-b border-zinc-200 bg-white/90 py-2 backdrop-blur">
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
+        <nav
+          aria-label="Account"
+          className={[
+            "flex flex-wrap items-center gap-2 rounded-2xl border border-zinc-200 bg-white p-2 text-sm shadow-sm",
+            className,
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
-          Logout
-        </button>
-      </form>
-    </nav>
+          <SignedInNavLinksClient links={links} />
+          <form action={signOut} className="inline">
+            <button
+              type="submit"
+              className="ui-nav-chip cursor-pointer text-zinc-500 hover:border-red-300 hover:bg-red-50 hover:text-red-800"
+            >
+              Logout
+            </button>
+          </form>
+        </nav>
+      </div>
+    </div>
   );
 }

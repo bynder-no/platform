@@ -6,13 +6,13 @@ import type { ChangeEvent } from "react";
 import { placeBid } from "./actions";
 
 const inputClass =
-  "rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
+  "rounded-md border border-zinc-300 bg-white px-3 py-2 text-zinc-900 outline-none ring-zinc-400 focus:ring-2";
 
 const buttonClass =
-  "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50";
 
 const helperListClass =
-  "list-inside list-disc space-y-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400";
+  "list-inside list-disc space-y-1 text-xs leading-relaxed text-zinc-500";
 
 type PlaceBidFormProps = {
   listingId: string;
@@ -41,7 +41,7 @@ export function PlaceBidForm({ listingId, minBidNok }: PlaceBidFormProps) {
     <form action={formAction} className="mt-3 flex flex-col gap-4">
       <input type="hidden" name="listing_id" value={listingId} />
       <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-zinc-800 dark:text-zinc-200">
+        <span className="font-medium text-zinc-800">
           Your bid (NOK)
         </span>
         <input
@@ -58,11 +58,11 @@ export function PlaceBidForm({ listingId, minBidNok }: PlaceBidFormProps) {
         />
       </label>
       <div id={helperId} className="space-y-2">
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="text-xs text-zinc-500">
           {minBidNok != null ? (
             <>
               Minimum for your next bid:{" "}
-              <span className="tabular-nums font-medium text-zinc-700 dark:text-zinc-300">
+              <span className="tabular-nums font-medium text-zinc-700">
                 {minBidNok} NOK
               </span>
             </>
@@ -80,7 +80,7 @@ export function PlaceBidForm({ listingId, minBidNok }: PlaceBidFormProps) {
         {pending ? "Placing…" : "Place bid"}
       </button>
       {state?.error ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
+        <p className="text-sm text-red-600">{state.error}</p>
       ) : null}
     </form>
   );

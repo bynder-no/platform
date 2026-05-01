@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -97,45 +96,45 @@ export default async function MessageThreadPage({ params }: PageProps) {
     (thread.status === "pending" && isRequester);
 
   return (
-    <div className={pageShellClass}>
+    <div className="min-h-screen bg-zinc-50">
+      <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <div className="flex items-center gap-2">
           <h1 className={pageTitleClass}>Chat</h1>
           {otherProfileHref ? (
             <Link
               href={otherProfileHref}
-              className="text-sm text-zinc-600 hover:underline dark:text-zinc-400"
+              className="text-sm text-zinc-600 hover:underline"
             >
               {otherName}
             </Link>
           ) : (
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">
+            <span className="text-sm text-zinc-600">
               {otherName}
             </span>
           )}
         </div>
-        <SignedInNavLinks />
       </header>
 
       <section className={pageBodyGapClass}>
-        <div className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-          <div className="sticky top-0 z-10 border-b border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{otherName}</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Samtale</p>
+        <div className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+          <div className="sticky top-0 z-10 border-b border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur">
+            <p className="text-sm font-semibold text-zinc-900">{otherName}</p>
+            <p className="text-xs text-zinc-500">Samtale</p>
           </div>
 
-          <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
+          <div className="border-b border-zinc-200 px-4 py-3">
             {thread.status === "pending" ? (
               isRecipient ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                  <p className="text-sm text-zinc-700">
                     Denne meldingen er en forespørsel.
                   </p>
                   <form action={acceptConversationRequest}>
                     <input type="hidden" name="thread_id" value={thread.id} />
                     <button
                       type="submit"
-                      className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
                     >
                       Godta
                     </button>
@@ -144,27 +143,27 @@ export default async function MessageThreadPage({ params }: PageProps) {
                     <input type="hidden" name="thread_id" value={thread.id} />
                     <button
                       type="submit"
-                      className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
                     >
                       Avslå
                     </button>
                   </form>
                 </div>
               ) : (
-                <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                <p className="text-sm text-zinc-700">
                   Venter på at brukeren godtar.
                 </p>
               )
             ) : thread.status === "declined" ? (
-              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              <p className="text-sm text-zinc-700">
                 Meldingsforespørselen ble avslått.
               </p>
             ) : thread.status === "blocked" ? (
-              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              <p className="text-sm text-zinc-700">
                 Denne chatten er blokkert.
               </p>
             ) : (
-              <p className="text-sm text-zinc-700 dark:text-zinc-300">
+              <p className="text-sm text-zinc-700">
                 Samtale med {otherName}
               </p>
             )}
@@ -172,7 +171,7 @@ export default async function MessageThreadPage({ params }: PageProps) {
 
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {(messageRows ?? []).length === 0 ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-zinc-600">
                 Ingen meldinger ennå.
               </p>
             ) : (
@@ -186,14 +185,14 @@ export default async function MessageThreadPage({ params }: PageProps) {
                     <div
                       className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
                         isOwn
-                          ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                          : "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
+                          ? "bg-blue-600 text-white"
+                          : "bg-zinc-100 text-zinc-900"
                       }`}
                     >
                       <p className="whitespace-pre-wrap">{message.body}</p>
                       <p
                         className={`mt-1 text-[11px] ${
-                          isOwn ? "text-zinc-300 dark:text-zinc-500" : "text-zinc-500 dark:text-zinc-400"
+                          isOwn ? "text-blue-100" : "text-zinc-500"
                         }`}
                       >
                         {message.created_at
@@ -207,17 +206,18 @@ export default async function MessageThreadPage({ params }: PageProps) {
             )}
           </div>
 
-          <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
+          <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur">
             {canSend ? (
               <ThreadMessageForm threadId={thread.id} />
             ) : (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="text-sm text-zinc-600">
                 Du kan ikke sende meldinger i denne chatten akkurat nå.
               </p>
             )}
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 }

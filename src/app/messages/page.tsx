@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 
 import { MessagesInboxView } from "@/app/messages/messages-inbox-view";
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -167,16 +166,16 @@ export default async function MessagesPage() {
   });
 
   return (
-    <div className={pageShellClass}>
+    <div className="min-h-screen bg-zinc-50">
+      <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <h1 className={pageTitleClass}>Meldinger</h1>
-        <SignedInNavLinks />
       </header>
 
       <section className={pageBodyGapClass}>
         {threads.length === 0 ? (
-          <div className="text-sm text-zinc-600 dark:text-zinc-400">
-            <p className="font-medium text-zinc-800 dark:text-zinc-200">
+          <div className="text-sm text-zinc-600">
+            <p className="font-medium text-zinc-800">
               Ingen meldinger ennå
             </p>
             <p className="mt-2">
@@ -187,6 +186,7 @@ export default async function MessagesPage() {
           <MessagesInboxView inboxItems={inboxItems} requestItems={requestItems} />
         )}
       </section>
+      </div>
     </div>
   );
 }

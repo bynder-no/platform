@@ -4,7 +4,7 @@ export const pageShellClass =
 
 /** Primary page title — use a single <h1> with this class per route. */
 export const pageTitleClass =
-  "text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50";
+  "text-2xl font-semibold tracking-tight text-zinc-900";
 
 /** Stacks title, intro copy, and top navigation with consistent rhythm. */
 export const pageHeaderClass = "space-y-5";

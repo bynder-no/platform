@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageHeaderClass,
@@ -59,13 +58,13 @@ export default async function EditListingPage({ params }: PageProps) {
           <h1 className={pageTitleClass}>Edit listing</h1>
           <Link
             href={`/listings/${listing.id}`}
-            className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+            className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
           >
             Back
           </Link>
         </div>
-        <SignedInNavLinks />
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        
+        <p className="text-sm text-zinc-600">
           Fastpris kan redigeres i utkast og aktiv status.
         </p>
       </header>
