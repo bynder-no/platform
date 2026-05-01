@@ -9,6 +9,7 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { isNormalChatNotificationType } from "@/lib/normal-chat-badges";
+import { fixedPriceOfferSellerDealHref } from "@/lib/notification-destinations";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ type NotificationRow = {
   type: string;
   listing_id: string | null;
   thread_id: string | null;
+  bidder_id: string | null;
   is_read: boolean;
   message: string | null;
   created_at: string | null;
@@ -109,6 +111,9 @@ function categoryIcon(category: NotificationCategory): string {
 }
 
 function destinationHref(row: NotificationRow): string {
+  if (row.type === "fixed_price_offer" && row.listing_id) {
+    return fixedPriceOfferSellerDealHref(row.listing_id, row.bidder_id);
+  }
   const category = categoryForType(row.type);
   if (category === "Meldinger") return "/";
   if (category === "Deals" || category === "Rating") {
@@ -120,6 +125,9 @@ function destinationHref(row: NotificationRow): string {
 }
 
 function destinationLabel(row: NotificationRow): string {
+  if (row.type === "fixed_price_offer") {
+    return row.listing_id ? "Gå til fastpris-deal" : "Gå til Mine deals";
+  }
   const category = categoryForType(row.type);
   if (category === "Meldinger") return "Åpne meldinger";
   if (category === "Deals" || category === "Rating") {
@@ -130,6 +138,9 @@ function destinationLabel(row: NotificationRow): string {
 
 function listingHrefForContext(row: NotificationRow): string | null {
   if (!row.listing_id) return null;
+  if (row.type === "fixed_price_offer") {
+    return fixedPriceOfferSellerDealHref(row.listing_id, row.bidder_id);
+  }
   const category = categoryForType(row.type);
   if (category === "Deals" || category === "Rating") {
     return `/my-auctions/${row.listing_id}`;
@@ -170,7 +181,7 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
 
   const { data, error } = await supabase
     .from("notifications")
-    .select("id, type, listing_id, thread_id, message, is_read, created_at")
+    .select("id, type, listing_id, thread_id, bidder_id, message, is_read, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
