@@ -25,12 +25,14 @@ async function createNotification(
   type: NotificationType,
   listingId: string,
   message: string,
+  bidderId?: string | null,
 ): Promise<void> {
   const { error } = await supabase.rpc("create_notification", {
     p_user_id: userId,
     p_type: type,
     p_listing_id: listingId,
     p_message: message,
+    p_bidder_id: bidderId ?? null,
   });
   if (error) {
     console.error("create_notification:", error.message);
@@ -492,6 +494,7 @@ export async function submitFixedPriceOffer(
     "fixed_price_offer",
     listingId,
     "Du har fått et bud på fastprisannonsen din",
+    user.id,
   );
 
   revalidatePath(`/listings/${listingId}`);
