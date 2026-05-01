@@ -29,6 +29,7 @@ export function NotificationRowLink({
     if (!isUnread) return;
     e.preventDefault();
     await markNotificationRead(notificationId);
+    router.refresh();
     router.push(href);
   }
 
