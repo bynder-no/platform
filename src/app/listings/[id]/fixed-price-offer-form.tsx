@@ -6,11 +6,13 @@ import type { KeyboardEvent } from "react";
 
 import { submitFixedPriceOffer, type FixedPriceOfferState } from "./actions";
 
+const inputClass = "ui-input mt-1 w-full";
+
 const textareaClass =
-  "mt-1 w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
+  "ui-input mt-1 w-full min-h-[72px] resize-y py-2.5";
 
 const buttonClass =
-  "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "ui-button disabled:opacity-50";
 
 type FixedPriceOfferFormProps = {
   listingId: string;
@@ -93,7 +95,7 @@ export function FixedPriceOfferForm({
         >
           <div
             ref={modalRef}
-            className="max-h-[95vh] w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 shadow-xl dark:border-zinc-700 dark:bg-zinc-950 sm:max-w-lg sm:p-6"
+            className="max-h-[95vh] w-full overflow-y-auto rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl shadow-zinc-900/15 ring-1 ring-zinc-900/5 dark:border-zinc-700 dark:bg-zinc-950 sm:max-w-lg sm:p-6"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -110,13 +112,13 @@ export function FixedPriceOfferForm({
                 onClick={() => setOpen(false)}
                 disabled={pending}
                 aria-label="Lukk"
-                className="rounded-md border border-zinc-300 px-2 py-1 text-zinc-700 hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-600 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                className="ui-button-secondary px-2 py-1 disabled:opacity-50"
               >
                 ×
               </button>
             </div>
 
-            <div className="mt-4 rounded-md border border-zinc-200 p-3 dark:border-zinc-700">
+            <div className="ui-card mt-4 border-dashed p-3">
               <div className="flex items-start gap-3">
                 {thumbnailUrl ? (
                   <Image
@@ -144,8 +146,8 @@ export function FixedPriceOfferForm({
 
             <form action={formAction} className="mt-4 space-y-3">
               <input type="hidden" name="listing_id" value={listingId} />
-              <label className="flex flex-col text-sm text-zinc-800 dark:text-zinc-200">
-                <span className="font-medium">Ditt bud (NOK)</span>
+              <label className="flex flex-col">
+                <span className="ui-label">Ditt bud (NOK)</span>
                 <input
                   ref={firstFocusableRef}
                   name="offer_price_nok"
@@ -155,11 +157,11 @@ export function FixedPriceOfferForm({
                   required
                   defaultValue={defaultOfferNok}
                   disabled={pending}
-                  className={textareaClass}
+                  className={inputClass}
                 />
               </label>
-              <label className="flex flex-col text-sm text-zinc-800 dark:text-zinc-200">
-                <span className="font-medium">
+              <label className="flex flex-col">
+                <span className="ui-label">
                   Melding til selger{" "}
                   <span className="font-normal text-zinc-500 dark:text-zinc-400">
                     (valgfritt)
@@ -184,7 +186,7 @@ export function FixedPriceOfferForm({
                   type="button"
                   disabled={pending}
                   onClick={() => setOpen(false)}
-                  className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
+                  className="ui-button-secondary disabled:opacity-50"
                 >
                   Avbryt
                 </button>

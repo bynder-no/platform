@@ -10,6 +10,7 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { HomeCardFavoriteButton } from "@/app/home-card-favorite-button";
+import { HomeListingCarousel } from "@/app/home-listing-carousel";
 import { HomeSearchAutocomplete } from "@/app/home-search-autocomplete";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
 import { formatAuctionTimeRemainingNo } from "@/lib/auction-time-remaining-no";
@@ -23,6 +24,7 @@ import {
   type BidForLeadingRow,
 } from "@/lib/auction-viewer-bid-status";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
+import { HOME_CATEGORY_SHORTCUTS } from "@/lib/home-category-shortcuts";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +38,42 @@ type ListingCardRow = {
   auction_ends_at: string | null;
   seller_id: string | null;
 };
+
+function CategoryLineIcon({ slug }: { slug: string }) {
+  const iconClass = "h-7 w-7 text-sky-600 transition group-hover:-translate-y-0.5 group-hover:text-sky-700";
+
+  if (slug === "single_card") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconClass} aria-hidden>
+        <rect x="5" y="4" width="14" height="16" rx="2.5" />
+        <path d="M8 9h8M8 13h6" />
+      </svg>
+    );
+  }
+  if (slug === "slab") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconClass} aria-hidden>
+        <path d="M12 3l7 3v5c0 4.5-2.8 7.8-7 10-4.2-2.2-7-5.5-7-10V6l7-3z" />
+        <path d="M9.5 12.5l1.8 1.8 3.5-3.5" />
+      </svg>
+    );
+  }
+  if (slug === "sealed") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconClass} aria-hidden>
+        <path d="M3 8l9-5 9 5-9 5-9-5z" />
+        <path d="M21 8v8l-9 5-9-5V8" />
+        <path d="M12 13v8" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={iconClass} aria-hidden>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="M3 10h18M8 5v5M16 5v5" />
+    </svg>
+  );
+}
 
 function auctionStateLabelNo(
   nowMs: number,
@@ -63,7 +101,7 @@ function homeCardSellerUsernameLink(
   const u = sellerId ? usernameBySellerId.get(sellerId) : undefined;
   if (!u) {
     return (
-      <span className="text-zinc-400 dark:text-zinc-500">—</span>
+      <span className="text-zinc-400">—</span>
     );
   }
   const href =
@@ -75,7 +113,7 @@ function homeCardSellerUsernameLink(
   return (
     <Link
       href={href}
-      className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+      className="font-medium text-zinc-700 underline-offset-2 hover:underline"
     >
       {u}
     </Link>
@@ -148,31 +186,33 @@ function HomeAuctionListingCard({
   );
   return (
     <div
-      className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
+      className={`${cardClass} hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md`}
     >
       {coverImage ? (
-        <Image
-          src={coverImage}
-          alt={row.title?.trim() || "Annonsebilde"}
-          width={224}
-          height={144}
-          unoptimized
-          className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
-        />
+        <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
+          <Image
+            src={coverImage}
+            alt={row.title?.trim() || "Annonsebilde"}
+            width={224}
+            height={144}
+            unoptimized
+            className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </div>
       ) : (
-        <div className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+        <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
           Ingen bilde
         </div>
       )}
-      <div className="flex items-start gap-2">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex items-start gap-2.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <Link
             href={`/listings/${row.id}`}
-            className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-100"
+            className="line-clamp-2 font-semibold text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2"
           >
             {row.title?.trim() || "—"}
           </Link>
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs text-zinc-500">
             {homeCardSellerUsernameLink(
               row.seller_id,
               sellerUsernameById,
@@ -183,22 +223,22 @@ function HomeAuctionListingCard({
             href={`/listings/${row.id}`}
             className="flex flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
           >
-            <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            <span className="inline-flex w-fit rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
               {state}
             </span>
             {timeLeft ? (
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                <span className="font-medium text-zinc-600 dark:text-zinc-300">
+              <span className="text-xs text-zinc-500">
+                <span className="font-medium text-zinc-600">
                   Tid igjen
                 </span>{" "}
                 <span className="tabular-nums">{timeLeft}</span>
               </span>
             ) : null}
-            <span className="tabular-nums text-zinc-600 dark:text-zinc-400">
+            <span className="tabular-nums text-lg font-semibold text-zinc-900">
               {liveNok} NOK
             </span>
             {bidPositionLabel ? (
-              <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+              <span className="text-xs font-medium text-amber-800">
                 {bidPositionLabel}
               </span>
             ) : null}
@@ -338,17 +378,18 @@ export default async function HomePage() {
   }
 
   const cardClass =
-    "flex min-w-[11rem] max-w-[14rem] flex-1 shrink-0 flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
+    "group flex w-full min-w-0 max-w-none flex-col gap-2.5 rounded-2xl border border-zinc-200 bg-white p-3 text-sm shadow-sm transition-all duration-300 ease-out cursor-pointer";
 
   const sectionTitleClass =
-    "text-base font-semibold text-zinc-900 dark:text-zinc-50";
+    "text-base font-semibold text-zinc-900";
 
   return (
-    <div className={pageShellClass}>
+    <div className="min-h-screen bg-zinc-50">
+      <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <div className="space-y-2">
           <h1 className={pageTitleClass}>Hjem</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-500">
             Nyeste auksjoner og fastprisannonser.
           </p>
         </div>
@@ -359,34 +400,34 @@ export default async function HomePage() {
           <nav className="flex flex-wrap gap-x-3 gap-y-2 text-sm">
             <Link
               href="/"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Hjem
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/login"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Logg inn
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/signup"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Registrer
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/dashboard"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Dashboard
             </Link>
@@ -394,37 +435,65 @@ export default async function HomePage() {
         )}
       </header>
 
-      <div className={`${pageBodyGapClass} space-y-10`}>
-        <section aria-labelledby="home-search-heading">
+      <div className={`${pageBodyGapClass} w-full space-y-11`}>
+        <section aria-labelledby="home-search-heading" className="space-y-3">
           <h2
             id="home-search-heading"
-            className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+            className="text-base font-semibold text-zinc-900"
           >
             Søk i annonser
           </h2>
-          <HomeSearchAutocomplete />
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <HomeSearchAutocomplete />
+          </div>
         </section>
 
-        <section aria-labelledby="home-auctions-heading">
+        <section aria-labelledby="home-categories-heading" className="space-y-3">
+          <h2
+            id="home-categories-heading"
+            className="text-base font-semibold text-zinc-900"
+          >
+            Kategorier
+          </h2>
+          <ul className="mt-3 grid grid-cols-2 gap-y-5 sm:grid-cols-4 sm:gap-y-6">
+            {HOME_CATEGORY_SHORTCUTS.map((item) => (
+              <li key={item.slug}>
+                <Link
+                  href={item.href}
+                  className="group flex flex-col items-center justify-center gap-2 px-2 py-2 text-center transition duration-200"
+                >
+                  <span className="inline-flex items-center justify-center" aria-hidden>
+                    <CategoryLineIcon slug={item.slug} />
+                  </span>
+                  <span className="text-xs font-semibold leading-snug text-zinc-700">
+                    {item.label}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section aria-labelledby="home-auctions-heading" className="space-y-1">
           <div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
             <h2 id="home-auctions-heading" className={sectionTitleClass}>
               Nyeste auksjonsannonser
             </h2>
             <Link
               href="/auctions"
-              className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+              className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
             >
               Se alle
             </Link>
           </div>
           {auctionRows.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-3 text-sm text-zinc-500">
               Ingen auksjoner akkurat nå.
             </p>
           ) : (
-            <ul className="mt-4 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
+            <HomeListingCarousel ariaLabel="Auksjonsannonser karusell">
               {auctionRows.map((row) => (
-                <li key={row.id}>
+                <li key={row.id} className="py-1">
                   <HomeAuctionListingCard
                     row={row}
                     nowMs={nowMs}
@@ -440,56 +509,58 @@ export default async function HomePage() {
                   />
                 </li>
               ))}
-            </ul>
+            </HomeListingCarousel>
           )}
         </section>
 
-        <section aria-labelledby="home-fixed-heading">
+        <section aria-labelledby="home-fixed-heading" className="space-y-1">
           <div className="flex flex-wrap items-end justify-between gap-2 gap-y-1">
             <h2 id="home-fixed-heading" className={sectionTitleClass}>
               Nyeste fastprisannonser
             </h2>
             <Link
               href="/fixed-price"
-              className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+              className="text-sm font-medium text-zinc-700 underline-offset-2 hover:underline"
             >
               Se alle
             </Link>
           </div>
           {fixedRows.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-3 text-sm text-zinc-500">
               Ingen fastprisannonser akkurat nå.
             </p>
           ) : (
-            <ul className="mt-4 flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
+            <HomeListingCarousel ariaLabel="Fastprisannonser karusell">
               {fixedRows.map((row) => (
-                <li key={row.id}>
+                <li key={row.id} className="py-1">
                   <div
-                    className={`${cardClass} hover:border-zinc-300 dark:hover:border-zinc-600`}
+                    className={`${cardClass} hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md`}
                   >
                     {normalizeListingImageUrls(row.image_urls)[0] ? (
-                      <Image
-                        src={normalizeListingImageUrls(row.image_urls)[0]}
-                        alt={row.title?.trim() || "Annonsebilde"}
-                        width={224}
-                        height={144}
-                        unoptimized
-                        className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
-                      />
+                      <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
+                        <Image
+                          src={normalizeListingImageUrls(row.image_urls)[0]}
+                          alt={row.title?.trim() || "Annonsebilde"}
+                          width={224}
+                          height={144}
+                          unoptimized
+                          className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        />
+                      </div>
                     ) : (
-                      <div className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+                      <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
                         Ingen bilde
                       </div>
                     )}
-                    <div className="flex items-start gap-2">
-                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <div className="flex items-start gap-2.5">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                         <Link
                           href={`/listings/${row.id}`}
-                          className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-100"
+                          className="line-clamp-2 font-semibold text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2"
                         >
                           {row.title?.trim() || "—"}
                         </Link>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <p className="text-xs text-zinc-500">
                           {homeCardSellerUsernameLink(
                             row.seller_id,
                             sellerUsernameById,
@@ -498,7 +569,7 @@ export default async function HomePage() {
                         </p>
                         <Link
                           href={`/listings/${row.id}`}
-                          className="tabular-nums text-zinc-600 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-400"
+                          className="tabular-nums text-lg font-semibold text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2"
                         >
                           {priceText(row.price_nok)}
                         </Link>
@@ -515,9 +586,10 @@ export default async function HomePage() {
                   </div>
                 </li>
               ))}
-            </ul>
+            </HomeListingCarousel>
           )}
         </section>
+      </div>
       </div>
     </div>
   );

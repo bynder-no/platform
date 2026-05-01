@@ -155,42 +155,81 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <SignedInNavLinks />
-        <div className="w-full rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="space-y-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
-                Min Pokeshop
-              </p>
-              <h1 className={pageTitleClass}>{defaultDisplayName || "Min profil"}</h1>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {activeTitle} {defaultDisplayName || "—"}
-              </p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                @{defaultUsername || "—"} · Rating: {ratingDisplayText}
-              </p>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                {defaultUsernamePath !== "" ? (
-                  <>
+        <div className="overflow-hidden rounded-3xl border border-zinc-200/90 bg-white/90 p-0 shadow-lg shadow-zinc-900/10 ring-1 ring-white/40 backdrop-blur dark:border-zinc-700/80 dark:bg-zinc-900/80 dark:ring-white/5">
+          <div className="border-b border-zinc-300/80 bg-gradient-to-r from-red-600 via-red-500 to-orange-500 px-4 py-2 dark:border-zinc-700/70">
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-white/30 bg-white/90 px-3 py-1.5 text-zinc-900 shadow-inner dark:border-white/10 dark:bg-zinc-950/80 dark:text-zinc-100">
+              <div className="min-w-0">
+                <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em]">
+                  Bynder Graded Profile Slab
+                </p>
+                <p className="truncate text-[11px] text-zinc-600 dark:text-zinc-300">
+                  @{defaultUsername || "—"} · CERT {user.id.slice(0, 8).toUpperCase()}
+                </p>
+              </div>
+              <span className="shrink-0 text-[11px] font-semibold">MINT UI</span>
+            </div>
+          </div>
+          <div className="relative space-y-4 bg-white/80 p-4 dark:bg-zinc-900/70">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/55 via-transparent to-sky-100/15 dark:from-white/5 dark:to-sky-500/5"
+            />
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
+                  Min Pokeshop
+                </p>
+                <h1 className={pageTitleClass}>{defaultDisplayName || "Min profil"}</h1>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  {activeTitle} {defaultDisplayName || "—"}
+                </p>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                  @{defaultUsername || "—"}
+                </p>
+              </div>
+              <div className="shrink-0 rounded-2xl border border-zinc-300 bg-white px-4 py-2 text-center shadow-sm ring-1 ring-zinc-900/5 dark:border-zinc-600 dark:bg-zinc-950 dark:ring-white/5">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                  Grade
+                </p>
+                <p className="text-3xl font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {ratingAverageDisplay ?? "—"}
+                </p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {ratingCount} vurderinger
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-5">
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950">
+                <p className="text-zinc-500 dark:text-zinc-400">Følgere</p>
+                <p className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {defaultUsernamePath !== "" ? (
                     <Link
                       href={`/u/${defaultUsernamePath}/followers`}
                       className="hover:underline"
                     >
-                      Følgere: {followersCount}
+                      {followersCount}
                     </Link>
-                    {" · "}
+                  ) : (
+                    followersCount
+                  )}
+                </p>
+              </div>
+              <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950">
+                <p className="text-zinc-500 dark:text-zinc-400">Følger</p>
+                <p className="font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
+                  {defaultUsernamePath !== "" ? (
                     <Link
                       href={`/u/${defaultUsernamePath}/following`}
                       className="hover:underline"
                     >
-                      Følger: {followingCount}
+                      {followingCount}
                     </Link>
-                  </>
-                ) : (
-                  <>Følgere: {followersCount} · Følger: {followingCount}</>
-                )}
-              </p>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-3">
+                  ) : (
+                    followingCount
+                  )}
+                </p>
+              </div>
               <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-950">
                 <p className="text-zinc-500 dark:text-zinc-400">
                   Aktive fastprisannonser
@@ -212,29 +251,21 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                 </p>
               </div>
             </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{ratingDisplayText}</p>
             <div className="flex flex-wrap gap-2 pt-1">
-              <Link
-                href="/create"
-                className="rounded-md border border-zinc-300 bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
-              >
+              <Link href="/create" className="ui-button inline-flex px-4 py-2">
                 Opprett annonse
               </Link>
-              <Link
-                href="/my-listings"
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
+              <Link href="/my-listings" className="ui-button-secondary inline-flex px-4 py-2">
                 Mine aktive annonser
               </Link>
-              <Link
-                href="/my-auctions"
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
+              <Link href="/my-auctions" className="ui-button-secondary inline-flex px-4 py-2">
                 Mine deals
               </Link>
-              <Link
-                href="/settings"
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
+              <Link href="/favorites" className="ui-button-secondary inline-flex px-4 py-2">
+                Favorites
+              </Link>
+              <Link href="/settings" className="ui-button-secondary inline-flex px-4 py-2">
                 Innstillinger
               </Link>
             </div>

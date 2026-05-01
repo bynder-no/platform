@@ -99,11 +99,11 @@ export function HomeSearchAutocomplete() {
             }}
             placeholder="Hva leter du etter?"
             autoComplete="off"
-            className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 placeholder:text-zinc-500 focus-visible:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
+            className="w-full rounded-xl border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none ring-zinc-400 placeholder:text-zinc-500 focus-visible:ring-2"
           />
           <button
             type="submit"
-            className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+            className="inline-flex items-center justify-center rounded-xl border border-blue-600 bg-blue-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
           >
             Søk
           </button>
@@ -111,16 +111,16 @@ export function HomeSearchAutocomplete() {
       </form>
 
       {showDropdown ? (
-        <div className="absolute z-20 mt-2 w-full rounded-md border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="absolute z-20 mt-2 w-full rounded-md border border-zinc-200 bg-white p-2 shadow-lg">
           <div>
-            <p className="px-2 pb-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+            <p className="px-2 pb-1 text-xs font-medium text-zinc-500">
               Ditt søk
             </p>
             <ul className="space-y-1">
               <li>
                 <Link
                   href={directSearchHref}
-                  className="block rounded px-2 py-1.5 text-sm text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                  className="block rounded px-2 py-1.5 text-sm text-zinc-800 hover:bg-zinc-100"
                 >
                   {trimmedQuery}
                 </Link>
@@ -130,7 +130,7 @@ export function HomeSearchAutocomplete() {
 
           {visibleListingSuggestions.length > 0 ? (
             <div className="mt-2">
-              <p className="px-2 pb-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="px-2 pb-1 text-xs font-medium text-zinc-500">
                 Annonser
               </p>
               <ul className="space-y-1">
@@ -138,15 +138,15 @@ export function HomeSearchAutocomplete() {
                   <li key={item.id}>
                     <Link
                       href={`/listings/${item.id}`}
-                      className="block rounded px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                      className="block rounded px-2 py-1.5 hover:bg-zinc-100"
                     >
-                      <p className="line-clamp-1 text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                      <p className="line-clamp-1 text-sm font-medium text-zinc-800">
                         {item.title}
                       </p>
-                      <p className="mt-0.5 text-xs text-zinc-600 dark:text-zinc-400">
+                      <p className="mt-0.5 text-xs text-zinc-600">
                         {item.typeLabel} · {item.categoryLabel}
                       </p>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      <p className="text-xs text-zinc-500">
                         {item.priceContext}
                       </p>
                     </Link>
@@ -160,7 +160,7 @@ export function HomeSearchAutocomplete() {
             <div
               className="mt-2"
             >
-              <p className="px-2 pb-1 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <p className="px-2 pb-1 text-xs font-medium text-zinc-500">
                 Kategorier
               </p>
               <ul className="space-y-1">
@@ -168,7 +168,7 @@ export function HomeSearchAutocomplete() {
                   <li key={item.href}>
                     <Link
                       href={item.href}
-                      className="block rounded px-2 py-1.5 text-sm text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                      className="block rounded px-2 py-1.5 text-sm text-zinc-800 hover:bg-zinc-100"
                     >
                       {item.label}
                     </Link>

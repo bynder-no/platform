@@ -198,7 +198,7 @@ export default async function PublicProfilePage({
             </Link>
           </nav>
         )}
-        <div className="w-full rounded-xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="ui-card w-full p-4">
           <div className="space-y-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">
@@ -327,10 +327,7 @@ export default async function PublicProfilePage({
                 row.type === "fixed_price" &&
                 row.status === "active";
               return (
-                <li
-                  key={row.id}
-                  className="rounded-lg border border-zinc-200 bg-white p-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-                >
+                <li key={row.id} className="ui-card overflow-hidden p-3 text-sm">
                   <div className="flex h-full flex-col justify-between gap-3">
                     {normalizeListingImageUrls(row.image_urls)[0] ? (
                       <Image
@@ -339,17 +336,17 @@ export default async function PublicProfilePage({
                         width={320}
                         height={144}
                         unoptimized
-                        className="h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                        className="h-40 w-full rounded-xl border border-zinc-200 object-cover dark:border-zinc-700"
                       />
                     ) : (
-                      <div className="flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+                      <div className="flex h-40 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
                         Ingen bilde
                       </div>
                     )}
                     <div className="space-y-1">
-                      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                      <span className="ui-badge ui-badge-accent">
                         {row.category ?? "Uten kategori"}
-                      </p>
+                      </span>
                       <Link
                         href={`/listings/${row.id}`}
                         className="line-clamp-2 font-semibold text-zinc-900 hover:underline dark:text-zinc-100"
@@ -362,14 +359,14 @@ export default async function PublicProfilePage({
                     </div>
                     <Link
                       href={`/listings/${row.id}`}
-                      className="inline-flex rounded-md border border-zinc-300 px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                      className="ui-button-secondary inline-flex px-3 py-1.5 text-xs"
                     >
                       Se produkt
                     </Link>
                     {canBuy ? (
                       <Link
                         href={`/listings/${row.id}`}
-                        className="inline-flex rounded-md bg-zinc-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                        className="ui-button inline-flex px-3 py-1.5 text-xs"
                       >
                         Gi bud
                       </Link>

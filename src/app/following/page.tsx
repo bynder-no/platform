@@ -203,10 +203,7 @@ export default async function FollowingPage() {
                 sellerId !== "" &&
                 sellerId !== user.id;
               return (
-                <li
-                  key={row.id}
-                  className="overflow-hidden rounded-xl border border-zinc-200 bg-white text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
-                >
+                <li key={row.id} className="ui-card overflow-hidden text-sm">
                   <div className="flex flex-col">
                     <div className="space-y-1 px-4 py-3">
                       <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -238,9 +235,7 @@ export default async function FollowingPage() {
                     )}
                     <div className="space-y-2 px-4 py-3">
                       <p>
-                        <span className="inline-flex rounded-full bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
-                          {typeLabel}
-                        </span>
+                        <span className="ui-badge ui-badge-accent">{typeLabel}</span>
                       </p>
                       <Link
                         href={`/listings/${row.id}`}
@@ -254,7 +249,7 @@ export default async function FollowingPage() {
                       <div className="flex flex-wrap items-center gap-4 pt-1 text-sm">
                         <Link
                           href={`/listings/${row.id}`}
-                          className="font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+                          className="ui-button-secondary px-4 py-2 text-sm font-semibold no-underline"
                         >
                           Se annonse
                         </Link>
