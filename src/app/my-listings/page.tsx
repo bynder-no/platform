@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import { resolvePendingEndedAuctions } from "@/lib/auction-resolution";
 import {
@@ -25,7 +24,7 @@ export const dynamic = "force-dynamic";
 const AUCTION_EDIT_DELETE_LOCK_MS = 60 * 1000;
 
 const sectionHeadingClass =
-  "text-sm font-semibold text-zinc-900 dark:text-zinc-50";
+  "text-sm font-semibold text-zinc-900";
 
 function auctionTimingLabelNo(
   nowMs: number,
@@ -182,12 +181,12 @@ export default async function MyListingsPage() {
       >
         <Link
           href={`/listings/${row.id}`}
-          className="font-medium text-zinc-900 dark:text-zinc-100"
+          className="font-medium text-zinc-900"
         >
           {row.title}
         </Link>
         <div className="flex flex-col gap-2 sm:items-end">
-          <span className="text-zinc-600 dark:text-zinc-400">
+          <span className="text-zinc-600">
             {row.type === "auction"
               ? "Auksjon"
               : row.type === "fixed_price"
@@ -196,7 +195,7 @@ export default async function MyListingsPage() {
             {row.type === "auction" && auctionPhase != null ? (
               <>
                 <span className="mx-2 text-zinc-400">·</span>
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                <span className="font-medium text-zinc-800">
                   {auctionPhase}
                 </span>
               </>
@@ -213,7 +212,7 @@ export default async function MyListingsPage() {
           {row.type === "auction" &&
           auctionPhase === "Live" &&
           row.auction_ends_at ? (
-            <span className="flex flex-col gap-0.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="flex flex-col gap-0.5 text-right text-xs text-zinc-500">
               <span>
                 Slutter {new Date(row.auction_ends_at).toLocaleString()}
               </span>
@@ -227,7 +226,7 @@ export default async function MyListingsPage() {
           ) : row.type === "auction" &&
             auctionPhase === "Planlagt" &&
             (row.auction_starts_at || row.auction_ends_at) ? (
-            <span className="flex flex-col gap-0.5 text-right text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="flex flex-col gap-0.5 text-right text-xs text-zinc-500">
               {row.auction_starts_at ? (
                 <span>
                   Starttid{" "}
@@ -243,7 +242,7 @@ export default async function MyListingsPage() {
           ) : row.type === "auction" &&
             auctionPhase === "Avsluttet" &&
             row.auction_ends_at ? (
-            <span className="text-right text-xs text-zinc-500 dark:text-zinc-400">
+            <span className="text-right text-xs text-zinc-500">
               Sluttet {new Date(row.auction_ends_at).toLocaleString()}
             </span>
           ) : null}
@@ -253,7 +252,7 @@ export default async function MyListingsPage() {
                 <>
                   <Link
                     href={`/listings/${row.id}/edit`}
-                    className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                    className="font-medium text-zinc-900 underline-offset-2 hover:underline"
                   >
                     Rediger
                   </Link>
@@ -277,26 +276,25 @@ export default async function MyListingsPage() {
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <h1 className={pageTitleClass}>Mine aktive annonser</h1>
-        <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <div className="space-y-2 text-sm text-zinc-600">
           <p>
             Innlogget som{" "}
-            <span className="font-medium text-zinc-900 dark:text-zinc-100">
+            <span className="font-medium text-zinc-900">
               {user.email ?? "—"}
             </span>
           </p>
         </div>
-        <SignedInNavLinks />
         <p className="text-sm">
           <Link
             href="/create"
-            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+            className="font-medium text-zinc-900 underline-offset-2 hover:underline"
           >
             Opprett annonse
           </Link>
           {" · "}
           <Link
             href="/dashboard"
-            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+            className="font-medium text-zinc-900 underline-offset-2 hover:underline"
           >
             Dashboard
           </Link>
@@ -308,16 +306,16 @@ export default async function MyListingsPage() {
           <h2 id="my-active-auctions-heading" className={sectionHeadingClass}>
             Mine aktive auksjoner
           </h2>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+          <p className="mt-1 text-xs text-zinc-500">
             Inkluderer utkast og publiserte auksjoner. Avsluttede auksjoner (etter
             sluttid) vises under «Mine deals».
           </p>
           {activeAuctionRows.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-3 text-sm text-zinc-600">
               Ingen aktive auksjoner her ennå.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200">
               {activeAuctionRows.map((row) => listingItem(row))}
             </ul>
           )}
@@ -327,15 +325,15 @@ export default async function MyListingsPage() {
           <h2 id="my-active-fixed-heading" className={sectionHeadingClass}>
             Mine aktive fastprisannonser
           </h2>
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-500">
+          <p className="mt-1 text-xs text-zinc-500">
             Viser aktive fastprisannonser.
           </p>
           {activeFixedPriceRows.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-3 text-sm text-zinc-600">
               Ingen aktive fastprisannonser her ennå.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200">
               {activeFixedPriceRows.map((row) => listingItem(row))}
             </ul>
           )}

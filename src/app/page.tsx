@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -394,9 +393,7 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {user ? (
-          <SignedInNavLinks />
-        ) : (
+        {user ? (null) : (
           <nav className="flex flex-wrap gap-x-3 gap-y-2 text-sm">
             <Link
               href="/"

@@ -29,14 +29,14 @@ function itemMatchesSearch(item: InboxItem, query: string) {
 
 function RowItem({ item }: { item: InboxItem }) {
   return (
-    <li className="border-b border-zinc-200 last:border-b-0 dark:border-zinc-700">
+    <li className="border-b border-zinc-200 last:border-b-0">
       <Link
         href={`/messages/${item.id}`}
-        className="flex items-center justify-between gap-3 px-3 py-3 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/80"
+        className="flex items-center justify-between gap-3 px-3 py-3 transition hover:bg-zinc-50"
       >
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            <p className="truncate text-sm font-semibold text-zinc-900">
               {item.otherName}
             </p>
             {item.hasUnread ? (
@@ -47,11 +47,11 @@ function RowItem({ item }: { item: InboxItem }) {
               />
             ) : null}
           </div>
-          <p className="truncate text-xs text-zinc-600 dark:text-zinc-400">
+          <p className="truncate text-xs text-zinc-600">
             {item.preview}
           </p>
         </div>
-        <div className="shrink-0 text-[11px] text-zinc-500 dark:text-zinc-400">
+        <div className="shrink-0 text-[11px] text-zinc-500">
           {item.when}
         </div>
       </Link>
@@ -80,16 +80,16 @@ export function MessagesInboxView({
     activeTab === "inbox" ? "Ingen aktive samtaler." : "Ingen nye forespørsler.";
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
-      <div className="border-b border-zinc-200 px-4 py-4 dark:border-zinc-700">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Meldinger</h2>
+    <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+      <div className="border-b border-zinc-200 px-4 py-4">
+        <h2 className="text-lg font-semibold text-zinc-900">Meldinger</h2>
         <div className="mt-3">
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Søk i meldinger..."
-            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-100"
+            className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Søk i meldinger"
           />
         </div>
@@ -99,8 +99,8 @@ export function MessagesInboxView({
             onClick={() => setActiveTab("inbox")}
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
               activeTab === "inbox"
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                ? "bg-blue-600 text-white"
+                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
             }`}
           >
             Innboks ({inboxItems.length})
@@ -110,8 +110,8 @@ export function MessagesInboxView({
             onClick={() => setActiveTab("requests")}
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
               activeTab === "requests"
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                ? "bg-blue-600 text-white"
+                : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
             }`}
           >
             Forespørsler ({requestItems.length})
@@ -120,7 +120,7 @@ export function MessagesInboxView({
       </div>
 
       {visibleItems.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-zinc-600 dark:text-zinc-400">{emptyMessage}</p>
+        <p className="px-4 py-6 text-sm text-zinc-600">{emptyMessage}</p>
       ) : (
         <ul>
           {visibleItems.map((item) => (

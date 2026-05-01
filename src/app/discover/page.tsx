@@ -1,6 +1,5 @@
 import Link from "next/link";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -86,22 +85,20 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
-        {user ? (
-          <SignedInNavLinks />
-        ) : (
+        {user ? (null) : (
           <nav className="flex flex-wrap gap-x-3 gap-y-2 text-sm">
             <Link
               href="/"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Hjem
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/login"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Logg inn
             </Link>
@@ -109,7 +106,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
         )}
         <div>
           <h1 className={pageTitleClass}>Discover</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-600">
             Utforsk aktive annonser fra alle brukere.
           </p>
         </div>
@@ -119,7 +116,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
         <form method="get" className="space-y-2">
           <label
             htmlFor="discover-user-search"
-            className="text-sm font-medium text-zinc-800 dark:text-zinc-200"
+            className="text-sm font-medium text-zinc-800"
           >
             Finn brukere
           </label>
@@ -142,11 +139,11 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
 
         {query !== "" ? (
           <div className="ui-card p-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
               Brukere
             </p>
             {userResults.length === 0 ? (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">Ingen brukere funnet.</p>
+              <p className="text-sm text-zinc-600">Ingen brukere funnet.</p>
             ) : (
               <ul className="space-y-2">
                 {userResults.map((profile) => {
@@ -156,10 +153,10 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
                     <li key={profile.id}>
                       <Link
                         href={`/u/${encodeURIComponent(username)}`}
-                        className="block rounded-md px-2 py-1.5 text-sm text-zinc-800 hover:bg-zinc-100 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                        className="block rounded-md px-2 py-1.5 text-sm text-zinc-800 hover:bg-zinc-100"
                       >
                         <span className="font-medium">{displayName || username}</span>
-                        <span className="text-zinc-500 dark:text-zinc-400"> @{username}</span>
+                        <span className="text-zinc-500"> @{username}</span>
                       </Link>
                     </li>
                   );
@@ -170,7 +167,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
         ) : null}
 
         {shuffledItems.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-600">
             Ingen aktive annonser akkurat nå.
           </p>
         ) : (

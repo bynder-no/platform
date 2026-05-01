@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -417,13 +416,13 @@ export default async function ListingDetailPage({ params }: PageProps) {
       : null;
 
   const sectionLabelClass =
-    "text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
+    "text-xs font-semibold uppercase tracking-wide text-zinc-500";
   const imageUrls = normalizeListingImageUrls(listing.image_urls);
   const coverImage = imageUrls[0] ?? null;
   const restImages = imageUrls.slice(1, 3);
 
   const navLinkClass =
-    "text-sm font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300";
+    "text-sm font-medium text-zinc-700 underline-offset-2 hover:underline";
 
   return (
     <div className={pageShellClass}>
@@ -436,14 +435,12 @@ export default async function ListingDetailPage({ params }: PageProps) {
           aria-label="Listing page"
           className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
         >
-          {user ? (
-            <SignedInNavLinks />
-          ) : (
+          {user ? null : (
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
               <Link href="/" className={navLinkClass}>
                 Home
               </Link>
-              <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+              <span className="text-zinc-300" aria-hidden>
                 ·
               </span>
               <Link href="/dashboard" className={navLinkClass}>
@@ -472,7 +469,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 width={1280}
                 height={320}
                 unoptimized
-                className="h-80 w-full rounded-lg border border-zinc-200 bg-zinc-50 object-contain dark:border-zinc-700 dark:bg-zinc-900"
+                className="h-80 w-full rounded-lg border border-zinc-200 bg-zinc-50 object-contain"
               />
               {restImages.length > 0 ? (
                 <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -484,7 +481,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
                         width={160}
                         height={96}
                         unoptimized
-                        className="h-24 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                        className="h-24 w-full rounded-md border border-zinc-200 object-cover"
                       />
                     </li>
                   ))}
@@ -492,7 +489,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
               ) : null}
             </div>
           ) : (
-            <p className="mt-3 text-zinc-700 dark:text-zinc-300">Ingen bilder lagt til.</p>
+            <p className="mt-3 text-zinc-700">Ingen bilder lagt til.</p>
           )}
         </section>
 
@@ -500,18 +497,18 @@ export default async function ListingDetailPage({ params }: PageProps) {
           <h2 id="listing-price-heading" className={sectionLabelClass}>
             Price
           </h2>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50 tabular-nums">
+          <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950 tabular-nums">
             {listing.type === "auction" ? (
               <>
                 <span>{highestBidNok > 0 ? highestBidNok : 0}</span>
-                <span className="ml-1.5 text-base font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="ml-1.5 text-base font-medium text-zinc-500">
                   NOK
                 </span>
               </>
             ) : listing.price_nok != null ? (
               <>
                 <span>{listing.price_nok}</span>
-                <span className="ml-1.5 text-base font-medium text-zinc-500 dark:text-zinc-400">
+                <span className="ml-1.5 text-base font-medium text-zinc-500">
                   NOK
                 </span>
               </>
@@ -526,11 +523,11 @@ export default async function ListingDetailPage({ params }: PageProps) {
             Type
           </h2>
           <p className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-block rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-sm font-semibold text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100">
+            <span className="inline-block rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-sm font-semibold text-zinc-900">
               {typeLabel}
             </span>
             {auctionStateLabelNo ? (
-              <span className="inline-block rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm font-semibold text-zinc-800 dark:border-zinc-500 dark:bg-zinc-900 dark:text-zinc-100">
+              <span className="inline-block rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm font-semibold text-zinc-800">
                 {auctionStateLabelNo}
               </span>
             ) : null}
@@ -542,7 +539,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <h2 id="listing-auction-ends-heading" className={sectionLabelClass}>
               Auction ends
             </h2>
-            <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+            <p className="mt-3 text-zinc-700">
               {listing.auction_ends_at ? (
                 <time dateTime={String(listing.auction_ends_at)}>
                   {new Date(listing.auction_ends_at).toLocaleString()}
@@ -560,37 +557,37 @@ export default async function ListingDetailPage({ params }: PageProps) {
               Bids
             </h2>
             {highestBidNok > 0 && leadingBidRow ? (
-              <div className="mt-3 space-y-2 text-zinc-700 dark:text-zinc-300">
+              <div className="mt-3 space-y-2 text-zinc-700">
                 <p>
-                  <span className="text-zinc-500 dark:text-zinc-400">
+                  <span className="text-zinc-500">
                     {auctionTimeEnded ? "Winning bid: " : "Current bid: "}
                   </span>
-                  <span className="tabular-nums font-medium text-zinc-900 dark:text-zinc-100">
+                  <span className="tabular-nums font-medium text-zinc-900">
                     {highestBidNok}
                   </span>
-                  <span className="text-zinc-500 dark:text-zinc-400"> NOK</span>
+                  <span className="text-zinc-500"> NOK</span>
                 </p>
                 <p>
-                  <span className="text-zinc-500 dark:text-zinc-400">
+                  <span className="text-zinc-500">
                     {auctionTimeEnded ? "Winner: " : "Leading bidder: "}
                   </span>
-                  <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                  <span className="font-medium text-zinc-800">
                     {bidderPrivacyLabel(user?.id, leadingBidRow.bidder_id)}
                   </span>
                 </p>
                 {viewerAuctionBidLabel ? (
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  <p className="text-sm font-medium text-amber-800">
                     {viewerAuctionBidLabel}
                   </p>
                 ) : null}
               </div>
             ) : (
-              <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+              <p className="mt-3 text-zinc-700">
                 {auctionTimeEnded ? "No bids were placed" : "No bids yet"}
               </p>
             )}
             {auctionBids.length > 0 ? (
-              <ul className="mt-4 space-y-2 border-t border-zinc-200 pt-4 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
+              <ul className="mt-4 space-y-2 border-t border-zinc-200 pt-4 text-zinc-600">
                 {auctionBids.map((bid) => {
                   const amount = Number(bid.amount_nok);
                   const when = bid.created_at
@@ -599,12 +596,12 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
                   return (
                     <li key={bid.id} className="text-sm">
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">
+                      <span className="font-medium text-zinc-800">
                         {Number.isFinite(amount) ? amount : "—"} NOK
                       </span>
-                      <span className="text-zinc-300 dark:text-zinc-600"> · </span>
+                      <span className="text-zinc-300"> · </span>
                       {bidderPrivacyLabel(user?.id, bid.bidder_id)}
-                      <span className="text-zinc-300 dark:text-zinc-600"> · </span>
+                      <span className="text-zinc-300"> · </span>
                       {when}
                     </li>
                   );
@@ -618,7 +615,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
           <h2 id="listing-description-heading" className={sectionLabelClass}>
             Description
           </h2>
-          <p className="mt-3 whitespace-pre-wrap leading-relaxed text-zinc-600 dark:text-zinc-400">
+          <p className="mt-3 whitespace-pre-wrap leading-relaxed text-zinc-600">
             {listing.description?.trim() || "—"}
           </p>
         </section>
@@ -627,7 +624,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
           <h2 id="listing-listed-heading" className={sectionLabelClass}>
             Listed
           </h2>
-          <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+          <p className="mt-3 text-zinc-700">
             {listing.created_at
               ? new Date(listing.created_at).toLocaleString()
               : "—"}
@@ -639,11 +636,11 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <h2 id="listing-seller-heading" className={sectionLabelClass}>
               Seller
             </h2>
-            <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+            <p className="mt-3 text-zinc-700">
               {sellerUsername ? (
                 <Link
                   href={`/u/${encodeURIComponent(sellerUsername)}`}
-                  className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                  className="font-medium text-zinc-900 underline-offset-2 hover:underline"
                 >
                   {sellerLabel}
                 </Link>
@@ -700,7 +697,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
             >
               Bidding
             </h2>
-            <p className="mt-3 text-zinc-700 dark:text-zinc-300">Planlagt</p>
+            <p className="mt-3 text-zinc-700">Planlagt</p>
           </section>
         ) : null}
 
@@ -709,7 +706,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
             <h2 id="listing-auction-ended-heading" className={sectionLabelClass}>
               Bidding
             </h2>
-            <p className="mt-3 text-zinc-700 dark:text-zinc-300">
+            <p className="mt-3 text-zinc-700">
               {auctionEndedContactMessage}
             </p>
           </section>

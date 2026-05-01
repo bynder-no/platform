@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { FloatingChatBubbleServer } from "@/components/floating-chat-bubble-server";
+import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 
 import "./globals.css";
 
@@ -31,6 +32,7 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <SignedInNavLinks />
         {children}
         <FloatingChatBubbleServer />
       </body>

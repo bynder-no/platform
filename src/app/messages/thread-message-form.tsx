@@ -5,10 +5,10 @@ import { useActionState, useRef } from "react";
 import { sendConversationMessage } from "./actions";
 
 const inputClass =
-  "min-w-0 flex-1 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50";
+  "min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder-zinc-400 outline-none focus:ring-2 focus:ring-blue-500";
 
 const buttonClass =
-  "shrink-0 rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "shrink-0 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50";
 
 type ThreadMessageFormProps = {
   threadId: string;
@@ -43,7 +43,7 @@ export function ThreadMessageForm({ threadId }: ThreadMessageFormProps) {
         </button>
       </div>
       {state?.error ? (
-        <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p>
+        <p className="text-xs text-red-600">{state.error}</p>
       ) : null}
     </form>
   );

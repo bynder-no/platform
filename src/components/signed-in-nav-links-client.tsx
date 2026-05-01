@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 type NavLinkItem = {
   href: string;
@@ -11,6 +12,9 @@ type NavLinkItem = {
 type SignedInNavLinksClientProps = {
   links: NavLinkItem[];
 };
+
+const OPEN_CHAT_PANEL_EVENT = "bynder:chat-panel-open";
+const CHAT_PANEL_STATE_EVENT = "bynder:chat-panel-state";
 
 function hrefMatchesPathname(href: string, pathname: string): boolean {
   if (href === "/") return pathname === "/";
@@ -27,11 +31,46 @@ function activeHrefForPath(links: NavLinkItem[], pathname: string): string | nul
 export function SignedInNavLinksClient({ links }: SignedInNavLinksClientProps) {
   const pathname = usePathname();
   const activeHref = activeHrefForPath(links, pathname);
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+
+  useEffect(() => {
+    const onPanelState = (event: Event) => {
+      const customEvent = event as CustomEvent<{ open?: boolean }>;
+      setIsChatPanelOpen(Boolean(customEvent.detail?.open));
+    };
+    window.addEventListener(CHAT_PANEL_STATE_EVENT, onPanelState as EventListener);
+    return () =>
+      window.removeEventListener(CHAT_PANEL_STATE_EVENT, onPanelState as EventListener);
+  }, []);
 
   return (
     <>
       {links.map((item) => {
-        const isActive = activeHref === item.href;
+        const isMessagesLink = item.href === "/messages";
+        const isActive =
+          isMessagesLink ? isChatPanelOpen : activeHref === item.href;
+
+        if (isMessagesLink) {
+          return (
+            <button
+              key={item.href}
+              type="button"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent(OPEN_CHAT_PANEL_EVENT));
+              }}
+              className={[
+                "ui-nav-chip",
+                isActive ? "ui-nav-chip-accent" : null,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-label="Åpne meldingspanel"
+            >
+              {item.label}
+            </button>
+          );
+        }
+
         return (
           <Link
             key={item.href}

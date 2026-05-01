@@ -63,11 +63,11 @@ export function DiscoverGrid({ allItems, batchSize }: DiscoverGridProps) {
           return (
             <li
               key={item.id}
-              className="ui-card overflow-hidden transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md dark:hover:border-zinc-600"
+              className="ui-card overflow-hidden transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md"
             >
               <Link
                 href={`/listings/${item.id}`}
-                className="group relative block aspect-[4/5] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800"
+                className="group relative block aspect-[4/5] w-full overflow-hidden bg-zinc-100"
               >
                 {coverImage ? (
                   <Image
@@ -79,13 +79,13 @@ export function DiscoverGrid({ allItems, batchSize }: DiscoverGridProps) {
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-zinc-500 dark:text-zinc-400">
+                  <div className="flex h-full w-full items-center justify-center text-xs text-zinc-500">
                     Ingen bilde
                   </div>
                 )}
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent p-2.5 text-white">
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-zinc-900/85 via-zinc-900/45 to-transparent p-2.5 text-white">
                   <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="inline-flex rounded-full bg-black/45 px-2 py-0.5 text-[11px] font-semibold">
+                    <span className="inline-flex rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-zinc-800">
                       {typeLabel(item.type)}
                     </span>
                     <span className="text-[12px] font-semibold">{priceLabel(item)}</span>
@@ -102,7 +102,7 @@ export function DiscoverGrid({ allItems, batchSize }: DiscoverGridProps) {
                 <div className="px-2.5 py-2">
                   <Link
                     href={sellerHref}
-                    className="text-xs text-zinc-600 hover:underline dark:text-zinc-400"
+                    className="text-xs text-zinc-600 hover:underline"
                   >
                     Se profil
                   </Link>
@@ -123,7 +123,7 @@ export function DiscoverGrid({ allItems, batchSize }: DiscoverGridProps) {
             Last flere
           </button>
         ) : (
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          <p className="text-xs text-zinc-500">
             Du har sett alle annonser.
           </p>
         )}

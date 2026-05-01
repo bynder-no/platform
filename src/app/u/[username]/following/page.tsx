@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -105,22 +104,20 @@ export default async function FollowingUsersPage({ params }: PageProps) {
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
-        {user ? (
-          <SignedInNavLinks />
-        ) : (
+        {user ? null : (
           <nav className="flex flex-wrap gap-x-3 gap-y-2 text-sm">
             <Link
               href="/"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Hjem
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/login"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Logg inn
             </Link>
@@ -128,15 +125,15 @@ export default async function FollowingUsersPage({ params }: PageProps) {
         )}
         <div>
           <h1 className={pageTitleClass}>Følger</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{profileLabel}</p>
+          <p className="text-sm text-zinc-600">{profileLabel}</p>
         </div>
       </header>
 
       <section className={pageBodyGapClass}>
         {followingProfiles.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Følger ingen ennå.</p>
+          <p className="text-sm text-zinc-600">Følger ingen ennå.</p>
         ) : (
-          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-900">
+          <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white">
             {followingProfiles.map((row) => {
               const rowUsername = String(row.username ?? "").trim();
               const rowDisplayName = String(row.display_name ?? "").trim();
@@ -153,16 +150,16 @@ export default async function FollowingUsersPage({ params }: PageProps) {
                       {rowHref ? (
                         <Link
                           href={rowHref}
-                          className="truncate font-medium text-zinc-900 hover:underline dark:text-zinc-100"
+                          className="truncate font-medium text-zinc-900 hover:underline"
                         >
                           {rowLabel}
                         </Link>
                       ) : (
-                        <p className="truncate font-medium text-zinc-900 dark:text-zinc-100">
+                        <p className="truncate font-medium text-zinc-900">
                           {rowLabel}
                         </p>
                       )}
-                      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                      <p className="text-sm text-zinc-600">
                         @{rowUsername || "—"}
                         {rowActiveTitle ? ` · ${rowActiveTitle}` : ""}
                         {rating ? ` · Rating ${rating}` : ""}
@@ -171,7 +168,7 @@ export default async function FollowingUsersPage({ params }: PageProps) {
                     {rowHref ? (
                       <Link
                         href={rowHref}
-                        className="shrink-0 text-sm font-medium text-zinc-700 hover:underline dark:text-zinc-300"
+                        className="shrink-0 text-sm font-medium text-zinc-700 hover:underline"
                       >
                         Vis profil
                       </Link>

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -65,7 +64,7 @@ function sellerUsernameLink(
 ) {
   const username = sellerId ? usernameBySellerId.get(sellerId) : undefined;
   if (!username) {
-    return <span className="text-zinc-400 dark:text-zinc-500">—</span>;
+    return <span className="text-zinc-400">—</span>;
   }
   const href =
     viewerUserId != null &&
@@ -76,7 +75,7 @@ function sellerUsernameLink(
   return (
     <Link
       href={href}
-      className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+      className="font-medium text-zinc-700 underline-offset-2 hover:underline"
     >
       {username}
     </Link>
@@ -296,7 +295,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   }
 
   const cardClass =
-    "rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-zinc-700 dark:bg-zinc-900";
+    "rounded-md border border-zinc-200 bg-white px-4 py-3 text-sm shadow-sm";
 
   return (
     <div className={pageShellClass}>
@@ -305,38 +304,36 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           <p className="text-sm">
             <Link
               href="/"
-              className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+              className="font-medium text-zinc-700 underline-offset-2 hover:underline"
             >
               ← Hjem
             </Link>
           </p>
           <h1 className={pageTitleClass}>Søk</h1>
         </div>
-        {user ? (
-          <SignedInNavLinks />
-        ) : (
+        {user ? (null) : (
           <nav className="flex flex-wrap gap-x-3 gap-y-2 text-sm">
             <Link
               href="/"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Hjem
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/login"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Logg inn
             </Link>
-            <span className="text-zinc-300 dark:text-zinc-600" aria-hidden>
+            <span className="text-zinc-300" aria-hidden>
               ·
             </span>
             <Link
               href="/signup"
-              className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+              className="font-medium text-zinc-900 underline-offset-2 hover:underline"
             >
               Registrer
             </Link>
@@ -348,7 +345,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <section aria-labelledby="search-form-heading">
           <h2
             id="search-form-heading"
-            className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+            className="text-base font-semibold text-zinc-900"
           >
             Finn annonser
           </h2>
@@ -359,7 +356,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                 name="q"
                 placeholder="Hva leter du etter?"
                 defaultValue={query}
-                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 placeholder:text-zinc-500 focus-visible:ring-2 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
+                className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 placeholder:text-zinc-500 focus-visible:ring-2"
               />
               {typeFilters.map((typeValue) => (
                 <input key={typeValue} type="hidden" name="type" value={typeValue} />
@@ -376,15 +373,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               />
               <button
                 type="submit"
-                className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
+                className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
               >
                 Søk
               </button>
               <details className="relative">
-                <summary className="inline-flex cursor-pointer list-none items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700">
+                <summary className="inline-flex cursor-pointer list-none items-center justify-center rounded-md border border-zinc-300 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-200">
                   Kategorier
                 </summary>
-                <div className="absolute right-0 z-10 mt-2 w-72 rounded-md border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
+                <div className="absolute right-0 z-10 mt-2 w-72 rounded-md border border-zinc-200 bg-white p-2 shadow-lg">
                   <ul className="space-y-1">
                     {CATEGORY_FILTERS.map((item) => {
                       const active = categoryFilter === item.value;
@@ -395,13 +392,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                             href={buildSearchHref({ category: item.value })}
                             className={
                               active
-                                ? "flex items-center justify-between rounded px-2 py-1.5 text-sm font-medium text-zinc-900 bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-100"
-                                : "flex items-center justify-between rounded px-2 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                                ? "flex items-center justify-between rounded px-2 py-1.5 text-sm font-medium text-zinc-900 bg-zinc-100"
+                                : "flex items-center justify-between rounded px-2 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100"
                             }
                           >
                             <span>{item.label}</span>
                             {query !== "" ? (
-                              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                              <span className="text-xs text-zinc-500">
                                 {countLabel ?? 0}
                               </span>
                             ) : null}
@@ -416,7 +413,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           </form>
           <div className="mt-4 space-y-3">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                 Type
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -428,8 +425,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                       href={toggledTypesHref(item.value)}
                       className={
                         active
-                          ? "inline-flex items-center gap-2 rounded-full border border-zinc-400 bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900"
-                          : "inline-flex items-center gap-2 rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          ? "inline-flex items-center gap-2 rounded-full border border-blue-600 bg-blue-600 px-3 py-1 text-xs font-medium text-white"
+                          : "inline-flex items-center gap-2 rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
                       }
                     >
                       <span
@@ -447,7 +444,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               </div>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                 Kategori
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -459,8 +456,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                       href={buildSearchHref({ category: item.value })}
                       className={
                         active
-                          ? "rounded-full border border-zinc-400 bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900"
-                          : "rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          ? "rounded-full border border-blue-600 bg-blue-600 px-3 py-1 text-xs font-medium text-white"
+                          : "rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
                       }
                     >
                       {item.label}
@@ -470,7 +467,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               </div>
             </div>
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                 Sortering
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -482,8 +479,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                       href={buildSearchHref({ sort: item.value })}
                       className={
                         active
-                          ? "rounded-full border border-zinc-400 bg-zinc-900 px-3 py-1 text-xs font-medium text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900"
-                          : "rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                          ? "rounded-full border border-blue-600 bg-blue-600 px-3 py-1 text-xs font-medium text-white"
+                          : "rounded-full border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-100"
                       }
                     >
                       {item.label}
@@ -498,26 +495,26 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         <section aria-labelledby="search-results-heading">
           <h2
             id="search-results-heading"
-            className="text-base font-semibold text-zinc-900 dark:text-zinc-50"
+            className="text-base font-semibold text-zinc-900"
           >
             Resultater
           </h2>
           {query === "" ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-3 text-sm text-zinc-600">
               Søk etter Pokémon-kort, sealed produkter, slabs eller bulk.
             </p>
           ) : (
             <>
-              <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+              <p className="mt-3 text-sm text-zinc-600">
                 {rows.length} treff for{" "}
                 <span className="font-medium">“{query}”</span>.
               </p>
-              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mt-1 text-xs text-zinc-500">
                 Aktivt filter: {selectedTypeLabel} · {selectedCategoryLabel} ·{" "}
                 {selectedSortLabel}
               </p>
               {rows.length === 0 ? (
-                <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+                <p className="mt-3 text-sm text-zinc-600">
                   Ingen annonser matcher søket akkurat nå.
                 </p>
               ) : (
@@ -531,21 +528,21 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                           width={640}
                           height={144}
                           unoptimized
-                          className="mb-3 h-36 w-full rounded-md border border-zinc-200 object-cover dark:border-zinc-700"
+                          className="mb-3 h-36 w-full rounded-md border border-zinc-200 object-cover"
                         />
                       ) : (
-                        <div className="mb-3 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-400">
+                        <div className="mb-3 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
                           Ingen bilde
                         </div>
                       )}
                       <div className="flex flex-col gap-1">
                         <Link
                           href={`/listings/${row.id}`}
-                          className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2 dark:text-zinc-100"
+                          className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2"
                         >
                           {row.title?.trim() || "—"}
                         </Link>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                        <p className="text-xs text-zinc-500">
                           {sellerUsernameLink(
                             row.seller_id,
                             sellerUsernameById,
@@ -553,11 +550,11 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                           )}
                         </p>
                         {row.description?.trim() ? (
-                          <p className="line-clamp-3 text-sm text-zinc-600 dark:text-zinc-400">
+                          <p className="line-clamp-3 text-sm text-zinc-600">
                             {row.description.trim()}
                           </p>
                         ) : null}
-                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                        <p className="text-xs text-zinc-600">
                           {row.type === "fixed_price"
                             ? `Fastpris - ${priceText(row.price_nok)}`
                             : "Auksjon"}

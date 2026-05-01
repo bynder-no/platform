@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -151,9 +150,9 @@ function formatWhen(value: string | null): string {
 
 function tabClass(active: boolean) {
   if (active) {
-    return "rounded-full bg-zinc-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900";
+    return "rounded-full bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white";
   }
-  return "rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700";
+  return "rounded-full border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 hover:bg-zinc-100";
 }
 
 export default async function NotificationsPage({ searchParams }: PageProps) {
@@ -216,10 +215,10 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className={pageShellClass}>
+    <div className="min-h-screen bg-zinc-50">
+      <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <h1 className={pageTitleClass}>Varsler</h1>
-        <SignedInNavLinks />
       </header>
 
       <section className={pageBodyGapClass}>
@@ -236,9 +235,9 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
         </div>
 
         {visibleNotifications.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Ingen varsler ennå.</p>
+          <p className="text-sm text-zinc-600">Ingen varsler ennå.</p>
         ) : (
-          <ul className="overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+          <ul className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
             {visibleNotifications.map((n) => {
               const category = categoryForType(n.type);
               const title = titleForType(n.type);
@@ -253,43 +252,43 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
               return (
                 <li
                   key={n.id}
-                  className="border-b border-zinc-200 last:border-b-0 dark:border-zinc-700"
+                  className="border-b border-zinc-200 last:border-b-0"
                 >
                   <Link
                     href={destination}
-                    className={`flex items-start gap-3 px-3 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 ${
-                      n.is_read ? "" : "bg-blue-50/60 dark:bg-blue-950/20"
+                    className={`flex items-start gap-3 px-3 py-3 hover:bg-zinc-50 ${
+                      n.is_read ? "" : "bg-blue-50/60"
                     }`}
                   >
-                    <div className="relative mt-0.5 h-11 w-11 shrink-0 rounded-full bg-zinc-200 dark:bg-zinc-700">
+                    <div className="relative mt-0.5 h-11 w-11 shrink-0 rounded-full bg-zinc-200">
                       <span className="flex h-full w-full items-center justify-center text-base">
                         👤
                       </span>
-                      <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-zinc-900 text-[10px] text-white dark:border-zinc-900 dark:bg-zinc-100 dark:text-zinc-900">
+                      <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-blue-600 text-[10px] text-white">
                         {icon}
                       </span>
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      <p className="text-sm font-semibold text-zinc-900">
                         {title}
                       </p>
-                      <p className="mt-0.5 text-sm text-zinc-700 dark:text-zinc-300">
+                      <p className="mt-0.5 text-sm text-zinc-700">
                         {message}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                        <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-zinc-600">
                           {category}
                         </span>
                         {contextListingHref && listingLabel ? (
-                          <span className="text-zinc-600 dark:text-zinc-300">
+                          <span className="text-zinc-600">
                             {listingLabel}
                           </span>
                         ) : null}
-                        <span className="text-zinc-500 dark:text-zinc-400">
+                        <span className="text-zinc-500">
                           {formatWhen(n.created_at)}
                         </span>
-                        <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                        <span className="font-medium text-zinc-700">
                           {destinationText}
                         </span>
                       </div>
@@ -309,6 +308,7 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
           </ul>
         )}
       </section>
+      </div>
     </div>
   );
 }

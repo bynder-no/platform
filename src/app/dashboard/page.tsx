@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -27,7 +26,7 @@ import { DashboardQuickBidForm } from "./dashboard-quick-bid-form";
 export const dynamic = "force-dynamic";
 
 const sectionHeadingClass =
-  "text-sm font-semibold text-zinc-900 dark:text-zinc-50";
+  "text-sm font-semibold text-zinc-900";
 
 /** Live auction window: started and not yet ended (same instant boundaries as timing label). */
 function isAuctionLiveNow(
@@ -259,25 +258,25 @@ export default async function DashboardPage() {
   }
 
   return (
-    <div className={pageShellClass}>
+    <div className="min-h-screen bg-zinc-50">
+      <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <h1 className={pageTitleClass}>Dashboard</h1>
-        <div className="space-y-2 text-sm text-zinc-600 dark:text-zinc-400">
+        <div className="space-y-2 text-sm text-zinc-600">
           <p>
             Innlogget som{" "}
-            <span className="font-medium text-zinc-900 dark:text-zinc-100">
+            <span className="font-medium text-zinc-900">
               {user.email ?? "—"}
             </span>
           </p>
-          <p className="font-mono text-xs text-zinc-500 dark:text-zinc-500">
+          <p className="font-mono text-xs text-zinc-500">
             {user.id}
           </p>
         </div>
-        <SignedInNavLinks />
         <p className="text-sm">
           <Link
             href="/create"
-            className="font-medium text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+            className="font-medium text-zinc-900 underline-offset-2 hover:underline"
           >
             Opprett annonse
           </Link>
@@ -293,12 +292,12 @@ export default async function DashboardPage() {
             Auksjoner du følger
           </h2>
           {trackedLiveAuctions.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-3 text-sm text-zinc-600">
               Ingen pågående auksjoner her. Legg inn bud eller lagre som favoritt
               for å se live auksjoner du følger.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200">
               {trackedLiveAuctions.map((row) => {
                 const endMs = row.auction_ends_at
                   ? new Date(row.auction_ends_at).getTime()
@@ -338,31 +337,31 @@ export default async function DashboardPage() {
                   >
                     <Link
                       href={`/listings/${row.id}`}
-                      className="line-clamp-2 text-base font-semibold leading-snug text-zinc-900 underline-offset-2 hover:underline dark:text-zinc-100"
+                      className="line-clamp-2 text-base font-semibold leading-snug text-zinc-900 underline-offset-2 hover:underline"
                     >
                       {row.title?.trim() || "—"}
                     </Link>
-                    <div className="flex flex-col gap-1.5 text-zinc-600 dark:text-zinc-400">
+                    <div className="flex flex-col gap-1.5 text-zinc-600">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
                           Live
                         </span>
-                        <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                        <span className="tabular-nums font-medium text-zinc-800">
                           {high} NOK
                         </span>
                         {bidPositionLabel ? (
-                          <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                          <span className="text-xs font-medium text-amber-800">
                             {bidPositionLabel}
                           </span>
                         ) : null}
                       </div>
-                      <div className="flex flex-col gap-0.5 text-xs text-zinc-500 dark:text-zinc-400 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
+                      <div className="flex flex-col gap-0.5 text-xs text-zinc-500 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
                         <span>Slutter {endLabel}</span>
                         <span className="tabular-nums">{remaining}</span>
                       </div>
                     </div>
                     {showQuickBid ? (
-                      <div className="flex w-full flex-col gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700 sm:max-w-md sm:self-end">
+                      <div className="flex w-full flex-col gap-2 border-t border-zinc-200 pt-3 sm:max-w-md sm:self-end">
                         <DashboardQuickBidForm
                           listingId={row.id}
                           amountNok={quickAmount}
@@ -385,11 +384,11 @@ export default async function DashboardPage() {
             Favoritter
           </h2>
           {favListingsOrdered.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+            <p className="mt-3 text-sm text-zinc-600">
               Ingen favoritter ennå. Lagre annonser fra annonsesiden.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200">
               {favListingsOrdered.map((row) => {
                 const rawType =
                   typeof row.type === "string" ? row.type.trim() : "";
@@ -406,11 +405,11 @@ export default async function DashboardPage() {
                   >
                     <Link
                       href={`/listings/${row.id}`}
-                      className="font-medium text-zinc-900 dark:text-zinc-100"
+                      className="font-medium text-zinc-900"
                     >
                       {row.title?.trim() || "—"}
                     </Link>
-                    <span className="text-zinc-600 dark:text-zinc-400">
+                    <span className="text-zinc-600">
                       {typeLabel}
                     </span>
                   </li>
@@ -419,6 +418,7 @@ export default async function DashboardPage() {
             </ul>
           )}
         </section>
+      </div>
       </div>
     </div>
   );

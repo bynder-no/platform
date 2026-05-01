@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import { resolvePendingEndedAuctions } from "@/lib/auction-resolution";
 import { qualifiesAuctionContactFromHighestBid } from "@/lib/auction-contact-qualification";
@@ -486,14 +485,14 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
   const tabClass = (isActive: boolean) =>
     `inline-flex items-center border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
       isActive
-        ? "border-zinc-900 text-zinc-900 dark:border-zinc-100 dark:text-zinc-100"
-        : "border-transparent text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+        ? "border-zinc-900 text-zinc-900"
+        : "border-transparent text-zinc-500 hover:text-zinc-800"
     }`;
   const typeTabClass = (isActive: boolean) =>
     `inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
       isActive
-        ? "border-zinc-400 bg-zinc-900 text-white dark:border-zinc-200 dark:bg-zinc-100 dark:text-zinc-900"
-        : "border-zinc-300 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:text-zinc-300 dark:hover:bg-zinc-800"
+        ? "border-blue-600 bg-blue-600 text-white"
+        : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-100"
     }`;
   const buildMyAuctionsHref = (next: {
     tab?: "annonser" | "deals";
@@ -758,17 +757,16 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       <header className={pageHeaderClass}>
         <div className="space-y-1">
           <h1 className={pageTitleClass}>Mine deals</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-zinc-600">
             Del opp etter Mine salg og Mine kjøp, med auksjon og fastpris i hver.
           </p>
         </div>
-        <SignedInNavLinks />
       </header>
 
       <section className={pageBodyGapClass}>
         <div className="space-y-6">
           <nav
-            className="flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-700"
+            className="flex flex-wrap gap-1 border-b border-zinc-200"
             aria-label="Mine salg og Mine kjøp"
           >
             <Link
@@ -807,7 +805,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
           <form method="get" className="space-y-2">
             <label
               htmlFor="my-auctions-search"
-              className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
+              className="text-xs font-semibold uppercase tracking-wide text-zinc-500"
             >
               Søk
             </label>
@@ -817,7 +815,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
               type="search"
               defaultValue={searchQuery ?? ""}
               placeholder="Søk etter annonse"
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-400"
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none"
             />
             {activeTab === "deals" ? (
               <input type="hidden" name="tab" value="deals" />
@@ -829,11 +827,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
             <>
               {activeType === "auction" ? (
                 <div className="space-y-2">
-                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  <h2 className="text-sm font-semibold text-zinc-900">
                     Auksjoner
                   </h2>
                   {!hasSellerRows ? (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <p className="text-sm text-zinc-600">
                       Ingen avsluttede auksjoner som selger.
                     </p>
                   ) : (
@@ -844,15 +842,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                         );
                         return (
                           <div key={groupKey}>
-                            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                            <h3 className="text-sm font-semibold text-zinc-900">
                               {dealStatusGroupLabel(groupKey)}
                             </h3>
                             {items.length === 0 ? (
-                              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                              <p className="mt-2 text-sm text-zinc-600">
                                 Ingen auksjoner i denne gruppen.
                               </p>
                             ) : (
-                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
                                 {items.map(
                                   ({
                                     row,
@@ -878,26 +876,26 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                         className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
                                       >
                                         <div className="space-y-1">
-                                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                          <p className="font-medium text-zinc-900">
                                             {row.title?.trim() || "—"}
                                           </p>
-                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                          <p className="text-zinc-600">
                                             Høyeste bud:{" "}
-                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                            <span className="tabular-nums font-medium text-zinc-800">
                                               {highestNok > 0 ? highestNok : 0}
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
+                                          <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
                                             {dealStatusGroupLabel(group)}
                                           </p>
-                                          <p className="text-xs text-zinc-600 dark:text-zinc-400">{handlingHint}</p>
+                                          <p className="text-xs text-zinc-600">{handlingHint}</p>
                                           {bidderUn ? (
-                                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                            <p className="text-xs text-zinc-600">
                                               Budgiver:{" "}
                                               <Link
                                                 href={`/u/${encodeURIComponent(bidderUn)}`}
-                                                className="font-medium text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200"
+                                                className="font-medium text-zinc-800 underline-offset-2 hover:underline"
                                               >
                                                 {bidderUn}
                                               </Link>
@@ -906,7 +904,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                         </div>
                                         <Link
                                           href={`/my-auctions/${row.id}`}
-                                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
                                         >
                                           Gå til deal
                                         </Link>
@@ -924,11 +922,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  <h2 className="text-sm font-semibold text-zinc-900">
                     Fastpris
                   </h2>
                   {!hasFixedSellerRows ? (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <p className="text-sm text-zinc-600">
                       Ingen fastprisforespørsler som selger.
                     </p>
                   ) : (
@@ -939,15 +937,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                         );
                         return (
                           <div key={groupKey}>
-                            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                            <h3 className="text-sm font-semibold text-zinc-900">
                               {dealStatusGroupLabel(groupKey)}
                             </h3>
                             {items.length === 0 ? (
-                              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                              <p className="mt-2 text-sm text-zinc-600">
                                 Ingen fastprisdeals i denne gruppen.
                               </p>
                             ) : (
-                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
                                 {items.map((row) => {
                                   const counterpart =
                                     usernameByUserId.get(String(row.counterpartId).trim()) ??
@@ -965,40 +963,40 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
                                     >
                                       <div className="space-y-1">
-                                        <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                        <p className="font-medium text-zinc-900">
                                           {row.title}
                                         </p>
                                         {row.offerNok != null ? (
-                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                          <p className="text-zinc-600">
                                             Bud:{" "}
-                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                            <span className="tabular-nums font-medium text-zinc-800">
                                               {row.offerNok}
                                             </span>{" "}
                                             NOK
                                           </p>
                                         ) : row.isListingMissing ? (
-                                          <p className="text-zinc-600 dark:text-zinc-400">Annonse ikke tilgjengelig</p>
+                                          <p className="text-zinc-600">Annonse ikke tilgjengelig</p>
                                         ) : (
-                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                          <p className="text-zinc-600">
                                             Pris:{" "}
-                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                            <span className="tabular-nums font-medium text-zinc-800">
                                               {row.priceNok != null ? row.priceNok : "Pris mangler"}
                                             </span>{" "}
                                             NOK
                                           </p>
                                         )}
-                                        <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
+                                        <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
                                           {row.heading}
                                         </p>
-                                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                        <p className="text-xs text-zinc-600">
                                           {fixedDealHandlingHint("seller", row)}
                                         </p>
                                         {counterpart ? (
-                                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                          <p className="text-xs text-zinc-600">
                                             Kjøper:{" "}
                                             <Link
                                               href={`/u/${encodeURIComponent(counterpart)}`}
-                                              className="font-medium text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200"
+                                              className="font-medium text-zinc-800 underline-offset-2 hover:underline"
                                             >
                                               {counterpart}
                                             </Link>
@@ -1007,7 +1005,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       </div>
                                       <Link
                                         href={`/my-auctions/${row.listingId}${buyerQs}`}
-                                        className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                        className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
                                       >
                                         Gå til deal
                                       </Link>
@@ -1028,11 +1026,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
             <>
               {activeType === "auction" ? (
                 <div className="space-y-2">
-                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  <h2 className="text-sm font-semibold text-zinc-900">
                     Auksjoner
                   </h2>
                   {!hasBidderMineDealsRows ? (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <p className="text-sm text-zinc-600">
                       Ingen avsluttede auksjoner der du er høyeste budgiver.
                     </p>
                   ) : (
@@ -1043,15 +1041,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                         );
                         return (
                           <div key={groupKey}>
-                            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                            <h3 className="text-sm font-semibold text-zinc-900">
                               {dealStatusGroupLabel(groupKey)}
                             </h3>
                             {items.length === 0 ? (
-                              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                              <p className="mt-2 text-sm text-zinc-600">
                                 Ingen auksjoner i denne gruppen.
                               </p>
                             ) : (
-                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
                                 {items.map(
                                   ({ row, highestNok, group, deal }) => {
                                     const sellerUn =
@@ -1069,28 +1067,28 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                         className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
                                       >
                                         <div className="space-y-1">
-                                          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                          <p className="font-medium text-zinc-900">
                                             {row.title?.trim() || "—"}
                                           </p>
-                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                          <p className="text-zinc-600">
                                             Auksjon{" "}
                                             <span className="mx-2 text-zinc-400">·</span>
                                             Høyeste bud:{" "}
-                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                            <span className="tabular-nums font-medium text-zinc-800">
                                               {highestNok > 0 ? highestNok : 0}
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
+                                          <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
                                             {dealStatusGroupLabel(group)}
                                           </p>
-                                          <p className="text-xs text-zinc-600 dark:text-zinc-400">{handlingHint}</p>
+                                          <p className="text-xs text-zinc-600">{handlingHint}</p>
                                           {sellerUn ? (
-                                            <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                            <p className="text-xs text-zinc-600">
                                               Selger:{" "}
                                               <Link
                                                 href={`/u/${encodeURIComponent(sellerUn)}`}
-                                                className="font-medium text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200"
+                                                className="font-medium text-zinc-800 underline-offset-2 hover:underline"
                                               >
                                                 {sellerUn}
                                               </Link>
@@ -1099,7 +1097,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                         </div>
                                         <Link
                                           href={`/my-auctions/${row.id}`}
-                                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
                                         >
                                           Gå til deal
                                         </Link>
@@ -1117,11 +1115,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                  <h2 className="text-sm font-semibold text-zinc-900">
                     Fastpris
                   </h2>
                   {!hasFixedBuyerRows ? (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                    <p className="text-sm text-zinc-600">
                       Ingen fastprisforespørsler som kjøper.
                     </p>
                   ) : (
@@ -1132,15 +1130,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                         );
                         return (
                           <div key={groupKey}>
-                            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                            <h3 className="text-sm font-semibold text-zinc-900">
                               {dealStatusGroupLabel(groupKey)}
                             </h3>
                             {items.length === 0 ? (
-                              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+                              <p className="mt-2 text-sm text-zinc-600">
                                 Ingen fastprisdeals i denne gruppen.
                               </p>
                             ) : (
-                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
                                 {items.map((row) => {
                                   const counterpart =
                                     usernameByUserId.get(String(row.counterpartId).trim()) ??
@@ -1151,40 +1149,40 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
                                     >
                                       <div className="space-y-1">
-                                        <p className="font-medium text-zinc-900 dark:text-zinc-100">
+                                        <p className="font-medium text-zinc-900">
                                           {row.title}
                                         </p>
                                         {row.offerNok != null ? (
-                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                          <p className="text-zinc-600">
                                             Bud:{" "}
-                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                            <span className="tabular-nums font-medium text-zinc-800">
                                               {row.offerNok}
                                             </span>{" "}
                                             NOK
                                           </p>
                                         ) : row.isListingMissing ? (
-                                          <p className="text-zinc-600 dark:text-zinc-400">Annonse ikke tilgjengelig</p>
+                                          <p className="text-zinc-600">Annonse ikke tilgjengelig</p>
                                         ) : (
-                                          <p className="text-zinc-600 dark:text-zinc-400">
+                                          <p className="text-zinc-600">
                                             Pris:{" "}
-                                            <span className="tabular-nums font-medium text-zinc-800 dark:text-zinc-200">
+                                            <span className="tabular-nums font-medium text-zinc-800">
                                               {row.priceNok != null ? row.priceNok : "Pris mangler"}
                                             </span>{" "}
                                             NOK
                                           </p>
                                         )}
-                                        <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700 dark:border-zinc-600 dark:text-zinc-200">
+                                        <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
                                           {row.heading}
                                         </p>
-                                        <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                        <p className="text-xs text-zinc-600">
                                           {fixedDealHandlingHint("buyer", row)}
                                         </p>
                                         {counterpart ? (
-                                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                          <p className="text-xs text-zinc-600">
                                             Selger:{" "}
                                             <Link
                                               href={`/u/${encodeURIComponent(counterpart)}`}
-                                              className="font-medium text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200"
+                                              className="font-medium text-zinc-800 underline-offset-2 hover:underline"
                                             >
                                               {counterpart}
                                             </Link>
@@ -1193,7 +1191,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       </div>
                                       <Link
                                         href={`/my-auctions/${row.listingId}`}
-                                        className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                                        className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
                                       >
                                         Gå til deal
                                       </Link>

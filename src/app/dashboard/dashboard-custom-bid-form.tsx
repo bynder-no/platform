@@ -6,10 +6,10 @@ import type { ChangeEvent } from "react";
 import { placeBid } from "@/app/listings/[id]/actions";
 
 const inputClass =
-  "w-full min-w-[6rem] max-w-[10rem] rounded-md border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50 sm:w-auto";
+  "w-full min-w-[6rem] max-w-[10rem] rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 placeholder-zinc-400 outline-none focus:ring-2 focus:ring-blue-500 sm:w-auto";
 
 const buttonClass =
-  "rounded-md bg-zinc-900 px-3 py-1 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
+  "rounded-lg bg-blue-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50";
 
 function integerNokFromInput(raw: string) {
   const s = raw.trimStart();
@@ -59,7 +59,7 @@ export function DashboardCustomBidForm({
         </button>
       </div>
       {state?.error ? (
-        <p className="max-w-xs text-right text-xs text-red-600 dark:text-red-400">
+        <p className="max-w-xs text-right text-xs text-red-600">
           {state.error}
         </p>
       ) : null}
