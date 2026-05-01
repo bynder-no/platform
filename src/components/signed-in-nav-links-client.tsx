@@ -4,6 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import {
+  CHAT_PANEL_STATE_EVENT,
+  MESSAGES_INBOX_PANEL_OPEN_EVENT,
+  OPEN_CHAT_PANEL_EVENT,
+} from "@/lib/chat-panel-events";
+
 type NavLinkItem = {
   href: string;
   label: string;
@@ -11,10 +17,8 @@ type NavLinkItem = {
 
 type SignedInNavLinksClientProps = {
   links: NavLinkItem[];
+  messagesBadgeCount: number;
 };
-
-const OPEN_CHAT_PANEL_EVENT = "bynder:chat-panel-open";
-const CHAT_PANEL_STATE_EVENT = "bynder:chat-panel-state";
 
 function hrefMatchesPathname(href: string, pathname: string): boolean {
   if (href === "/") return pathname === "/";
@@ -28,10 +32,16 @@ function activeHrefForPath(links: NavLinkItem[], pathname: string): string | nul
   return matches[0]?.href ?? null;
 }
 
-export function SignedInNavLinksClient({ links }: SignedInNavLinksClientProps) {
+export function SignedInNavLinksClient({
+  links,
+  messagesBadgeCount,
+}: SignedInNavLinksClientProps) {
   const pathname = usePathname();
   const activeHref = activeHrefForPath(links, pathname);
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+
+  /** Snapshot taken when Chatter inbox opens; badge hidden until count rises above this. */
+  const [dismissedBadgeSnapshot, setDismissedBadgeSnapshot] = useState(0);
 
   useEffect(() => {
     const onPanelState = (event: Event) => {
@@ -43,10 +53,21 @@ export function SignedInNavLinksClient({ links }: SignedInNavLinksClientProps) {
       window.removeEventListener(CHAT_PANEL_STATE_EVENT, onPanelState as EventListener);
   }, []);
 
+  useEffect(() => {
+    const onInboxPanelOpen = () => {
+      setDismissedBadgeSnapshot(messagesBadgeCount);
+    };
+    window.addEventListener(MESSAGES_INBOX_PANEL_OPEN_EVENT, onInboxPanelOpen);
+    return () =>
+      window.removeEventListener(MESSAGES_INBOX_PANEL_OPEN_EVENT, onInboxPanelOpen);
+  }, [messagesBadgeCount]);
+
+  const showMessagesNavBadge = messagesBadgeCount > dismissedBadgeSnapshot;
+
   return (
     <>
       {links.map((item) => {
-        const isMessagesLink = item.href === "/messages";
+        const isMessagesLink = item.href === "#chatter";
         const isActive =
           isMessagesLink ? isChatPanelOpen : activeHref === item.href;
 
@@ -59,7 +80,7 @@ export function SignedInNavLinksClient({ links }: SignedInNavLinksClientProps) {
                 window.dispatchEvent(new CustomEvent(OPEN_CHAT_PANEL_EVENT));
               }}
               className={[
-                "ui-nav-chip",
+                "ui-nav-chip relative",
                 isActive ? "ui-nav-chip-accent" : null,
               ]
                 .filter(Boolean)
@@ -67,6 +88,14 @@ export function SignedInNavLinksClient({ links }: SignedInNavLinksClientProps) {
               aria-label="Åpne meldingspanel"
             >
               {item.label}
+              {showMessagesNavBadge ? (
+                <span
+                  className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold leading-none text-white"
+                  aria-label={`${messagesBadgeCount} nye i meldinger`}
+                >
+                  {messagesBadgeCount > 99 ? "99+" : messagesBadgeCount}
+                </span>
+              ) : null}
             </button>
           );
         }

@@ -8,6 +8,7 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import { isNormalChatNotificationType } from "@/lib/normal-chat-badges";
 
 export const dynamic = "force-dynamic";
 
@@ -109,7 +110,7 @@ function categoryIcon(category: NotificationCategory): string {
 
 function destinationHref(row: NotificationRow): string {
   const category = categoryForType(row.type);
-  if (category === "Meldinger") return "/messages";
+  if (category === "Meldinger") return "/";
   if (category === "Deals" || category === "Rating") {
     if (row.listing_id) return `/my-auctions/${row.listing_id}`;
     return "/my-auctions";
@@ -177,7 +178,9 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
     throw new Error(`Could not load notifications: ${error.message}`);
   }
 
-  const notifications = (data ?? []) as NotificationRow[];
+  const notifications = ((data ?? []) as NotificationRow[]).filter(
+    (row) => !isNormalChatNotificationType(row.type),
+  );
   const visibleNotifications =
     tab === "unread"
       ? notifications.filter((notification) => !notification.is_read)

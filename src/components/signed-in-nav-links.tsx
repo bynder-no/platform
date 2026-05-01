@@ -1,6 +1,7 @@
 import { signOut } from "@/app/auth/actions";
 import { createClient } from "@/lib/supabase/server";
 import { SignedInNavLinksClient } from "@/components/signed-in-nav-links-client";
+import { getMessagesNavBadgeCount } from "@/lib/normal-chat-badges";
 
 type SignedInNavLinksProps = {
   className?: string;
@@ -26,13 +27,17 @@ export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
     .from("notifications")
     .select("id", { count: "exact", head: true })
     .eq("user_id", user.id)
-    .eq("is_read", false);
+    .eq("is_read", false)
+    .neq("type", "message_request")
+    .neq("type", "new_message");
 
   if (error) {
     console.error("notifications unread count:", error.message);
   } else {
     unreadNotificationCount = count ?? 0;
   }
+
+  const messagesBadgeCount = await getMessagesNavBadgeCount(supabase, user.id);
 
   const varslerLabel =
     unreadNotificationCount > 0 ? `Varsler (${unreadNotificationCount})` : "Varsler";
@@ -42,7 +47,7 @@ export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
     { href: "/dashboard", label: "Dashboard" },
     { href: "/following", label: "Følger" },
     { href: "/discover", label: "Discover" },
-    { href: "/messages", label: "Messages" },
+    { href: "#chatter", label: "Messages" },
     { href: "/notifications", label: varslerLabel },
     { href: "/profile", label: "Profile" },
   ];
@@ -59,7 +64,7 @@ export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
             .filter(Boolean)
             .join(" ")}
         >
-          <SignedInNavLinksClient links={links} />
+          <SignedInNavLinksClient links={links} messagesBadgeCount={messagesBadgeCount} />
           <form action={signOut} className="inline">
             <button
               type="submit"

@@ -76,38 +76,28 @@ export async function sendConversationMessage(
     return { error: insertError.message };
   }
 
-  const targetUserId =
-    thread.requester_id === user.id ? thread.recipient_id : thread.requester_id;
-  const { data: senderProfile } = await supabase
-    .from("profiles")
-    .select("display_name, username")
-    .eq("id", user.id)
-    .maybeSingle();
-  const senderLabel =
-    String(senderProfile?.display_name ?? "").trim() ||
-    String(senderProfile?.username ?? "").trim() ||
-    "Medlem";
-  const chatNotificationType =
-    thread.status === "pending" ? "message_request" : "new_message";
-  const chatMessage =
-    thread.status === "pending"
-      ? `${senderLabel} sendte en meldingsforespørsel`
-      : `${senderLabel} sendte en ny melding`;
+  revalidatePath("/");
+  return { success: true };
+}
 
-  const { error: notificationError } = await supabase.rpc("create_chat_notification", {
-    p_user_id: targetUserId,
-    p_type: chatNotificationType,
-    p_thread_id: thread.id,
-    p_message: chatMessage,
-  });
-  if (notificationError) {
-    console.error("create_chat_notification:", notificationError.message);
+export async function markConversationThreadRead(threadId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return;
   }
 
-  revalidatePath("/messages");
-  revalidatePath(`/messages/${thread.id}`);
-  revalidatePath("/notifications");
-  return { success: true };
+  const { error } = await supabase.rpc("mark_conversation_messages_read_for_viewer", {
+    p_thread_id: threadId,
+  });
+  if (error) {
+    console.error("mark_conversation_messages_read_for_viewer:", error.message);
+  }
+
+  revalidatePath("/");
 }
 
 export async function acceptConversationRequest(formData: FormData) {
@@ -134,8 +124,7 @@ export async function acceptConversationRequest(formData: FormData) {
     throw new Error(`Could not accept chat request: ${error.message}`);
   }
 
-  revalidatePath("/messages");
-  revalidatePath(`/messages/${threadId}`);
+  revalidatePath("/");
 }
 
 export async function declineConversationRequest(formData: FormData) {
@@ -162,6 +151,5 @@ export async function declineConversationRequest(formData: FormData) {
     throw new Error(`Could not decline chat request: ${error.message}`);
   }
 
-  revalidatePath("/messages");
-  revalidatePath(`/messages/${threadId}`);
+  revalidatePath("/");
 }
