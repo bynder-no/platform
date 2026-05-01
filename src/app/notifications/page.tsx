@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { NotificationRowLink } from "@/app/notifications/notification-row-link";
 import { createClient } from "@/lib/supabase/server";
 import {
   pageBodyGapClass,
@@ -219,15 +220,6 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
     }
   }
 
-  const { error: markReadError } = await supabase
-    .from("notifications")
-    .update({ is_read: true })
-    .eq("user_id", user.id)
-    .eq("is_read", false);
-  if (markReadError) {
-    throw new Error(`Could not mark notifications as read: ${markReadError.message}`);
-  }
-
   return (
     <div className="min-h-screen bg-zinc-50">
       <div className={pageShellClass}>
@@ -268,8 +260,10 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
                   key={n.id}
                   className="border-b border-zinc-200 last:border-b-0"
                 >
-                  <Link
+                  <NotificationRowLink
+                    notificationId={n.id}
                     href={destination}
+                    isUnread={!n.is_read}
                     className={`flex items-start gap-3 px-3 py-3 hover:bg-zinc-50 ${
                       n.is_read ? "" : "bg-blue-50/60"
                     }`}
@@ -310,12 +304,12 @@ export default async function NotificationsPage({ searchParams }: PageProps) {
 
                     {!n.is_read ? (
                       <span
-                        className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500"
+                        className="mt-2 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-600"
                         aria-label="Ulest"
                         title="Ulest"
                       />
                     ) : null}
-                  </Link>
+                  </NotificationRowLink>
                 </li>
               );
             })}

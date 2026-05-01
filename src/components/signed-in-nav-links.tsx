@@ -2,6 +2,7 @@ import { signOut } from "@/app/auth/actions";
 import { createClient } from "@/lib/supabase/server";
 import { SignedInNavLinksClient } from "@/components/signed-in-nav-links-client";
 import { getMessagesNavBadgeCount } from "@/lib/normal-chat-badges";
+import { getVarslerUnreadCount } from "@/lib/notification-destinations";
 
 type SignedInNavLinksProps = {
   className?: string;
@@ -22,25 +23,9 @@ export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
     return null;
   }
 
-  let unreadNotificationCount = 0;
-  const { count, error } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("is_read", false)
-    .neq("type", "message_request")
-    .neq("type", "new_message");
-
-  if (error) {
-    console.error("notifications unread count:", error.message);
-  } else {
-    unreadNotificationCount = count ?? 0;
-  }
+  const varslerBadgeCount = await getVarslerUnreadCount(supabase, user.id);
 
   const messagesBadgeCount = await getMessagesNavBadgeCount(supabase, user.id);
-
-  const varslerLabel =
-    unreadNotificationCount > 0 ? `Varsler (${unreadNotificationCount})` : "Varsler";
 
   const links: NavLinkItem[] = [
     { href: "/", label: "Home" },
@@ -48,7 +33,7 @@ export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
     { href: "/following", label: "Følger" },
     { href: "/discover", label: "Discover" },
     { href: "#chatter", label: "Messages" },
-    { href: "/notifications", label: varslerLabel },
+    { href: "/notifications", label: "Varsler" },
     { href: "/profile", label: "Profile" },
   ];
 
@@ -64,7 +49,11 @@ export async function SignedInNavLinks({ className }: SignedInNavLinksProps) {
             .filter(Boolean)
             .join(" ")}
         >
-          <SignedInNavLinksClient links={links} messagesBadgeCount={messagesBadgeCount} />
+          <SignedInNavLinksClient
+            links={links}
+            messagesBadgeCount={messagesBadgeCount}
+            varslerBadgeCount={varslerBadgeCount}
+          />
           <form action={signOut} className="inline">
             <button
               type="submit"
