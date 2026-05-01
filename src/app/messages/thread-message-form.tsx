@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef } from "react";
 
 import { sendConversationMessage } from "./actions";
 
@@ -16,9 +16,17 @@ type ThreadMessageFormProps = {
 
 export function ThreadMessageForm({ threadId }: ThreadMessageFormProps) {
   const [state, formAction, pending] = useActionState(sendConversationMessage, null);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+  }
 
   return (
-    <form action={formAction} className="flex flex-col gap-2">
+    <form ref={formRef} action={formAction} className="flex flex-col gap-2">
       <input type="hidden" name="thread_id" value={threadId} />
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
         <textarea
@@ -28,6 +36,7 @@ export function ThreadMessageForm({ threadId }: ThreadMessageFormProps) {
           aria-label="Ny melding"
           className={inputClass}
           placeholder="Skriv en melding..."
+          onKeyDown={handleKeyDown}
         />
         <button type="submit" disabled={pending} className={buttonClass}>
           {pending ? "Sender..." : "Send"}
