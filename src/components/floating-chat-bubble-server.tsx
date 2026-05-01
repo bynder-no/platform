@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getUnreadInboundCountsByThreadId } from "@/lib/normal-chat-badges";
 
 import { FloatingChatBubble } from "./floating-chat-bubble";
 
@@ -16,6 +17,7 @@ type MessageRow = {
   sender_id: string;
   body: string;
   created_at: string | null;
+  read_at: string | null;
 };
 
 function profileLabel(
@@ -57,8 +59,7 @@ export async function FloatingChatBubbleServer() {
     .from("conversation_threads")
     .select("id, requester_id, recipient_id, status, updated_at")
     .or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`)
-    .order("updated_at", { ascending: false })
-    .limit(8);
+    .order("updated_at", { ascending: false });
 
   if (threadsError) {
     console.error("floating chat threads:", threadsError.message);
@@ -96,7 +97,7 @@ export async function FloatingChatBubbleServer() {
 
   const { data: messagesData, error: messagesError } = await supabase
     .from("conversation_messages")
-    .select("id, thread_id, sender_id, body, created_at")
+    .select("id, thread_id, sender_id, body, created_at, read_at")
     .in("thread_id", threadIds)
     .order("created_at", { ascending: true });
   if (messagesError) {
@@ -113,11 +114,22 @@ export async function FloatingChatBubbleServer() {
     latestByThreadId.set(message.thread_id, message);
   }
 
+  const acceptedIds = threads
+    .filter((thread) => thread.status === "accepted")
+    .map((thread) => thread.id);
+  const unreadByThreadId = await getUnreadInboundCountsByThreadId(
+    supabase,
+    user.id,
+    acceptedIds,
+  );
+
   const chats = threads.map((thread) => {
     const otherId =
       thread.requester_id === user.id ? thread.recipient_id : thread.requester_id;
     const other = profileById.get(otherId);
     const last = latestByThreadId.get(thread.id);
+    const unreadCount =
+      thread.status === "accepted" ? (unreadByThreadId.get(thread.id) ?? 0) : 0;
     return {
       id: thread.id,
       otherName: profileLabel(other),
@@ -129,6 +141,7 @@ export async function FloatingChatBubbleServer() {
       status: thread.status,
       requesterId: thread.requester_id,
       recipientId: thread.recipient_id,
+      unreadCount,
       messages: (messagesByThreadId.get(thread.id) ?? []).map((message) => ({
         id: message.id,
         senderId: message.sender_id,
