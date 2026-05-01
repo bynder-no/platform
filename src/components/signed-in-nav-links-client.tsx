@@ -18,6 +18,7 @@ type NavLinkItem = {
 type SignedInNavLinksClientProps = {
   links: NavLinkItem[];
   messagesBadgeCount: number;
+  varslerBadgeCount: number;
 };
 
 function hrefMatchesPathname(href: string, pathname: string): boolean {
@@ -35,6 +36,7 @@ function activeHrefForPath(links: NavLinkItem[], pathname: string): string | nul
 export function SignedInNavLinksClient({
   links,
   messagesBadgeCount,
+  varslerBadgeCount,
 }: SignedInNavLinksClientProps) {
   const pathname = usePathname();
   const activeHref = activeHrefForPath(links, pathname);
@@ -97,6 +99,38 @@ export function SignedInNavLinksClient({
                 </span>
               ) : null}
             </button>
+          );
+        }
+
+        const isVarslerLink = item.href === "/notifications";
+
+        if (isVarslerLink) {
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={[
+                "ui-nav-chip relative",
+                isActive ? "ui-nav-chip-accent" : null,
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-label={
+                varslerBadgeCount > 0
+                  ? `Varsler, ${varslerBadgeCount} uleste`
+                  : "Varsler"
+              }
+            >
+              {item.label}
+              {varslerBadgeCount > 0 ? (
+                <span
+                  className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold leading-none text-white"
+                  aria-hidden
+                >
+                  {varslerBadgeCount > 99 ? "99+" : varslerBadgeCount}
+                </span>
+              ) : null}
+            </Link>
           );
         }
 
