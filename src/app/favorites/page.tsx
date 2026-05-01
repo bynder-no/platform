@@ -79,7 +79,7 @@ export default async function FavoritesPage() {
             </p>
           </div>
         ) : (
-          <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+          <ul className="ui-card mt-4 divide-y divide-zinc-200 overflow-hidden p-0 dark:divide-zinc-700">
             {rows.map((row) => {
               const rawType =
                 typeof row.type === "string" ? row.type.trim() : "";
@@ -93,23 +93,25 @@ export default async function FavoritesPage() {
               return (
                 <li
                   key={row.id}
-                  className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+                  className="flex flex-col gap-2 px-4 py-3 text-sm transition hover:bg-blue-50/40 dark:hover:bg-sky-950/25 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                 >
                   <Link
                     href={`/listings/${row.id}`}
-                    className="font-medium text-zinc-900 dark:text-zinc-100"
+                    className="min-w-0 font-semibold text-zinc-900 hover:underline dark:text-zinc-100"
                   >
                     {row.title}
                   </Link>
-                  <span className="text-zinc-600 dark:text-zinc-400">
-                    {typeLabel}
-                    <span className="mx-2 text-zinc-400">·</span>
-                    {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
-                    <span className="mx-2 text-zinc-400">·</span>
-                    {row.created_at
-                      ? new Date(row.created_at).toLocaleString()
-                      : "—"}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2 text-xs sm:justify-end">
+                    <span className="ui-badge ui-badge-accent">{typeLabel}</span>
+                    <span className="tabular-nums text-base font-semibold text-zinc-900 dark:text-zinc-100">
+                      {row.price_nok != null ? `${row.price_nok} NOK` : "—"}
+                    </span>
+                    <span className="text-zinc-500 dark:text-zinc-400">
+                      {row.created_at
+                        ? new Date(row.created_at).toLocaleString()
+                        : "—"}
+                    </span>
+                  </div>
                 </li>
               );
             })}

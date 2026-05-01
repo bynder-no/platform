@@ -129,11 +129,11 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               name="q"
               defaultValue={query}
               placeholder="Søk etter brukernavn eller navn"
-              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2 dark:border-zinc-600 dark:bg-zinc-950 dark:text-zinc-50"
+              className="ui-input w-full"
             />
             <button
               type="submit"
-              className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              className="ui-button"
             >
               Søk
             </button>
@@ -141,7 +141,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
         </form>
 
         {query !== "" ? (
-          <div className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="ui-card p-3">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Brukere
             </p>

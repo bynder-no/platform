@@ -63,7 +63,7 @@ export function DiscoverGrid({ allItems, batchSize }: DiscoverGridProps) {
           return (
             <li
               key={item.id}
-              className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900"
+              className="ui-card overflow-hidden transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md dark:hover:border-zinc-600"
             >
               <Link
                 href={`/listings/${item.id}`}
@@ -85,10 +85,10 @@ export function DiscoverGrid({ allItems, batchSize }: DiscoverGridProps) {
                 )}
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/40 to-transparent p-2.5 text-white">
                   <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="inline-flex rounded-full bg-black/40 px-2 py-0.5 text-[11px] font-medium">
+                    <span className="inline-flex rounded-full bg-black/45 px-2 py-0.5 text-[11px] font-semibold">
                       {typeLabel(item.type)}
                     </span>
-                    <span className="text-[11px] font-semibold">{priceLabel(item)}</span>
+                    <span className="text-[12px] font-semibold">{priceLabel(item)}</span>
                   </div>
                   <p className="line-clamp-1 text-xs font-semibold">
                     {item.title?.trim() || "—"}
@@ -118,7 +118,7 @@ export function DiscoverGrid({ allItems, batchSize }: DiscoverGridProps) {
           <button
             type="button"
             onClick={onLoadMore}
-            className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            className="ui-button disabled:cursor-not-allowed disabled:opacity-60"
           >
             Last flere
           </button>
