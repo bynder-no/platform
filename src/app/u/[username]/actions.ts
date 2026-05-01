@@ -112,5 +112,25 @@ export async function startConversationThread(formData: FormData) {
     throw new Error(`Could not create conversation thread: ${insertError.message}`);
   }
 
+  const { data: requesterProfile } = await supabase
+    .from("profiles")
+    .select("display_name, username")
+    .eq("id", user.id)
+    .maybeSingle();
+  const requesterLabel =
+    String(requesterProfile?.display_name ?? "").trim() ||
+    String(requesterProfile?.username ?? "").trim() ||
+    "Medlem";
+
+  const { error: notifyError } = await supabase.rpc("create_chat_notification", {
+    p_user_id: recipientId,
+    p_type: "message_request",
+    p_thread_id: newThread.id,
+    p_message: `Ny meldingsforespørsel fra ${requesterLabel}`,
+  });
+  if (notifyError) {
+    console.error("create_chat_notification message_request:", notifyError.message);
+  }
+
   redirect(`/messages/${newThread.id}`);
 }

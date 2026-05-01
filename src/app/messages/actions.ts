@@ -76,8 +76,37 @@ export async function sendConversationMessage(
     return { error: insertError.message };
   }
 
+  const targetUserId =
+    thread.requester_id === user.id ? thread.recipient_id : thread.requester_id;
+  const { data: senderProfile } = await supabase
+    .from("profiles")
+    .select("display_name, username")
+    .eq("id", user.id)
+    .maybeSingle();
+  const senderLabel =
+    String(senderProfile?.display_name ?? "").trim() ||
+    String(senderProfile?.username ?? "").trim() ||
+    "Medlem";
+  const chatNotificationType =
+    thread.status === "pending" ? "message_request" : "new_message";
+  const chatMessage =
+    thread.status === "pending"
+      ? `${senderLabel} sendte en meldingsforespørsel`
+      : `${senderLabel} sendte en ny melding`;
+
+  const { error: notificationError } = await supabase.rpc("create_chat_notification", {
+    p_user_id: targetUserId,
+    p_type: chatNotificationType,
+    p_thread_id: thread.id,
+    p_message: chatMessage,
+  });
+  if (notificationError) {
+    console.error("create_chat_notification:", notificationError.message);
+  }
+
   revalidatePath("/messages");
   revalidatePath(`/messages/${thread.id}`);
+  revalidatePath("/notifications");
   return { success: true };
 }
 
