@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { MessagesInboxView } from "@/app/messages/messages-inbox-view";
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -42,6 +42,16 @@ function previewText(body: string | null | undefined) {
   if (!text) return "Ingen meldinger ennå";
   if (text.length <= 64) return text;
   return `${text.slice(0, 64)}...`;
+}
+
+function formatWhen(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("nb-NO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+  });
 }
 
 export default async function MessagesPage() {
@@ -125,6 +135,37 @@ export default async function MessagesPage() {
     return false;
   });
 
+  const inboxItems = inbox.map((thread) => {
+    const otherId =
+      thread.requester_id === user.id ? thread.recipient_id : thread.requester_id;
+    const other = profileById.get(otherId);
+    const last = lastMessageByThreadId.get(thread.id);
+    const when = last?.created_at ?? thread.updated_at;
+    const waitingForApproval =
+      thread.status === "pending" && thread.requester_id === user.id;
+    return {
+      id: thread.id,
+      otherName: profileLabel(other),
+      preview: waitingForApproval ? "Venter på godkjenning" : previewText(last?.body),
+      when: formatWhen(when),
+      isPendingRequest: waitingForApproval,
+      hasUnread: false,
+    };
+  });
+
+  const requestItems = requests.map((thread) => {
+    const other = profileById.get(thread.requester_id);
+    const last = lastMessageByThreadId.get(thread.id);
+    return {
+      id: thread.id,
+      otherName: profileLabel(other),
+      preview: previewText(last?.body),
+      when: formatWhen(last?.created_at ?? thread.updated_at),
+      isPendingRequest: true,
+      hasUnread: true,
+    };
+  });
+
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
@@ -143,91 +184,7 @@ export default async function MessagesPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <section className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Innboks
-              </h2>
-              {inbox.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Ingen aktive samtaler.
-                </p>
-              ) : (
-                <ul className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-700">
-                  {inbox.map((thread) => {
-                    const otherId =
-                      thread.requester_id === user.id
-                        ? thread.recipient_id
-                        : thread.requester_id;
-                    const other = profileById.get(otherId);
-                    const otherName = profileLabel(other);
-                    const last = lastMessageByThreadId.get(thread.id);
-                    const preview = previewText(last?.body);
-                    const when = last?.created_at ?? thread.updated_at;
-                    return (
-                      <li key={thread.id} className="py-2">
-                        <Link
-                          href={`/messages/${thread.id}`}
-                          className="block rounded-md px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                            {otherName}
-                          </p>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            {thread.status === "pending" && thread.requester_id === user.id
-                              ? "Venter på godkjenning"
-                              : preview}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                            {when ? new Date(when).toLocaleString("nb-NO") : "—"}
-                          </p>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-
-            <section className="rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
-              <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Forespørsler
-              </h2>
-              {requests.length === 0 ? (
-                <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-                  Ingen nye forespørsler.
-                </p>
-              ) : (
-                <ul className="mt-2 divide-y divide-zinc-200 dark:divide-zinc-700">
-                  {requests.map((thread) => {
-                    const other = profileById.get(thread.requester_id);
-                    const otherName = profileLabel(other);
-                    const last = lastMessageByThreadId.get(thread.id);
-                    return (
-                      <li key={thread.id} className="py-2">
-                        <Link
-                          href={`/messages/${thread.id}`}
-                          className="block rounded-md px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                        >
-                          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                            {otherName}
-                          </p>
-                          <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                            {previewText(last?.body)}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-zinc-500 dark:text-zinc-400">
-                            {thread.updated_at
-                              ? new Date(thread.updated_at).toLocaleString("nb-NO")
-                              : "—"}
-                          </p>
-                        </Link>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-          </div>
+          <MessagesInboxView inboxItems={inboxItems} requestItems={requestItems} />
         )}
       </section>
     </div>

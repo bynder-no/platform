@@ -5,7 +5,12 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
-export type ConversationMessageState = { error: string } | null;
+export type ConversationMessageState =
+  | {
+      error?: string;
+      success?: boolean;
+    }
+  | null;
 
 export async function sendConversationMessage(
   _prev: ConversationMessageState,
@@ -73,7 +78,7 @@ export async function sendConversationMessage(
 
   revalidatePath("/messages");
   revalidatePath(`/messages/${thread.id}`);
-  return null;
+  return { success: true };
 }
 
 export async function acceptConversationRequest(formData: FormData) {

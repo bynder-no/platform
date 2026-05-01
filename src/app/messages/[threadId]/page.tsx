@@ -118,7 +118,12 @@ export default async function MessageThreadPage({ params }: PageProps) {
       </header>
 
       <section className={pageBodyGapClass}>
-        <div className="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+        <div className="flex h-[calc(100dvh-220px)] min-h-[420px] flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+          <div className="sticky top-0 z-10 border-b border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
+            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{otherName}</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Samtale</p>
+          </div>
+
           <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-700">
             {thread.status === "pending" ? (
               isRecipient ? (
@@ -165,7 +170,7 @@ export default async function MessageThreadPage({ params }: PageProps) {
             )}
           </div>
 
-          <div className="space-y-3 px-4 py-4">
+          <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {(messageRows ?? []).length === 0 ? (
               <p className="text-sm text-zinc-600 dark:text-zinc-400">
                 Ingen meldinger ennå.
@@ -202,7 +207,7 @@ export default async function MessageThreadPage({ params }: PageProps) {
             )}
           </div>
 
-          <div className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+          <div className="sticky bottom-0 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95">
             {canSend ? (
               <ThreadMessageForm threadId={thread.id} />
             ) : (
