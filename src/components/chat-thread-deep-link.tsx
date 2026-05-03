@@ -6,7 +6,7 @@ import { Suspense, useEffect } from "react";
 import { OPEN_CHAT_THREAD_EVENT } from "@/lib/chat-panel-events";
 
 /**
- * Opens Chatter for `/?chatThread=<uuid>` then strips the query (fallback deep links only).
+ * Opens the floating chat window for `/?chatThread=<uuid>`, then strips the query (fallback deep links only).
  */
 function ChatThreadDeepLinkInner() {
   const searchParams = useSearchParams();

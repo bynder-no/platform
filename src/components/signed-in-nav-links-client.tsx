@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   CHAT_PANEL_STATE_EVENT,
+  CLOSE_MESSAGES_INBOX_PANEL_EVENT,
+  CLOSE_NOTIFICATIONS_PANEL_EVENT,
   MESSAGES_INBOX_PANEL_OPEN_EVENT,
   NOTIFICATIONS_NAV_HREF,
   NOTIFICATIONS_PANEL_STATE_EVENT,
@@ -101,7 +103,8 @@ export function SignedInNavLinksClient({
   const pathname = usePathname();
   const flatLinks = useMemo(() => groups.flat(), [groups]);
   const activeHref = activeHrefForPath(flatLinks, pathname);
-  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false);
+  /** Chatter list panel only — not floating thread windows (see CHAT_PANEL_STATE_EVENT). */
+  const [isChatterListOpen, setIsChatterListOpen] = useState(false);
   const [isNotificationsPanelOpen, setIsNotificationsPanelOpen] = useState(false);
 
   /** Snapshot taken when Chatter inbox opens; badge hidden until count rises above this. */
@@ -113,7 +116,7 @@ export function SignedInNavLinksClient({
   useEffect(() => {
     const onPanelState = (event: Event) => {
       const customEvent = event as CustomEvent<{ open?: boolean }>;
-      setIsChatPanelOpen(Boolean(customEvent.detail?.open));
+      setIsChatterListOpen(Boolean(customEvent.detail?.open));
     };
     window.addEventListener(CHAT_PANEL_STATE_EVENT, onPanelState as EventListener);
     return () =>
@@ -157,7 +160,7 @@ export function SignedInNavLinksClient({
     const isMessagesLink = item.href === "#chatter";
     const isVarslerLink = item.href === NOTIFICATIONS_NAV_HREF;
     const isActive = isMessagesLink
-      ? isChatPanelOpen
+      ? isChatterListOpen
       : isVarslerLink
         ? isNotificationsPanelOpen
         : activeHref === item.href;
@@ -168,7 +171,11 @@ export function SignedInNavLinksClient({
           key={item.href}
           type="button"
           onClick={() => {
-            window.dispatchEvent(new CustomEvent(OPEN_CHAT_PANEL_EVENT));
+            if (isChatterListOpen) {
+              window.dispatchEvent(new CustomEvent(CLOSE_MESSAGES_INBOX_PANEL_EVENT));
+            } else {
+              window.dispatchEvent(new CustomEvent(OPEN_CHAT_PANEL_EVENT));
+            }
           }}
           className={[navIconButtonClass, navIconAccentClass(isActive)]
             .filter(Boolean)
@@ -195,7 +202,11 @@ export function SignedInNavLinksClient({
           key={item.href}
           type="button"
           onClick={() => {
-            window.dispatchEvent(new CustomEvent(OPEN_NOTIFICATIONS_PANEL_EVENT));
+            if (isNotificationsPanelOpen) {
+              window.dispatchEvent(new CustomEvent(CLOSE_NOTIFICATIONS_PANEL_EVENT));
+            } else {
+              window.dispatchEvent(new CustomEvent(OPEN_NOTIFICATIONS_PANEL_EVENT));
+            }
           }}
           className={[navIconButtonClass, navIconAccentClass(isActive)]
             .filter(Boolean)
