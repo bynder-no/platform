@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 
 import { ChatThreadDeepLink } from "@/components/chat-thread-deep-link";
 import { FloatingChatBubbleServer } from "@/components/floating-chat-bubble-server";
+import { FloatingNotificationsPanelServer } from "@/components/floating-notifications-panel-server";
 import { SignedInNavLinks } from "@/components/signed-in-nav-links";
 
 import "./globals.css";
@@ -35,6 +36,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <ChatThreadDeepLink />
         <SignedInNavLinks />
+        <FloatingNotificationsPanelServer />
         {children}
         <FloatingChatBubbleServer />
       </body>

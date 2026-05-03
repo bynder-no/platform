@@ -12,6 +12,8 @@ type NotificationRowLinkProps = {
   isUnread: boolean;
   className?: string;
   children: ReactNode;
+  /** Runs after navigation is initiated (e.g. close dropdown). */
+  onAfterNavigate?: () => void;
 };
 
 export function NotificationRowLink({
@@ -20,16 +22,21 @@ export function NotificationRowLink({
   isUnread,
   className,
   children,
+  onAfterNavigate,
 }: NotificationRowLinkProps) {
   const router = useRouter();
 
   async function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
     if (e.button !== 0) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    if (!isUnread) return;
+    if (!isUnread) {
+      onAfterNavigate?.();
+      return;
+    }
     e.preventDefault();
     await markNotificationRead(notificationId);
     router.refresh();
+    onAfterNavigate?.();
     router.push(href);
   }
 
