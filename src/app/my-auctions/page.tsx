@@ -247,6 +247,76 @@ function handelWord(n: number) {
   return n === 1 ? "handel" : "handler";
 }
 
+type MineDealsTaskRow = {
+  key: string;
+  count: number;
+  label: string;
+  href: string;
+};
+
+function MineDealsTaskColumn({ tasks }: { tasks: MineDealsTaskRow[] }) {
+  if (tasks.length === 0) {
+    return (
+      <p className="mt-2 text-sm text-zinc-600">Ingen handlinger akkurat nå.</p>
+    );
+  }
+  return (
+    <ul className="mt-2 divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-zinc-50/60">
+      {tasks.map((task) => (
+        <li key={task.key}>
+          <Link
+            href={task.href}
+            className="flex items-start gap-3 px-3 py-3 text-sm text-zinc-800 transition hover:bg-white"
+          >
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-xs font-bold text-amber-800 ring-1 ring-amber-200/80"
+              aria-hidden
+            >
+              {task.count > 9 ? "9+" : task.count}
+            </span>
+            <span className="min-w-0 pt-0.5 leading-snug">{task.label}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const auctionMineCardNeutralBadgeClass =
+  "inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800";
+
+/** Auksjonskort i «Deal venter»: visning uten å endre intern `group`. */
+function auctionDealVenterMineCardBadge(
+  viewerRole: "seller" | "bidder",
+  deal: DealRowLite | null | undefined,
+  counterpartUsername: string | null | undefined,
+): { text: string; className: string } {
+  const s = String(deal?.seller_decision ?? "pending");
+  const b = String(deal?.bidder_decision ?? "pending");
+  const mine = viewerRole === "seller" ? s : b;
+  if (mine === "pending") {
+    return {
+      text: "Handling kreves av deg",
+      className:
+        "inline-flex w-fit rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-900",
+    };
+  }
+  const un = String(counterpartUsername ?? "").trim();
+  const text =
+    viewerRole === "seller"
+      ? un !== ""
+        ? `Venter på ${un}`
+        : "Venter på kjøper"
+      : un !== ""
+        ? `Venter på ${un}`
+        : "Venter på selger";
+  return {
+    text,
+    className:
+      "inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-900",
+  };
+}
+
 function auctionDealDecisionsAreBothDeal(deal: DealRowLite | null | undefined): boolean {
   if (!deal) return false;
   return deal.seller_decision === "deal" && deal.bidder_decision === "deal";
@@ -894,18 +964,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       row.sellerReceivedPayment !== true,
   ).length;
 
-  let ratingEligibleCount = 0;
-  for (const v of visibleBidderMineDealsRowVms) {
-    const d = v.deal;
-    if (
-      d &&
-      auctionDealDecisionsAreBothDeal(d) &&
-      d.buyer_received_card === true &&
-      !ratedListingIds.has(String(v.row.id))
-    ) {
-      ratingEligibleCount += 1;
-    }
-  }
+  let ratingEligibleSalg = 0;
   for (const v of visibleSellerRowVms) {
     const d = v.deal;
     if (
@@ -914,20 +973,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       d.seller_received_payment === true &&
       !ratedListingIds.has(String(v.row.id))
     ) {
-      ratingEligibleCount += 1;
-    }
-  }
-  const fixedBuyerRatingListed = new Set<string>();
-  for (const row of fixedBuyerGrouped) {
-    const lid = String(row.listingId);
-    if (fixedBuyerRatingListed.has(lid)) continue;
-    if (
-      fixedDealDecisionsAreBothDeal(row) &&
-      row.buyerReceivedCard === true &&
-      !ratedListingIds.has(lid)
-    ) {
-      fixedBuyerRatingListed.add(lid);
-      ratingEligibleCount += 1;
+      ratingEligibleSalg += 1;
     }
   }
   const fixedSellerRatingListed = new Set<string>();
@@ -940,68 +986,55 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       !ratedListingIds.has(lid)
     ) {
       fixedSellerRatingListed.add(lid);
-      ratingEligibleCount += 1;
+      ratingEligibleSalg += 1;
     }
   }
 
-  type MineDealsTaskRow = {
-    key: string;
-    count: number;
-    label: string;
-    href: string;
-  };
+  let ratingEligibleKjop = 0;
+  for (const v of visibleBidderMineDealsRowVms) {
+    const d = v.deal;
+    if (
+      d &&
+      auctionDealDecisionsAreBothDeal(d) &&
+      d.buyer_received_card === true &&
+      !ratedListingIds.has(String(v.row.id))
+    ) {
+      ratingEligibleKjop += 1;
+    }
+  }
+  const fixedBuyerRatingListed = new Set<string>();
+  for (const row of fixedBuyerGrouped) {
+    const lid = String(row.listingId);
+    if (fixedBuyerRatingListed.has(lid)) continue;
+    if (
+      fixedDealDecisionsAreBothDeal(row) &&
+      row.buyerReceivedCard === true &&
+      !ratedListingIds.has(lid)
+    ) {
+      fixedBuyerRatingListed.add(lid);
+      ratingEligibleKjop += 1;
+    }
+  }
 
-  const mineDealsTasks: MineDealsTaskRow[] = [];
+  const mineDealsTasksSalg: MineDealsTaskRow[] = [];
   if (auctionSalgAwaitingAnswer > 0) {
-    mineDealsTasks.push({
+    mineDealsTasksSalg.push({
       key: "auction-salg-svar",
       count: auctionSalgAwaitingAnswer,
-      label: `Du har ${auctionSalgAwaitingAnswer} ${auctionSalgAwaitingAnswer === 1 ? "auksjonsdeal" : "auksjonsdeals"} under Mine salg som venter på svar fra deg`,
+      label: `Du har ${auctionSalgAwaitingAnswer} ${auctionSalgAwaitingAnswer === 1 ? "auksjonsdeal" : "auksjonsdeals"} som venter på svar fra deg`,
       href: `${buildMyAuctionsHref({ tab: "annonser", type: "auction" })}#mine-deals-annonser-auction`,
     });
   }
-  if (auctionKjopAwaitingAnswer > 0) {
-    mineDealsTasks.push({
-      key: "auction-kjop-svar",
-      count: auctionKjopAwaitingAnswer,
-      label: `Du har ${auctionKjopAwaitingAnswer} ${auctionKjopAwaitingAnswer === 1 ? "auksjonsdeal" : "auksjonsdeals"} under Mine kjøp som venter på svar fra deg`,
-      href: `${buildMyAuctionsHref({ tab: "deals", type: "auction" })}#mine-deals-deals-auction`,
-    });
-  }
   if (fixedSalgAwaitingAnswer > 0) {
-    mineDealsTasks.push({
+    mineDealsTasksSalg.push({
       key: "fixed-salg-svar",
       count: fixedSalgAwaitingAnswer,
-      label: `Du har ${fixedSalgAwaitingAnswer} fastprisbud under Mine salg som venter på svar fra deg`,
+      label: `Du har ${fixedSalgAwaitingAnswer} fastprisbud som venter på svar fra deg`,
       href: `${buildMyAuctionsHref({ tab: "annonser", type: "fixed_price" })}#mine-deals-annonser-fixed_price`,
     });
   }
-  if (fixedKjopAwaitingAnswer > 0) {
-    mineDealsTasks.push({
-      key: "fixed-kjop-svar",
-      count: fixedKjopAwaitingAnswer,
-      label: `Du har ${fixedKjopAwaitingAnswer} fastprisbud under Mine kjøp som venter på svar fra deg`,
-      href: `${buildMyAuctionsHref({ tab: "deals", type: "fixed_price" })}#mine-deals-deals-fixed_price`,
-    });
-  }
-  if (auctionKjopConfirmCard > 0) {
-    mineDealsTasks.push({
-      key: "bekreft-kort-auction",
-      count: auctionKjopConfirmCard,
-      label: `Du har ${auctionKjopConfirmCard} ${handelWord(auctionKjopConfirmCard)} (auksjon) der du må bekrefte mottatt kort`,
-      href: `${buildMyAuctionsHref({ tab: "deals", type: "auction" })}#mine-deals-deals-auction`,
-    });
-  }
-  if (fixedKjopConfirmCard > 0) {
-    mineDealsTasks.push({
-      key: "bekreft-kort-fixed",
-      count: fixedKjopConfirmCard,
-      label: `Du har ${fixedKjopConfirmCard} ${handelWord(fixedKjopConfirmCard)} (fastpris) der du må bekrefte mottatt kort`,
-      href: `${buildMyAuctionsHref({ tab: "deals", type: "fixed_price" })}#mine-deals-deals-fixed_price`,
-    });
-  }
   if (auctionSalgConfirmPayment > 0) {
-    mineDealsTasks.push({
+    mineDealsTasksSalg.push({
       key: "bekreft-betaling-auction",
       count: auctionSalgConfirmPayment,
       label: `Du har ${auctionSalgConfirmPayment} ${handelWord(auctionSalgConfirmPayment)} (auksjon) der du må bekrefte mottatt betaling`,
@@ -1009,19 +1042,61 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     });
   }
   if (fixedSalgConfirmPayment > 0) {
-    mineDealsTasks.push({
+    mineDealsTasksSalg.push({
       key: "bekreft-betaling-fixed",
       count: fixedSalgConfirmPayment,
       label: `Du har ${fixedSalgConfirmPayment} ${handelWord(fixedSalgConfirmPayment)} (fastpris) der du må bekrefte mottatt betaling`,
       href: `${buildMyAuctionsHref({ tab: "annonser", type: "fixed_price" })}#mine-deals-annonser-fixed_price`,
     });
   }
-  if (ratingEligibleCount > 0) {
-    mineDealsTasks.push({
-      key: "rating",
-      count: ratingEligibleCount,
-      label: `Du har ${ratingEligibleCount} ${handelWord(ratingEligibleCount)} klare for rating`,
-      href: buildMyAuctionsHref({}),
+  if (ratingEligibleSalg > 0) {
+    mineDealsTasksSalg.push({
+      key: "rating-salg",
+      count: ratingEligibleSalg,
+      label: `Du har ${ratingEligibleSalg} ${handelWord(ratingEligibleSalg)} klare for rating`,
+      href: buildMyAuctionsHref({ tab: "annonser" }),
+    });
+  }
+
+  const mineDealsTasksKjop: MineDealsTaskRow[] = [];
+  if (auctionKjopAwaitingAnswer > 0) {
+    mineDealsTasksKjop.push({
+      key: "auction-kjop-svar",
+      count: auctionKjopAwaitingAnswer,
+      label: `Du har ${auctionKjopAwaitingAnswer} ${auctionKjopAwaitingAnswer === 1 ? "auksjonsdeal" : "auksjonsdeals"} som venter på svar fra deg`,
+      href: `${buildMyAuctionsHref({ tab: "deals", type: "auction" })}#mine-deals-deals-auction`,
+    });
+  }
+  if (fixedKjopAwaitingAnswer > 0) {
+    mineDealsTasksKjop.push({
+      key: "fixed-kjop-svar",
+      count: fixedKjopAwaitingAnswer,
+      label: `Du har ${fixedKjopAwaitingAnswer} fastprisbud som venter på svar fra deg`,
+      href: `${buildMyAuctionsHref({ tab: "deals", type: "fixed_price" })}#mine-deals-deals-fixed_price`,
+    });
+  }
+  if (auctionKjopConfirmCard > 0) {
+    mineDealsTasksKjop.push({
+      key: "bekreft-kort-auction",
+      count: auctionKjopConfirmCard,
+      label: `Du har ${auctionKjopConfirmCard} ${handelWord(auctionKjopConfirmCard)} (auksjon) der du må bekrefte mottatt kort`,
+      href: `${buildMyAuctionsHref({ tab: "deals", type: "auction" })}#mine-deals-deals-auction`,
+    });
+  }
+  if (fixedKjopConfirmCard > 0) {
+    mineDealsTasksKjop.push({
+      key: "bekreft-kort-fixed",
+      count: fixedKjopConfirmCard,
+      label: `Du har ${fixedKjopConfirmCard} ${handelWord(fixedKjopConfirmCard)} (fastpris) der du må bekrefte mottatt kort`,
+      href: `${buildMyAuctionsHref({ tab: "deals", type: "fixed_price" })}#mine-deals-deals-fixed_price`,
+    });
+  }
+  if (ratingEligibleKjop > 0) {
+    mineDealsTasksKjop.push({
+      key: "rating-kjop",
+      count: ratingEligibleKjop,
+      label: `Du har ${ratingEligibleKjop} ${handelWord(ratingEligibleKjop)} klare for rating`,
+      href: buildMyAuctionsHref({ tab: "deals" }),
     });
   }
 
@@ -1048,30 +1123,16 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
             >
               Dette må du gjøre
             </h2>
-            {mineDealsTasks.length === 0 ? (
-              <p className="mt-2 text-sm text-zinc-600">
-                Ingen handlinger akkurat nå.
-              </p>
-            ) : (
-              <ul className="mt-3 divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-zinc-50/60">
-                {mineDealsTasks.map((task) => (
-                  <li key={task.key}>
-                    <Link
-                      href={task.href}
-                      className="flex items-start gap-3 px-3 py-3 text-sm text-zinc-800 transition hover:bg-white"
-                    >
-                      <span
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-xs font-bold text-amber-800 ring-1 ring-amber-200/80"
-                        aria-hidden
-                      >
-                        {task.count > 9 ? "9+" : task.count}
-                      </span>
-                      <span className="min-w-0 pt-0.5 leading-snug">{task.label}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+              <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm sm:p-4">
+                <h3 className="text-sm font-semibold text-zinc-900">Mine salg</h3>
+                <MineDealsTaskColumn tasks={mineDealsTasksSalg} />
+              </div>
+              <div className="rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm sm:p-4">
+                <h3 className="text-sm font-semibold text-zinc-900">Mine kjøp</h3>
+                <MineDealsTaskColumn tasks={mineDealsTasksKjop} />
+              </div>
+            </div>
           </section>
 
           <nav
@@ -1183,6 +1244,14 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       group,
                                       bidderUn,
                                     );
+                                    const auctionVenterBadge =
+                                      group === "deal_venter"
+                                        ? auctionDealVenterMineCardBadge(
+                                            "seller",
+                                            deal,
+                                            bidderUn,
+                                          )
+                                        : null;
                                     return (
                                       <li key={row.id} className={mineDealCardClass}>
                                         <MineDealCardImage imageUrls={row.image_urls} />
@@ -1197,10 +1266,18 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          <p className="inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
-                                            {dealStatusGroupLabel(group)}
-                                          </p>
-                                          <p className="text-xs text-zinc-600">{handlingHint}</p>
+                                          {auctionVenterBadge ? (
+                                            <p className={auctionVenterBadge.className}>
+                                              {auctionVenterBadge.text}
+                                            </p>
+                                          ) : (
+                                            <p className={auctionMineCardNeutralBadgeClass}>
+                                              {dealStatusGroupLabel(group)}
+                                            </p>
+                                          )}
+                                          {group !== "deal_venter" && handlingHint ? (
+                                            <p className="text-xs text-zinc-600">{handlingHint}</p>
+                                          ) : null}
                                           {bidderUn ? (
                                             <p className="text-xs text-zinc-600">
                                               Budgiver:{" "}
@@ -1384,6 +1461,14 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       group,
                                       sellerUn,
                                     );
+                                    const auctionVenterBadge =
+                                      group === "deal_venter"
+                                        ? auctionDealVenterMineCardBadge(
+                                            "bidder",
+                                            deal,
+                                            sellerUn,
+                                          )
+                                        : null;
                                     return (
                                       <li key={row.id} className={mineDealCardClass}>
                                         <MineDealCardImage imageUrls={row.image_urls} />
@@ -1400,10 +1485,18 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          <p className="inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
-                                            {dealStatusGroupLabel(group)}
-                                          </p>
-                                          <p className="text-xs text-zinc-600">{handlingHint}</p>
+                                          {auctionVenterBadge ? (
+                                            <p className={auctionVenterBadge.className}>
+                                              {auctionVenterBadge.text}
+                                            </p>
+                                          ) : (
+                                            <p className={auctionMineCardNeutralBadgeClass}>
+                                              {dealStatusGroupLabel(group)}
+                                            </p>
+                                          )}
+                                          {group !== "deal_venter" && handlingHint ? (
+                                            <p className="text-xs text-zinc-600">{handlingHint}</p>
+                                          ) : null}
                                           {sellerUn ? (
                                             <p className="text-xs text-zinc-600">
                                               Selger:{" "}
