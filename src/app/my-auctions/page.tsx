@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -10,12 +11,48 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import { normalizeListingImageUrls } from "@/lib/listing-images";
 import {
   dealStatusGroupLabel,
+  dealStatusWaitOnCounterpart,
   resolveDealStatusGroup,
   type DealStatusGroup,
 } from "./deal-status-ui";
+
 export const dynamic = "force-dynamic";
+
+/** Listing cards aligned with home (no full-card link — actions stay explicit). */
+const mineDealCardClass =
+  "flex h-full min-w-0 flex-col gap-3 rounded-2xl border border-zinc-200 bg-white p-3 text-sm shadow-sm";
+
+const mineDealGridClass =
+  "mt-2 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+
+const mineDealActionLinkClass =
+  "inline-flex w-full items-center justify-center rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50 sm:w-auto";
+
+function MineDealCardImage({ imageUrls }: { imageUrls: unknown }) {
+  const first = normalizeListingImageUrls(imageUrls)[0] ?? null;
+  if (first) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+        <Image
+          src={first}
+          alt=""
+          width={400}
+          height={250}
+          unoptimized
+          className="aspect-[16/10] w-full object-cover"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="flex aspect-[16/10] w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+      Ingen bilde
+    </div>
+  );
+}
 
 type PageProps = {
   searchParams: Promise<{
@@ -126,9 +163,11 @@ function dealCardHandlingHint(
   viewerRole: "seller" | "bidder",
   deal: DealRowLite | null | undefined,
   group: PostAuctionOutcomeGroup,
-): "Krever handling fra deg" | "Venter på motpart" | null {
+  counterpartUsername: string | null | undefined,
+): string | null {
+  const wait = () => dealStatusWaitOnCounterpart(counterpartUsername);
   if (group === "no_deal" || group === "deal_fullfort") {
-    return "Venter på motpart";
+    return wait();
   }
   if (group === "deal_venter") {
     const s = deal?.seller_decision ?? "pending";
@@ -136,25 +175,25 @@ function dealCardHandlingHint(
     const mine = viewerRole === "seller" ? s : b;
     const theirs = viewerRole === "seller" ? b : s;
     if (mine === "pending") return "Krever handling fra deg";
-    if (theirs === "pending") return "Venter på motpart";
-    return "Venter på motpart";
+    if (theirs === "pending") return wait();
+    return wait();
   }
   // deal_bekreftet
   if (!deal) return null;
   if (deal.seller_decision !== "deal" || deal.bidder_decision !== "deal") {
-    return "Venter på motpart";
+    return wait();
   }
   if (!deal.buyer_received_card) {
     return viewerRole === "bidder"
       ? "Krever handling fra deg"
-      : "Venter på motpart";
+      : wait();
   }
   if (!deal.seller_received_payment) {
     return viewerRole === "seller"
       ? "Krever handling fra deg"
-      : "Venter på motpart";
+      : wait();
   }
-  return "Venter på motpart";
+  return wait();
 }
 
 function fixedDealHandlingHint(
@@ -166,23 +205,25 @@ function fixedDealHandlingHint(
     buyerReceivedCard: boolean;
     sellerReceivedPayment: boolean;
   },
-): "Krever handling fra deg" | "Venter på motpart" {
+  counterpartUsername: string | null | undefined,
+): string {
+  const wait = () => dealStatusWaitOnCounterpart(counterpartUsername);
   if (row.group === "no_deal" || row.group === "deal_fullfort") {
-    return "Venter på motpart";
+    return wait();
   }
   if (row.group === "deal_venter") {
     const mine = viewerRole === "seller" ? row.sellerDecision : row.bidderDecision;
-    return mine === "pending" ? "Krever handling fra deg" : "Venter på motpart";
+    return mine === "pending" ? "Krever handling fra deg" : wait();
   }
   if (row.group === "deal_bekreftet") {
     if (!row.buyerReceivedCard) {
-      return viewerRole === "buyer" ? "Krever handling fra deg" : "Venter på motpart";
+      return viewerRole === "buyer" ? "Krever handling fra deg" : wait();
     }
     if (!row.sellerReceivedPayment) {
-      return viewerRole === "seller" ? "Krever handling fra deg" : "Venter på motpart";
+      return viewerRole === "seller" ? "Krever handling fra deg" : wait();
     }
   }
-  return "Venter på motpart";
+  return wait();
 }
 
 function postAuctionOutcomeGroup(
@@ -200,6 +241,22 @@ function postAuctionOutcomeGroup(
     sellerReceivedPayment: deal.seller_received_payment,
     isCompleted: isSellerDealFullyCompleted(deal),
   });
+}
+
+function handelWord(n: number) {
+  return n === 1 ? "handel" : "handler";
+}
+
+function auctionDealDecisionsAreBothDeal(deal: DealRowLite | null | undefined): boolean {
+  if (!deal) return false;
+  return deal.seller_decision === "deal" && deal.bidder_decision === "deal";
+}
+
+function fixedDealDecisionsAreBothDeal(row: {
+  sellerDecision: string;
+  bidderDecision: string;
+}): boolean {
+  return row.sellerDecision === "deal" && row.bidderDecision === "deal";
 }
 
 export default async function MyAuctionsPage({ searchParams }: PageProps) {
@@ -230,6 +287,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
   type SellerMineRow = {
     id: string;
     title: string | null;
+    image_urls: unknown;
     auction_starts_at: string | null;
     auction_ends_at: string | null;
     seller_id: string;
@@ -241,6 +299,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
   type BidderWinRow = {
     id: string;
     title: string | null;
+    image_urls: unknown;
     auction_starts_at: string | null;
     auction_ends_at: string | null;
     seller_id: string;
@@ -260,7 +319,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
   const { data: sellerListingsRaw, error: sellerErr } = await supabase
     .from("listings")
     .select(
-      "id, title, auction_starts_at, auction_ends_at, seller_id, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+      "id, title, image_urls, auction_starts_at, auction_ends_at, seller_id, use_reserve_price, reserve_price_nok, contact_threshold_percent",
     )
     .eq("type", "auction")
     .not("auction_ends_at", "is", null)
@@ -276,6 +335,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     .map((l) => ({
       id: l.id,
       title: l.title,
+      image_urls: l.image_urls,
       auction_starts_at: l.auction_starts_at,
       auction_ends_at: l.auction_ends_at,
       seller_id: String(l.seller_id ?? ""),
@@ -306,7 +366,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     const { data: bidderCandidates, error: bidderListErr } = await supabase
       .from("listings")
       .select(
-        "id, title, auction_starts_at, auction_ends_at, seller_id, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+        "id, title, image_urls, auction_starts_at, auction_ends_at, seller_id, use_reserve_price, reserve_price_nok, contact_threshold_percent",
       )
       .eq("type", "auction")
       .not("auction_ends_at", "is", null)
@@ -368,6 +428,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
         .map((l) => ({
           id: l.id,
           title: l.title,
+          image_urls: l.image_urls,
           auction_starts_at: l.auction_starts_at,
           auction_ends_at: l.auction_ends_at,
           seller_id: String(l.seller_id ?? ""),
@@ -575,6 +636,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     {
       id: string;
       title: string | null;
+      image_urls: unknown;
       price_nok: number | string | null;
       status: string | null;
       seller_id: string | null;
@@ -587,7 +649,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     });
     const { data: fixedListingRows, error: fixedListingErr } = await supabase
       .from("listings")
-      .select("id, title, price_nok, status, seller_id, type")
+      .select("id, title, image_urls, price_nok, status, seller_id, type")
       .in("id", fixedPriceListingIds)
       .eq("type", "fixed_price");
     if (fixedListingErr) {
@@ -599,6 +661,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       fixedPriceListingById.set(id, {
         id,
         title: row.title,
+        image_urls: row.image_urls,
         price_nok: row.price_nok,
         status: row.status,
         seller_id: row.seller_id,
@@ -628,6 +691,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       return {
         listingId: listing?.id ?? deal.listing_id,
         title: listing?.title ?? "Annonse ikke tilgjengelig",
+        listingImageUrls: listing?.image_urls ?? null,
         priceNok: listing?.price_nok ?? null,
         offerNok,
         sellerDecision: deal.seller_decision,
@@ -654,6 +718,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
       return {
         listingId: listing?.id ?? deal.listing_id,
         title: listing?.title ?? "Annonse ikke tilgjengelig",
+        listingImageUrls: listing?.image_urls ?? null,
         priceNok: listing?.price_nok ?? null,
         offerNok,
         sellerDecision: deal.seller_decision,
@@ -752,6 +817,214 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     }
   }
 
+  const listingIdsForRatings = new Set<string>();
+  for (const v of visibleSellerRowVms) {
+    if (v.row.id) listingIdsForRatings.add(String(v.row.id));
+  }
+  for (const v of visibleBidderMineDealsRowVms) {
+    if (v.row.id) listingIdsForRatings.add(String(v.row.id));
+  }
+  for (const v of fixedSellerGrouped) {
+    if (v.listingId) listingIdsForRatings.add(String(v.listingId));
+  }
+  for (const v of fixedBuyerGrouped) {
+    if (v.listingId) listingIdsForRatings.add(String(v.listingId));
+  }
+
+  const ratedListingIds = new Set<string>();
+  if (listingIdsForRatings.size > 0) {
+    const { data: ratingRows, error: ratingErr } = await supabase
+      .from("deal_ratings")
+      .select("listing_id")
+      .eq("from_user_id", user.id)
+      .in("listing_id", [...listingIdsForRatings]);
+    if (ratingErr) {
+      console.error("deal_ratings (mine-deals overview):", ratingErr.message);
+    } else {
+      for (const r of ratingRows ?? []) {
+        const lid = typeof r.listing_id === "string" ? r.listing_id.trim() : "";
+        if (lid !== "") ratedListingIds.add(lid);
+      }
+    }
+  }
+
+  const auctionSalgAwaitingAnswer = visibleSellerRowVms.filter(
+    (v) =>
+      v.group === "deal_venter" &&
+      String(v.deal?.seller_decision ?? "pending") === "pending",
+  ).length;
+  const auctionKjopAwaitingAnswer = visibleBidderMineDealsRowVms.filter(
+    (v) =>
+      v.group === "deal_venter" &&
+      String(v.deal?.bidder_decision ?? "pending") === "pending",
+  ).length;
+  const fixedSalgAwaitingAnswer = fixedSellerGrouped.filter(
+    (row) => row.group === "deal_venter" && row.sellerDecision === "pending",
+  ).length;
+  const fixedKjopAwaitingAnswer = fixedBuyerGrouped.filter(
+    (row) => row.group === "deal_venter" && row.bidderDecision === "pending",
+  ).length;
+
+  const auctionKjopConfirmCard = visibleBidderMineDealsRowVms.filter(
+    (v) =>
+      v.group === "deal_bekreftet" &&
+      v.deal != null &&
+      auctionDealDecisionsAreBothDeal(v.deal) &&
+      v.deal.buyer_received_card !== true,
+  ).length;
+  const auctionSalgConfirmPayment = visibleSellerRowVms.filter(
+    (v) =>
+      v.group === "deal_bekreftet" &&
+      v.deal != null &&
+      auctionDealDecisionsAreBothDeal(v.deal) &&
+      v.deal.buyer_received_card === true &&
+      v.deal.seller_received_payment !== true,
+  ).length;
+  const fixedKjopConfirmCard = fixedBuyerGrouped.filter(
+    (row) =>
+      row.group === "deal_bekreftet" &&
+      fixedDealDecisionsAreBothDeal(row) &&
+      row.buyerReceivedCard !== true,
+  ).length;
+  const fixedSalgConfirmPayment = fixedSellerGrouped.filter(
+    (row) =>
+      row.group === "deal_bekreftet" &&
+      fixedDealDecisionsAreBothDeal(row) &&
+      row.buyerReceivedCard === true &&
+      row.sellerReceivedPayment !== true,
+  ).length;
+
+  let ratingEligibleCount = 0;
+  for (const v of visibleBidderMineDealsRowVms) {
+    const d = v.deal;
+    if (
+      d &&
+      auctionDealDecisionsAreBothDeal(d) &&
+      d.buyer_received_card === true &&
+      !ratedListingIds.has(String(v.row.id))
+    ) {
+      ratingEligibleCount += 1;
+    }
+  }
+  for (const v of visibleSellerRowVms) {
+    const d = v.deal;
+    if (
+      d &&
+      auctionDealDecisionsAreBothDeal(d) &&
+      d.seller_received_payment === true &&
+      !ratedListingIds.has(String(v.row.id))
+    ) {
+      ratingEligibleCount += 1;
+    }
+  }
+  const fixedBuyerRatingListed = new Set<string>();
+  for (const row of fixedBuyerGrouped) {
+    const lid = String(row.listingId);
+    if (fixedBuyerRatingListed.has(lid)) continue;
+    if (
+      fixedDealDecisionsAreBothDeal(row) &&
+      row.buyerReceivedCard === true &&
+      !ratedListingIds.has(lid)
+    ) {
+      fixedBuyerRatingListed.add(lid);
+      ratingEligibleCount += 1;
+    }
+  }
+  const fixedSellerRatingListed = new Set<string>();
+  for (const row of fixedSellerGrouped) {
+    const lid = String(row.listingId);
+    if (fixedSellerRatingListed.has(lid)) continue;
+    if (
+      fixedDealDecisionsAreBothDeal(row) &&
+      row.sellerReceivedPayment === true &&
+      !ratedListingIds.has(lid)
+    ) {
+      fixedSellerRatingListed.add(lid);
+      ratingEligibleCount += 1;
+    }
+  }
+
+  type MineDealsTaskRow = {
+    key: string;
+    count: number;
+    label: string;
+    href: string;
+  };
+
+  const mineDealsTasks: MineDealsTaskRow[] = [];
+  if (auctionSalgAwaitingAnswer > 0) {
+    mineDealsTasks.push({
+      key: "auction-salg-svar",
+      count: auctionSalgAwaitingAnswer,
+      label: `Du har ${auctionSalgAwaitingAnswer} ${auctionSalgAwaitingAnswer === 1 ? "auksjonsdeal" : "auksjonsdeals"} under Mine salg som venter på svar fra deg`,
+      href: `${buildMyAuctionsHref({ tab: "annonser", type: "auction" })}#mine-deals-annonser-auction`,
+    });
+  }
+  if (auctionKjopAwaitingAnswer > 0) {
+    mineDealsTasks.push({
+      key: "auction-kjop-svar",
+      count: auctionKjopAwaitingAnswer,
+      label: `Du har ${auctionKjopAwaitingAnswer} ${auctionKjopAwaitingAnswer === 1 ? "auksjonsdeal" : "auksjonsdeals"} under Mine kjøp som venter på svar fra deg`,
+      href: `${buildMyAuctionsHref({ tab: "deals", type: "auction" })}#mine-deals-deals-auction`,
+    });
+  }
+  if (fixedSalgAwaitingAnswer > 0) {
+    mineDealsTasks.push({
+      key: "fixed-salg-svar",
+      count: fixedSalgAwaitingAnswer,
+      label: `Du har ${fixedSalgAwaitingAnswer} fastprisbud under Mine salg som venter på svar fra deg`,
+      href: `${buildMyAuctionsHref({ tab: "annonser", type: "fixed_price" })}#mine-deals-annonser-fixed_price`,
+    });
+  }
+  if (fixedKjopAwaitingAnswer > 0) {
+    mineDealsTasks.push({
+      key: "fixed-kjop-svar",
+      count: fixedKjopAwaitingAnswer,
+      label: `Du har ${fixedKjopAwaitingAnswer} fastprisbud under Mine kjøp som venter på svar fra deg`,
+      href: `${buildMyAuctionsHref({ tab: "deals", type: "fixed_price" })}#mine-deals-deals-fixed_price`,
+    });
+  }
+  if (auctionKjopConfirmCard > 0) {
+    mineDealsTasks.push({
+      key: "bekreft-kort-auction",
+      count: auctionKjopConfirmCard,
+      label: `Du har ${auctionKjopConfirmCard} ${handelWord(auctionKjopConfirmCard)} (auksjon) der du må bekrefte mottatt kort`,
+      href: `${buildMyAuctionsHref({ tab: "deals", type: "auction" })}#mine-deals-deals-auction`,
+    });
+  }
+  if (fixedKjopConfirmCard > 0) {
+    mineDealsTasks.push({
+      key: "bekreft-kort-fixed",
+      count: fixedKjopConfirmCard,
+      label: `Du har ${fixedKjopConfirmCard} ${handelWord(fixedKjopConfirmCard)} (fastpris) der du må bekrefte mottatt kort`,
+      href: `${buildMyAuctionsHref({ tab: "deals", type: "fixed_price" })}#mine-deals-deals-fixed_price`,
+    });
+  }
+  if (auctionSalgConfirmPayment > 0) {
+    mineDealsTasks.push({
+      key: "bekreft-betaling-auction",
+      count: auctionSalgConfirmPayment,
+      label: `Du har ${auctionSalgConfirmPayment} ${handelWord(auctionSalgConfirmPayment)} (auksjon) der du må bekrefte mottatt betaling`,
+      href: `${buildMyAuctionsHref({ tab: "annonser", type: "auction" })}#mine-deals-annonser-auction`,
+    });
+  }
+  if (fixedSalgConfirmPayment > 0) {
+    mineDealsTasks.push({
+      key: "bekreft-betaling-fixed",
+      count: fixedSalgConfirmPayment,
+      label: `Du har ${fixedSalgConfirmPayment} ${handelWord(fixedSalgConfirmPayment)} (fastpris) der du må bekrefte mottatt betaling`,
+      href: `${buildMyAuctionsHref({ tab: "annonser", type: "fixed_price" })}#mine-deals-annonser-fixed_price`,
+    });
+  }
+  if (ratingEligibleCount > 0) {
+    mineDealsTasks.push({
+      key: "rating",
+      count: ratingEligibleCount,
+      label: `Du har ${ratingEligibleCount} ${handelWord(ratingEligibleCount)} klare for rating`,
+      href: buildMyAuctionsHref({}),
+    });
+  }
+
   return (
     <div className={pageShellClass}>
       <header className={pageHeaderClass}>
@@ -765,6 +1038,42 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
 
       <section className={pageBodyGapClass}>
         <div className="space-y-6">
+          <section
+            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            aria-labelledby="mine-deals-tasks-heading"
+          >
+            <h2
+              id="mine-deals-tasks-heading"
+              className="text-sm font-semibold text-zinc-900"
+            >
+              Dette må du gjøre
+            </h2>
+            {mineDealsTasks.length === 0 ? (
+              <p className="mt-2 text-sm text-zinc-600">
+                Ingen handlinger akkurat nå.
+              </p>
+            ) : (
+              <ul className="mt-3 divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-zinc-50/60">
+                {mineDealsTasks.map((task) => (
+                  <li key={task.key}>
+                    <Link
+                      href={task.href}
+                      className="flex items-start gap-3 px-3 py-3 text-sm text-zinc-800 transition hover:bg-white"
+                    >
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-xs font-bold text-amber-800 ring-1 ring-amber-200/80"
+                        aria-hidden
+                      >
+                        {task.count > 9 ? "9+" : task.count}
+                      </span>
+                      <span className="min-w-0 pt-0.5 leading-snug">{task.label}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <nav
             className="flex flex-wrap gap-1 border-b border-zinc-200"
             aria-label="Mine salg og Mine kjøp"
@@ -826,7 +1135,10 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
           {activeTab === "annonser" ? (
             <>
               {activeType === "auction" ? (
-                <div className="space-y-2">
+                <div
+                  id="mine-deals-annonser-auction"
+                  className="scroll-mt-24 space-y-2"
+                >
                   <h2 className="text-sm font-semibold text-zinc-900">
                     Auksjoner
                   </h2>
@@ -850,7 +1162,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                 Ingen auksjoner i denne gruppen.
                               </p>
                             ) : (
-                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
+                              <ul className={mineDealGridClass}>
                                 {items.map(
                                   ({
                                     row,
@@ -869,14 +1181,13 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       "seller",
                                       deal,
                                       group,
+                                      bidderUn,
                                     );
                                     return (
-                                      <li
-                                        key={row.id}
-                                        className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
-                                      >
-                                        <div className="space-y-1">
-                                          <p className="font-medium text-zinc-900">
+                                      <li key={row.id} className={mineDealCardClass}>
+                                        <MineDealCardImage imageUrls={row.image_urls} />
+                                        <div className="flex min-w-0 flex-1 flex-col gap-2">
+                                          <p className="line-clamp-2 text-base font-semibold text-zinc-900">
                                             {row.title?.trim() || "—"}
                                           </p>
                                           <p className="text-zinc-600">
@@ -886,7 +1197,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
+                                          <p className="inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
                                             {dealStatusGroupLabel(group)}
                                           </p>
                                           <p className="text-xs text-zinc-600">{handlingHint}</p>
@@ -901,13 +1212,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                               </Link>
                                             </p>
                                           ) : null}
+                                          <div className="mt-auto border-t border-zinc-100 pt-3">
+                                            <Link
+                                              href={`/my-auctions/${row.id}`}
+                                              className={mineDealActionLinkClass}
+                                            >
+                                              Gå til deal
+                                            </Link>
+                                          </div>
                                         </div>
-                                        <Link
-                                          href={`/my-auctions/${row.id}`}
-                                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-                                        >
-                                          Gå til deal
-                                        </Link>
                                       </li>
                                     );
                                   },
@@ -921,7 +1234,10 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div
+                  id="mine-deals-annonser-fixed_price"
+                  className="scroll-mt-24 space-y-2"
+                >
                   <h2 className="text-sm font-semibold text-zinc-900">
                     Fastpris
                   </h2>
@@ -945,7 +1261,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                 Ingen fastprisdeals i denne gruppen.
                               </p>
                             ) : (
-                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
+                              <ul className={mineDealGridClass}>
                                 {items.map((row) => {
                                   const counterpart =
                                     usernameByUserId.get(String(row.counterpartId).trim()) ??
@@ -960,10 +1276,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                   return (
                                     <li
                                       key={`${row.listingId}-${counterpartIdRaw}`}
-                                      className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+                                      className={mineDealCardClass}
                                     >
-                                      <div className="space-y-1">
-                                        <p className="font-medium text-zinc-900">
+                                      <MineDealCardImage imageUrls={row.listingImageUrls} />
+                                      <div className="flex min-w-0 flex-1 flex-col gap-2">
+                                        <p className="line-clamp-2 text-base font-semibold text-zinc-900">
                                           {row.title}
                                         </p>
                                         {row.offerNok != null ? (
@@ -985,11 +1302,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             NOK
                                           </p>
                                         )}
-                                        <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
+                                        <p className="inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
                                           {row.heading}
                                         </p>
                                         <p className="text-xs text-zinc-600">
-                                          {fixedDealHandlingHint("seller", row)}
+                                          {fixedDealHandlingHint("seller", row, counterpart)}
                                         </p>
                                         {counterpart ? (
                                           <p className="text-xs text-zinc-600">
@@ -1002,13 +1319,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </Link>
                                           </p>
                                         ) : null}
+                                        <div className="mt-auto border-t border-zinc-100 pt-3">
+                                          <Link
+                                            href={`/my-auctions/${row.listingId}${buyerQs}`}
+                                            className={mineDealActionLinkClass}
+                                          >
+                                            Gå til deal
+                                          </Link>
+                                        </div>
                                       </div>
-                                      <Link
-                                        href={`/my-auctions/${row.listingId}${buyerQs}`}
-                                        className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-                                      >
-                                        Gå til deal
-                                      </Link>
                                     </li>
                                   );
                                 })}
@@ -1025,7 +1344,10 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
           ) : (
             <>
               {activeType === "auction" ? (
-                <div className="space-y-2">
+                <div
+                  id="mine-deals-deals-auction"
+                  className="scroll-mt-24 space-y-2"
+                >
                   <h2 className="text-sm font-semibold text-zinc-900">
                     Auksjoner
                   </h2>
@@ -1049,7 +1371,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                 Ingen auksjoner i denne gruppen.
                               </p>
                             ) : (
-                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
+                              <ul className={mineDealGridClass}>
                                 {items.map(
                                   ({ row, highestNok, group, deal }) => {
                                     const sellerUn =
@@ -1060,14 +1382,13 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       "bidder",
                                       deal,
                                       group,
+                                      sellerUn,
                                     );
                                     return (
-                                      <li
-                                        key={row.id}
-                                        className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
-                                      >
-                                        <div className="space-y-1">
-                                          <p className="font-medium text-zinc-900">
+                                      <li key={row.id} className={mineDealCardClass}>
+                                        <MineDealCardImage imageUrls={row.image_urls} />
+                                        <div className="flex min-w-0 flex-1 flex-col gap-2">
+                                          <p className="line-clamp-2 text-base font-semibold text-zinc-900">
                                             {row.title?.trim() || "—"}
                                           </p>
                                           <p className="text-zinc-600">
@@ -1079,7 +1400,7 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
+                                          <p className="inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
                                             {dealStatusGroupLabel(group)}
                                           </p>
                                           <p className="text-xs text-zinc-600">{handlingHint}</p>
@@ -1094,13 +1415,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                               </Link>
                                             </p>
                                           ) : null}
+                                          <div className="mt-auto border-t border-zinc-100 pt-3">
+                                            <Link
+                                              href={`/my-auctions/${row.id}`}
+                                              className={mineDealActionLinkClass}
+                                            >
+                                              Gå til deal
+                                            </Link>
+                                          </div>
                                         </div>
-                                        <Link
-                                          href={`/my-auctions/${row.id}`}
-                                          className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-                                        >
-                                          Gå til deal
-                                        </Link>
                                       </li>
                                     );
                                   },
@@ -1114,7 +1437,10 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div
+                  id="mine-deals-deals-fixed_price"
+                  className="scroll-mt-24 space-y-2"
+                >
                   <h2 className="text-sm font-semibold text-zinc-900">
                     Fastpris
                   </h2>
@@ -1138,18 +1464,16 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                 Ingen fastprisdeals i denne gruppen.
                               </p>
                             ) : (
-                              <ul className="mt-2 divide-y divide-zinc-200 rounded-md border border-zinc-200">
+                              <ul className={mineDealGridClass}>
                                 {items.map((row) => {
                                   const counterpart =
                                     usernameByUserId.get(String(row.counterpartId).trim()) ??
                                     null;
                                   return (
-                                    <li
-                                      key={row.listingId}
-                                      className="flex flex-col gap-3 px-3 py-4 text-sm sm:flex-row sm:items-center sm:justify-between"
-                                    >
-                                      <div className="space-y-1">
-                                        <p className="font-medium text-zinc-900">
+                                    <li key={row.listingId} className={mineDealCardClass}>
+                                      <MineDealCardImage imageUrls={row.listingImageUrls} />
+                                      <div className="flex min-w-0 flex-1 flex-col gap-2">
+                                        <p className="line-clamp-2 text-base font-semibold text-zinc-900">
                                           {row.title}
                                         </p>
                                         {row.offerNok != null ? (
@@ -1171,11 +1495,11 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             NOK
                                           </p>
                                         )}
-                                        <p className="inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
+                                        <p className="inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
                                           {row.heading}
                                         </p>
                                         <p className="text-xs text-zinc-600">
-                                          {fixedDealHandlingHint("buyer", row)}
+                                          {fixedDealHandlingHint("buyer", row, counterpart)}
                                         </p>
                                         {counterpart ? (
                                           <p className="text-xs text-zinc-600">
@@ -1188,13 +1512,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </Link>
                                           </p>
                                         ) : null}
+                                        <div className="mt-auto border-t border-zinc-100 pt-3">
+                                          <Link
+                                            href={`/my-auctions/${row.listingId}`}
+                                            className={mineDealActionLinkClass}
+                                          >
+                                            Gå til deal
+                                          </Link>
+                                        </div>
                                       </div>
-                                      <Link
-                                        href={`/my-auctions/${row.listingId}`}
-                                        className="inline-flex w-fit shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 hover:bg-zinc-50"
-                                      >
-                                        Gå til deal
-                                      </Link>
                                     </li>
                                   );
                                 })}

@@ -57,7 +57,7 @@ export function DealMessagesPanel({
         <ul className="mt-3 space-y-3 border-t border-zinc-200 pt-3">
           {filteredMessages.map((m) => {
             const when = m.created_at ? new Date(m.created_at).toLocaleString() : "—";
-            const label = m.sender_id === currentUserId ? "Deg" : "Motpart";
+            const label = m.sender_id === currentUserId ? "Deg" : "Annen bruker";
             return (
               <li key={m.id} className="text-sm">
                 <p className="font-medium text-zinc-800">

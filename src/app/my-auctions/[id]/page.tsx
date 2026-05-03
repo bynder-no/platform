@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -8,10 +9,14 @@ import { DealChatForm } from "./deal-chat-form";
 import { DealMessagesPanel } from "./deal-messages-panel";
 import { postDealFulfillmentStatusText } from "./deal-status";
 import { SellerReceivedPaymentForm } from "./seller-received-payment-form";
+import { normalizeListingImageUrls } from "@/lib/listing-images";
 import { createClient } from "@/lib/supabase/server";
 import {
+  dealCounterpartDisplayName,
   dealStatusDetailText,
   dealStatusGroupLabel,
+  dealStatusRespondToCounterpart,
+  dealStatusWaitOnCounterpart,
   resolveDealStatusGroup,
 } from "../deal-status-ui";
 import {
@@ -57,14 +62,26 @@ function normalizeCompletedAtIso(value: unknown): string | null {
 function dealVenterActionHint(
   viewerRole: "seller" | "bidder",
   deal: { seller_decision: string; bidder_decision: string },
+  counterpartUsername: string | null | undefined,
 ): string {
   const s = deal.seller_decision ?? "pending";
   const b = deal.bidder_decision ?? "pending";
   const mine = viewerRole === "seller" ? s : b;
   const theirs = viewerRole === "seller" ? b : s;
+  const name = dealCounterpartDisplayName(counterpartUsername);
   if (mine === "pending") return "Gi ditt svar";
-  if (theirs === "pending") return "Venter på svar fra motpart";
-  return "Venter på svar fra motpart";
+  if (theirs === "pending") return `Venter på svar fra ${name}`;
+  return `Venter på svar fra ${name}`;
+}
+
+/** Display-only; seller-auksjon «Deal venter» neste linje. */
+function sellerAuctionDealVenterNextActionLine(
+  deal: { seller_decision: string; bidder_decision: string } | null,
+  counterpartUsername: string | null | undefined,
+): string {
+  const s = deal?.seller_decision ?? "pending";
+  if (s === "pending") return dealStatusRespondToCounterpart(counterpartUsername);
+  return dealStatusWaitOnCounterpart(counterpartUsername);
 }
 
 export default async function MyAuctionDealRoomPage({
@@ -96,7 +113,7 @@ export default async function MyAuctionDealRoomPage({
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, seller_id, type, status, price_nok, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
+      "title, seller_id, type, status, price_nok, image_urls, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent",
     )
     .eq("id", id)
     .maybeSingle();
@@ -357,6 +374,7 @@ export default async function MyAuctionDealRoomPage({
       bidderDecision,
       buyerReceivedCard,
       sellerReceivedPayment,
+      counterpartUsername,
     });
 
     const offerNokDisplay =
@@ -410,7 +428,7 @@ export default async function MyAuctionDealRoomPage({
                 </span>
               </p>
               <p className="mt-1 text-zinc-700">
-                Motpart:{" "}
+                {isFixedSeller ? "Kjøper" : "Selger"}:{" "}
                 <span className="font-medium text-zinc-900">
                   {counterpartUsername ?? "—"}
                 </span>
@@ -803,7 +821,11 @@ export default async function MyAuctionDealRoomPage({
     dealRow.seller_decision !== "no_deal" &&
     dealRow.bidder_decision !== "no_deal" &&
     !(dealRow.seller_decision === "deal" && dealRow.bidder_decision === "deal")
-      ? dealVenterActionHint(isSeller ? "seller" : "bidder", dealRow)
+      ? dealVenterActionHint(
+          isSeller ? "seller" : "bidder",
+          dealRow,
+          counterpartUsername,
+        )
       : undefined;
 
   const auctionStatusGroup = !hasAuctionBids || !contactUnlockedPostAuction
@@ -826,7 +848,18 @@ export default async function MyAuctionDealRoomPage({
     bidderDecision: dealRow?.bidder_decision ?? "pending",
     buyerReceivedCard: dealRow?.buyer_received_card ?? false,
     sellerReceivedPayment: dealRow?.seller_received_payment ?? false,
+    counterpartUsername,
   });
+
+  const auctionSellerCoverUrl = isSeller
+    ? normalizeListingImageUrls(listing.image_urls)[0] ?? null
+    : null;
+  const auctionSellerReserveMinsteprisLine =
+    listing.use_reserve_price === true &&
+    listing.reserve_price_nok != null &&
+    Number.isFinite(Number(listing.reserve_price_nok))
+      ? `Ønsket minstepris: ${Math.trunc(Number(listing.reserve_price_nok))} NOK`
+      : "Ingen ønsket minstepris";
 
   return (
     <div className={pageShellClass}>
@@ -844,48 +877,120 @@ export default async function MyAuctionDealRoomPage({
       </header>
 
       <div className={`${pageBodyGapClass} space-y-8 text-sm`}>
-        <section aria-labelledby="dealroom-summary-heading">
-          <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
-            Dealoversikt
-          </h2>
-          <div className="mt-2 rounded-md border border-zinc-200 p-4">
-            <p className="text-lg font-semibold text-zinc-950">
-              {listing.title?.trim() || "—"}
-            </p>
-            <p className="mt-2 text-zinc-700">
-              Motpart:{" "}
-              <span className="font-medium text-zinc-900">
-                {counterpartUsername ?? "—"}
-              </span>
-            </p>
-            <p className="mt-1 text-zinc-700">
-              Du er:{" "}
-              <span className="font-medium text-zinc-900">
-                {isSeller ? "Selger" : "Kjøper"}
-              </span>
-            </p>
-            <div className="mt-4 rounded-md border border-zinc-200 p-3">
-              <p className={sectionLabelClass}>Status nå</p>
-              <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
-                {topStatusLabel}
-              </p>
-              <p className="mt-2 text-zinc-600">
-                Neste steg:{" "}
-                {topStatusHelperText}
-              </p>
+        {isSeller ? (
+          <section aria-labelledby="dealroom-summary-heading">
+            <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
+              Dealoversikt
+            </h2>
+            <div className="mt-2 space-y-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              {auctionSellerCoverUrl ? (
+                <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+                  <Image
+                    src={auctionSellerCoverUrl}
+                    alt=""
+                    width={800}
+                    height={420}
+                    unoptimized
+                    className="aspect-[16/9] w-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="flex aspect-[16/9] w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+                  Ingen bilde
+                </div>
+              )}
+              <div>
+                <p className="text-lg font-semibold leading-snug text-zinc-950">
+                  {listing.title?.trim() || "—"}
+                </p>
+                <p className="mt-3 text-sm text-zinc-700">
+                  <span className="text-zinc-600">Høyeste bud gitt:</span>{" "}
+                  <span className="font-semibold tabular-nums text-zinc-900">
+                    {highestBidNok > 0 ? highestBidNok : 0} NOK
+                  </span>
+                </p>
+                <p className="mt-2 text-sm text-zinc-700">
+                  <span className="text-zinc-600">{auctionSellerReserveMinsteprisLine}</span>
+                </p>
+              </div>
+              <div className="border-t border-zinc-100 pt-3 text-sm text-zinc-700">
+                <p>
+                  {isSeller ? "Budgiver" : "Selger"}:{" "}
+                  <span className="font-medium text-zinc-900">
+                    {counterpartUsername ?? "—"}
+                  </span>
+                </p>
+                <p className="mt-1">
+                  Du er:{" "}
+                  <span className="font-medium text-zinc-900">Selger</span>
+                </p>
+              </div>
+              <div className="border-t border-zinc-100 pt-3">
+                <p className={sectionLabelClass}>Status</p>
+                <p className="mt-2 inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
+                  {topStatusLabel}
+                </p>
+                {auctionStatusGroup === "deal_venter" ? (
+                  <p className="mt-2 text-sm font-medium text-zinc-900">
+                    {sellerAuctionDealVenterNextActionLine(
+                      dealRow,
+                      counterpartUsername,
+                    )}
+                  </p>
+                ) : (
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                    {topStatusHelperText}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : (
+          <>
+            <section aria-labelledby="dealroom-summary-heading">
+              <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
+                Dealoversikt
+              </h2>
+              <div className="mt-2 rounded-md border border-zinc-200 p-4">
+                <p className="text-lg font-semibold text-zinc-950">
+                  {listing.title?.trim() || "—"}
+                </p>
+                <p className="mt-2 text-zinc-700">
+                  Selger:{" "}
+                  <span className="font-medium text-zinc-900">
+                    {counterpartUsername ?? "—"}
+                  </span>
+                </p>
+                <p className="mt-1 text-zinc-700">
+                  Du er:{" "}
+                  <span className="font-medium text-zinc-900">
+                    Kjøper
+                  </span>
+                </p>
+                <div className="mt-4 rounded-md border border-zinc-200 p-3">
+                  <p className={sectionLabelClass}>Status nå</p>
+                  <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
+                    {topStatusLabel}
+                  </p>
+                  <p className="mt-2 text-zinc-600">
+                    Neste steg:{" "}
+                    {topStatusHelperText}
+                  </p>
+                </div>
+              </div>
+            </section>
 
-        <section aria-labelledby="dealroom-bid-heading">
-          <h2 id="dealroom-bid-heading" className={sectionLabelClass}>
-            Høyeste bud
-          </h2>
-          <p className="mt-2 tabular-nums text-zinc-800">
-            {highestBidNok > 0 ? highestBidNok : 0}{" "}
-            <span className="text-zinc-500">NOK</span>
-          </p>
-        </section>
+            <section aria-labelledby="dealroom-bid-heading">
+              <h2 id="dealroom-bid-heading" className={sectionLabelClass}>
+                Høyeste bud
+              </h2>
+              <p className="mt-2 tabular-nums text-zinc-800">
+                {highestBidNok > 0 ? highestBidNok : 0}{" "}
+                <span className="text-zinc-500">NOK</span>
+              </p>
+            </section>
+          </>
+        )}
 
         <section aria-labelledby="dealroom-contact-heading">
           <h2 id="dealroom-contact-heading" className={sectionLabelClass}>
