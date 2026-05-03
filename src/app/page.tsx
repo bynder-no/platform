@@ -24,6 +24,7 @@ import {
 } from "@/lib/auction-viewer-bid-status";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
 import { HOME_CATEGORY_SHORTCUTS } from "@/lib/home-category-shortcuts";
+import { ListingCategoryBadge } from "@/components/listing-category-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ type ListingCardRow = {
   id: string;
   title: string | null;
   type: string | null;
+  category: string | null;
   price_nok: number | string | null;
   image_urls: unknown;
   auction_starts_at: string | null;
@@ -209,10 +211,13 @@ function HomeAuctionListingCard({
             <p className="text-xs text-zinc-500">
               {homeCardSellerUsernameDisplay(row.seller_id, sellerUsernameById)}
             </p>
-            <div className="flex flex-col gap-1 text-inherit">
-              <span className="inline-flex w-fit rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex w-fit shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
                 {state}
               </span>
+              <ListingCategoryBadge category={row.category} />
+            </div>
+            <div className="flex flex-col gap-1 text-inherit">
               {timeLeft ? (
                 <span className="text-xs text-zinc-500">
                   <span className="font-medium text-zinc-600">
@@ -263,7 +268,7 @@ export default async function HomePage() {
   const nowMs = now.getTime();
 
   const selectCols =
-    "id, title, type, price_nok, image_urls, auction_starts_at, auction_ends_at, created_at, seller_id";
+    "id, title, type, category, price_nok, image_urls, auction_starts_at, auction_ends_at, created_at, seller_id";
 
   const { data: auctionList, error: auctionErr } = await supabase
     .from("listings")
@@ -561,6 +566,7 @@ export default async function HomePage() {
                               sellerUsernameById,
                             )}
                           </p>
+                          <ListingCategoryBadge category={row.category} />
                           <p className="tabular-nums text-lg font-semibold text-zinc-900 group-hover:underline">
                             {priceText(row.price_nok)}
                           </p>

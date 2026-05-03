@@ -42,3 +42,26 @@ export function formatAuctionTimeRemainingNo(
   const secs = Math.floor(ms / 1000);
   return `${secs}s igjen`;
 }
+
+/**
+ * Same rules as home/search auction cards: live → time until end; planlagt → until start;
+ * avsluttet → null (caller may show ended copy separately).
+ */
+export function auctionTimeRemainingLabelFromState(
+  state: "Planlagt" | "Live" | "Avsluttet",
+  startsAt: string | null,
+  endsAt: string | null,
+  nowMs: number,
+): string | null {
+  if (state === "Live") {
+    const endMs = endsAt ? new Date(endsAt).getTime() : Number.NaN;
+    if (!Number.isFinite(endMs)) return null;
+    return formatAuctionTimeRemainingNo(endMs, nowMs);
+  }
+  if (state === "Planlagt") {
+    const startMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
+    if (!Number.isFinite(startMs)) return null;
+    return formatAuctionTimeRemainingNo(startMs, nowMs);
+  }
+  return null;
+}
