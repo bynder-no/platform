@@ -18,7 +18,10 @@ import { viewerAuctionBidPositionLabel } from "@/lib/auction-viewer-bid-status";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
 import { TITLE_KORTSELGER } from "@/lib/profile-titles";
 import { auctionTimeRemainingLabelFromState } from "@/lib/auction-time-remaining-no";
-import { nextValidBidAmountNok } from "@/lib/auction-next-bid-nok";
+import {
+  nextValidBidAmountNok,
+  parsedMinBidIncrementNok,
+} from "@/lib/auction-next-bid-nok";
 
 export const dynamic = "force-dynamic";
 
@@ -429,6 +432,9 @@ export default async function ListingDetailPage({ params }: PageProps) {
     listing.price_nok,
     listing.min_bid_increment_nok,
   );
+  const minBidIncrementForDisplay = parsedMinBidIncrementNok(
+    listing.min_bid_increment_nok,
+  );
 
   let isFavorite = false;
   if (user) {
@@ -767,6 +773,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
                   <ListingAuctionBidPanel
                     listingId={id}
                     minBidNok={minimumNextBidNok}
+                    minBidIncrementNok={minBidIncrementForDisplay}
                   />
                 ) : null}
 
