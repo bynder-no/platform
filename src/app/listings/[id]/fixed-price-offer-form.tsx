@@ -11,8 +11,7 @@ const inputClass = "ui-input mt-1 w-full";
 const textareaClass =
   "ui-input mt-1 w-full min-h-[72px] resize-y py-2.5";
 
-const buttonClass =
-  "ui-button disabled:opacity-50";
+const defaultOpenButtonClass = "ui-button disabled:opacity-50";
 
 type FixedPriceOfferFormProps = {
   listingId: string;
@@ -20,6 +19,8 @@ type FixedPriceOfferFormProps = {
   listingTitle: string;
   originalPriceNok: number | null;
   thumbnailUrl?: string | null;
+  /** If set, styles the “Gi bud” opener (e.g. full-width primary CTA on listing). */
+  openButtonClassName?: string;
 };
 
 export function FixedPriceOfferForm({
@@ -28,6 +29,7 @@ export function FixedPriceOfferForm({
   listingTitle,
   originalPriceNok,
   thumbnailUrl,
+  openButtonClassName,
 }: FixedPriceOfferFormProps) {
   const [open, setOpen] = useState(false);
   const modalRef = useRef<HTMLDivElement | null>(null);
@@ -78,8 +80,12 @@ export function FixedPriceOfferForm({
   };
 
   return (
-    <div className="mt-3">
-      <button type="button" onClick={() => setOpen(true)} className={buttonClass}>
+    <div className={openButtonClassName ? "w-full" : "mt-3"}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className={openButtonClassName ?? defaultOpenButtonClass}
+      >
         Gi bud
       </button>
       {open ? (
@@ -179,7 +185,11 @@ export function FixedPriceOfferForm({
                 <p className="text-sm text-red-600">{state.error}</p>
               ) : null}
               <div className="flex flex-wrap gap-2">
-                <button type="submit" disabled={pending} className={buttonClass}>
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className={defaultOpenButtonClass}
+                >
                   {pending ? "Sender…" : "Send bud"}
                 </button>
                 <button

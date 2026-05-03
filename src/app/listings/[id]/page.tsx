@@ -7,17 +7,16 @@ import {
   pageBodyGapClass,
   pageHeaderClass,
   pageShellClass,
-  pageTitleClass,
 } from "@/lib/page-layout";
 
 import { AuctionDealPanel } from "./auction-deal-panel";
 import { FixedPriceOfferForm } from "./fixed-price-offer-form";
-import { ContactSellerForm } from "./contact-seller-form";
 import { DeleteFixedPriceForm } from "./delete-fixed-price-form";
 import { FavoriteButton } from "./favorite-button";
 import { PlaceBidForm } from "./place-bid-form";
 import { viewerAuctionBidPositionLabel } from "@/lib/auction-viewer-bid-status";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
+import { TITLE_KORTSELGER } from "@/lib/profile-titles";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +35,21 @@ function bidderPrivacyLabel(userId: string | undefined, bidderId: string) {
   return userId && bidderId === userId ? "You" : "Another bidder";
 }
 
+const LISTING_CATEGORY_LABEL: Record<string, string> = {
+  single_card: "Singelkort",
+  slab: "PSA/slabs",
+  sealed: "Sealed produkter",
+  bulk: "Bulk / mange kort",
+};
+
+function listingCategoryDisplayLabel(
+  category: string | null | undefined,
+): string | null {
+  if (category == null || String(category).trim() === "") return null;
+  const k = String(category).trim();
+  return LISTING_CATEGORY_LABEL[k] ?? null;
+}
+
 export default async function ListingDetailPage({ params }: PageProps) {
   const { id } = await params;
   const supabase = await createClient();
@@ -51,7 +65,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const { data: listing, error: listingError } = await supabase
     .from("listings")
     .select(
-      "title, price_nok, min_bid_increment_nok, description, image_urls, created_at, seller_id, type, status, auction_starts_at, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent, auction_outcome",
+      "title, price_nok, min_bid_increment_nok, description, image_urls, created_at, seller_id, type, status, category, auction_starts_at, auction_ends_at, use_reserve_price, reserve_price_nok, contact_threshold_percent, auction_outcome",
     )
     .eq("id", id)
     .maybeSingle();
@@ -97,12 +111,39 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
   const { data: seller, error: sellerError } = await supabase
     .from("profiles")
-    .select("display_name, username")
+    .select("display_name, username, active_title")
     .eq("id", listing.seller_id)
     .maybeSingle();
 
   if (sellerError) {
     throw new Error(`Could not load seller: ${sellerError.message}`);
+  }
+
+  let sellerRatingAverageDisplay: string | null = null;
+  let sellerRatingCount = 0;
+  if (listing.seller_id) {
+    const { data: sellerRatingsReceived, error: sellerRatingsErr } =
+      await supabase
+        .from("deal_ratings")
+        .select("score")
+        .eq("to_user_id", listing.seller_id);
+
+    if (sellerRatingsErr) {
+      throw new Error(
+        `Could not load seller ratings: ${sellerRatingsErr.message}`,
+      );
+    }
+
+    const sellerRatingScores = (sellerRatingsReceived ?? [])
+      .map((r) => Number(r.score))
+      .filter((n) => Number.isFinite(n) && n >= 1 && n <= 5);
+    sellerRatingCount = sellerRatingScores.length;
+    if (sellerRatingCount > 0) {
+      const sum = sellerRatingScores.reduce((a, b) => a + b, 0);
+      sellerRatingAverageDisplay = (
+        Math.round((sum / sellerRatingCount) * 10) / 10
+      ).toFixed(1);
+    }
   }
 
   let auctionBids: BidRow[] = [];
@@ -142,6 +183,10 @@ export default async function ListingDetailPage({ params }: PageProps) {
     seller?.display_name?.trim() ||
     seller?.username?.trim() ||
     null;
+  const sellerActiveTitle =
+    typeof seller?.active_title === "string"
+      ? seller.active_title.trim()
+      : "";
 
   const showEdit =
     user &&
@@ -194,18 +239,6 @@ export default async function ListingDetailPage({ params }: PageProps) {
           ? "Auksjonen er avsluttet uten åpnet kontakt"
           : "Kontakt er åpnet mellom selger og høyeste budgiver"
       : null;
-
-  const showContactSeller = Boolean(
-    user &&
-      (listing.type !== "auction"
-        ? user.id !== listing.seller_id
-        : !auctionTimeEnded
-          ? user.id !== listing.seller_id
-          : contactUnlockedPostAuction &&
-            (user.id === listing.seller_id ||
-              (leadingBidRow != null &&
-                user.id === leadingBidRow.bidder_id))),
-  );
 
   const eligibleForAuctionDeal =
     listing.type === "auction" &&
@@ -406,6 +439,10 @@ export default async function ListingDetailPage({ params }: PageProps) {
         ? "Fixed price"
         : "—";
 
+  const categoryDisplayLabel = listingCategoryDisplayLabel(
+    typeof listing.category === "string" ? listing.category : null,
+  );
+
   const auctionStateLabelNo: "Planlagt" | "Live" | "Avsluttet" | null =
     listing.type === "auction" && auctionState != null
       ? auctionState === "scheduled"
@@ -424,324 +461,417 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const navLinkClass =
     "text-sm font-medium text-zinc-700 underline-offset-2 hover:underline";
 
+  const cardClass = "rounded-2xl border border-zinc-200 bg-white shadow-sm";
+
+  const fixedPriceOpenButtonClass =
+    "w-full rounded-lg bg-blue-600 px-4 py-3.5 text-center text-base font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50";
+
+  const favoriteButtonFixedClassName =
+    "w-full justify-center rounded-lg border border-zinc-300 bg-white py-2.5 text-sm font-medium text-zinc-600 shadow-sm transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-800 disabled:opacity-50";
+
+  const sellerSection = sellerLabel ? (
+    <div className="mt-6 border-t border-zinc-100 pt-6">
+      <p className={sectionLabelClass}>Seller</p>
+      <p className="mt-2 text-base font-medium text-zinc-900">
+        {sellerUsername ? (
+          <Link
+            href={`/u/${encodeURIComponent(sellerUsername)}`}
+            className="underline-offset-2 hover:underline"
+          >
+            {sellerLabel}
+          </Link>
+        ) : (
+          sellerLabel
+        )}
+      </p>
+      {sellerRatingCount > 0 ? (
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-sm">
+          <span className="text-lg font-semibold tabular-nums text-zinc-900">
+            {sellerRatingAverageDisplay ?? "—"}
+          </span>
+          <span className="text-zinc-500">av 5</span>
+          <span className="text-zinc-500">·</span>
+          <span className="text-zinc-500">
+            {sellerRatingCount}{" "}
+            {sellerRatingCount === 1 ? "vurdering" : "vurderinger"}
+          </span>
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-zinc-500">Ingen vurderinger ennå</p>
+      )}
+      {sellerActiveTitle !== "" &&
+      sellerActiveTitle !== TITLE_KORTSELGER ? (
+        <p className="mt-3">
+          <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-900">
+            {sellerActiveTitle}
+          </span>
+        </p>
+      ) : null}
+    </div>
+  ) : null;
+
   return (
-    <div className={pageShellClass}>
-      <header className={pageHeaderClass}>
-        <h1 className={pageTitleClass}>{listing.title}</h1>
-        {user ? (
-          <FavoriteButton listingId={id} isFavorite={isFavorite} />
-        ) : null}
-        <nav
-          aria-label="Listing page"
-          className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2"
-        >
-          {user ? null : (
-            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-              <Link href="/" className={navLinkClass}>
-                Home
-              </Link>
-              <span className="text-zinc-300" aria-hidden>
-                ·
-              </span>
-              <Link href="/dashboard" className={navLinkClass}>
-                Dashboard
-              </Link>
-            </p>
-          )}
-          {showEdit ? (
-            <Link href={`/listings/${id}/edit`} className={navLinkClass}>
-              Edit
-            </Link>
-          ) : null}
-        </nav>
-      </header>
-
-      <div className={`${pageBodyGapClass} space-y-10 text-sm`}>
-        <section aria-labelledby="listing-images-heading">
-          <h2 id="listing-images-heading" className={sectionLabelClass}>
-            Bilder
-          </h2>
-          {coverImage ? (
-            <div className="mt-3 space-y-2">
-              <Image
-                src={coverImage}
-                alt={`Bilde av ${listing.title}`}
-                width={1280}
-                height={320}
-                unoptimized
-                className="h-80 w-full rounded-lg border border-zinc-200 bg-zinc-50 object-contain"
-              />
-              {restImages.length > 0 ? (
-                <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {restImages.map((url) => (
-                    <li key={url}>
-                      <Image
-                        src={url}
-                        alt={`Ekstra bilde av ${listing.title}`}
-                        width={160}
-                        height={96}
-                        unoptimized
-                        className="h-24 w-full rounded-md border border-zinc-200 object-cover"
-                      />
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ) : (
-            <p className="mt-3 text-zinc-700">Ingen bilder lagt til.</p>
-          )}
-        </section>
-
-        <section aria-labelledby="listing-price-heading">
-          <h2 id="listing-price-heading" className={sectionLabelClass}>
-            Price
-          </h2>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-zinc-950 tabular-nums">
-            {listing.type === "auction" ? (
-              <>
-                <span>{highestBidNok > 0 ? highestBidNok : 0}</span>
-                <span className="ml-1.5 text-base font-medium text-zinc-500">
-                  NOK
+    <div className="min-h-screen bg-zinc-50">
+      <div className={pageShellClass}>
+        <header className={pageHeaderClass}>
+          <nav
+            aria-label="Listing page"
+            className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${user ? "justify-end" : "justify-between"}`}
+          >
+            {user ? null : (
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <Link href="/" className={navLinkClass}>
+                  Home
+                </Link>
+                <span className="text-zinc-300" aria-hidden>
+                  ·
                 </span>
-              </>
-            ) : listing.price_nok != null ? (
-              <>
-                <span>{listing.price_nok}</span>
-                <span className="ml-1.5 text-base font-medium text-zinc-500">
-                  NOK
-                </span>
-              </>
-            ) : (
-              "—"
-            )}
-          </p>
-        </section>
-
-        <section aria-labelledby="listing-type-heading">
-          <h2 id="listing-type-heading" className={sectionLabelClass}>
-            Type
-          </h2>
-          <p className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-block rounded-md border border-zinc-200 bg-zinc-100 px-2.5 py-1 text-sm font-semibold text-zinc-900">
-              {typeLabel}
-            </span>
-            {auctionStateLabelNo ? (
-              <span className="inline-block rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-sm font-semibold text-zinc-800">
-                {auctionStateLabelNo}
-              </span>
-            ) : null}
-          </p>
-        </section>
-
-        {listing.type === "auction" ? (
-          <section aria-labelledby="listing-auction-ends-heading">
-            <h2 id="listing-auction-ends-heading" className={sectionLabelClass}>
-              Auction ends
-            </h2>
-            <p className="mt-3 text-zinc-700">
-              {listing.auction_ends_at ? (
-                <time dateTime={String(listing.auction_ends_at)}>
-                  {new Date(listing.auction_ends_at).toLocaleString()}
-                </time>
-              ) : (
-                "—"
-              )}
-            </p>
-          </section>
-        ) : null}
-
-        {listing.type === "auction" ? (
-          <section aria-labelledby="listing-auction-bids-heading">
-            <h2 id="listing-auction-bids-heading" className={sectionLabelClass}>
-              Bids
-            </h2>
-            {highestBidNok > 0 && leadingBidRow ? (
-              <div className="mt-3 space-y-2 text-zinc-700">
-                <p>
-                  <span className="text-zinc-500">
-                    {auctionTimeEnded ? "Winning bid: " : "Current bid: "}
-                  </span>
-                  <span className="tabular-nums font-medium text-zinc-900">
-                    {highestBidNok}
-                  </span>
-                  <span className="text-zinc-500"> NOK</span>
-                </p>
-                <p>
-                  <span className="text-zinc-500">
-                    {auctionTimeEnded ? "Winner: " : "Leading bidder: "}
-                  </span>
-                  <span className="font-medium text-zinc-800">
-                    {bidderPrivacyLabel(user?.id, leadingBidRow.bidder_id)}
-                  </span>
-                </p>
-                {viewerAuctionBidLabel ? (
-                  <p className="text-sm font-medium text-amber-800">
-                    {viewerAuctionBidLabel}
-                  </p>
-                ) : null}
-              </div>
-            ) : (
-              <p className="mt-3 text-zinc-700">
-                {auctionTimeEnded ? "No bids were placed" : "No bids yet"}
+                <Link href="/dashboard" className={navLinkClass}>
+                  Dashboard
+                </Link>
               </p>
             )}
-            {auctionBids.length > 0 ? (
-              <ul className="mt-4 space-y-2 border-t border-zinc-200 pt-4 text-zinc-600">
-                {auctionBids.map((bid) => {
-                  const amount = Number(bid.amount_nok);
-                  const when = bid.created_at
-                    ? new Date(bid.created_at).toLocaleString()
-                    : "—";
-
-                  return (
-                    <li key={bid.id} className="text-sm">
-                      <span className="font-medium text-zinc-800">
-                        {Number.isFinite(amount) ? amount : "—"} NOK
-                      </span>
-                      <span className="text-zinc-300"> · </span>
-                      {bidderPrivacyLabel(user?.id, bid.bidder_id)}
-                      <span className="text-zinc-300"> · </span>
-                      {when}
-                    </li>
-                  );
-                })}
-              </ul>
+            {showEdit ? (
+              <Link href={`/listings/${id}/edit`} className={navLinkClass}>
+                Edit
+              </Link>
             ) : null}
-          </section>
-        ) : null}
+          </nav>
+        </header>
 
-        <section aria-labelledby="listing-description-heading">
-          <h2 id="listing-description-heading" className={sectionLabelClass}>
-            Description
-          </h2>
-          <p className="mt-3 whitespace-pre-wrap leading-relaxed text-zinc-600">
-            {listing.description?.trim() || "—"}
-          </p>
-        </section>
-
-        <section aria-labelledby="listing-listed-heading">
-          <h2 id="listing-listed-heading" className={sectionLabelClass}>
-            Listed
-          </h2>
-          <p className="mt-3 text-zinc-700">
-            {listing.created_at
-              ? new Date(listing.created_at).toLocaleString()
-              : "—"}
-          </p>
-        </section>
-
-        {sellerLabel ? (
-          <section aria-labelledby="listing-seller-heading">
-            <h2 id="listing-seller-heading" className={sectionLabelClass}>
-              Seller
-            </h2>
-            <p className="mt-3 text-zinc-700">
-              {sellerUsername ? (
-                <Link
-                  href={`/u/${encodeURIComponent(sellerUsername)}`}
-                  className="font-medium text-zinc-900 underline-offset-2 hover:underline"
-                >
-                  {sellerLabel}
-                </Link>
-              ) : (
-                sellerLabel
-              )}
-            </p>
-          </section>
-        ) : null}
-
-        {showPlaceBid ? (
-          <section aria-labelledby="listing-bid-heading">
-            <h2 id="listing-bid-heading" className={sectionLabelClass}>
-              Place a bid
-            </h2>
-            <PlaceBidForm
-              listingId={id}
-              minBidNok={minimumNextBidNok}
-            />
-          </section>
-        ) : null}
-
-        {showBuyButton ? (
-          <section aria-labelledby="listing-buy-heading">
-            <h2 id="listing-buy-heading" className={sectionLabelClass}>
-              Gi bud
-            </h2>
-            <FixedPriceOfferForm
-              listingId={id}
-              defaultOfferNok={listingPriceNok ?? 1}
-              listingTitle={listing.title?.trim() || "Annonse"}
-              originalPriceNok={listingPriceNok}
-              thumbnailUrl={coverImage}
-            />
-          </section>
-        ) : null}
-
-        {showDeleteFixedPrice ? (
-          <section aria-labelledby="listing-delete-heading">
-            <h2 id="listing-delete-heading" className={sectionLabelClass}>
-              Slett annonse
-            </h2>
-            <div className="mt-3">
-              <DeleteFixedPriceForm listingId={id} returnTo="/my-listings" />
-            </div>
-          </section>
-        ) : null}
-
-        {auctionTimeScheduled ? (
-          <section aria-labelledby="listing-auction-scheduled-heading">
-            <h2
-              id="listing-auction-scheduled-heading"
-              className={sectionLabelClass}
+        <div className={`${pageBodyGapClass} space-y-10 text-sm text-zinc-900`}>
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-10 xl:grid-cols-[minmax(0,1fr)_420px]">
+            <section
+              aria-labelledby="listing-images-heading"
+              className="order-1 min-w-0"
             >
-              Bidding
-            </h2>
-            <p className="mt-3 text-zinc-700">Planlagt</p>
-          </section>
-        ) : null}
+              <h2 id="listing-images-heading" className="sr-only">
+                Bilder
+              </h2>
+              <div className={`${cardClass} p-4 sm:p-6`}>
+                {coverImage ? (
+                  <div className="space-y-4">
+                    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
+                      <Image
+                        src={coverImage}
+                        alt={`Bilde av ${listing.title}`}
+                        width={1280}
+                        height={960}
+                        unoptimized
+                        className="mx-auto h-auto max-h-[min(56vh,520px)] w-full object-contain"
+                      />
+                    </div>
+                    {restImages.length > 0 ? (
+                      <ul className="flex flex-wrap gap-2 sm:gap-3">
+                        {restImages.map((url) => (
+                          <li
+                            key={url}
+                            className="w-[calc(50%-0.25rem)] shrink-0 sm:w-28"
+                          >
+                            <Image
+                              src={url}
+                              alt={`Ekstra bilde av ${listing.title}`}
+                              width={160}
+                              height={120}
+                              unoptimized
+                              className="h-24 w-full rounded-lg border border-zinc-200 bg-white object-cover"
+                            />
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className="text-zinc-600">Ingen bilder lagt til.</p>
+                )}
+              </div>
+            </section>
 
-        {showAuctionEndedNotice && auctionEndedContactMessage ? (
-          <section aria-labelledby="listing-auction-ended-heading">
-            <h2 id="listing-auction-ended-heading" className={sectionLabelClass}>
-              Bidding
-            </h2>
-            <p className="mt-3 text-zinc-700">
-              {auctionEndedContactMessage}
-            </p>
-          </section>
-        ) : null}
+            <aside className="order-2 lg:sticky lg:top-8 lg:self-start">
+              <div className={`${cardClass} p-6`}>
+                <h1 className="text-balance text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
+                  {listing.title}
+                </h1>
 
-        {showContactSeller ? (
-          <section aria-labelledby="listing-contact-heading">
-            <h2 id="listing-contact-heading" className={sectionLabelClass}>
-              Contact seller
-            </h2>
-            <ContactSellerForm listingId={id} />
-          </section>
-        ) : null}
+                <div className="mt-6">
+                  <p className={sectionLabelClass}>Price</p>
+                  <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-zinc-900 sm:text-4xl">
+                    {listing.type === "auction" ? (
+                      <>
+                        <span>{highestBidNok > 0 ? highestBidNok : 0}</span>
+                        <span className="ml-1.5 text-lg font-medium text-zinc-500 sm:text-xl">
+                          NOK
+                        </span>
+                      </>
+                    ) : listing.price_nok != null ? (
+                      <>
+                        <span>{listing.price_nok}</span>
+                        <span className="ml-1.5 text-lg font-medium text-zinc-500 sm:text-xl">
+                          NOK
+                        </span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </p>
+                </div>
 
-        {eligibleForAuctionDeal && dealRow ? (
-          <section aria-labelledby="listing-deal-heading">
-            <h2 id="listing-deal-heading" className={sectionLabelClass}>
-              Handel
-            </h2>
-            <AuctionDealPanel
-              listingId={id}
-              sellerDecision={dealRow.seller_decision}
-              bidderDecision={dealRow.bidder_decision}
-              showSellerButtons={
-                user!.id === listing.seller_id &&
-                dealRow.seller_decision === "pending"
-              }
-              showBidderButtons={
-                leadingBidRow != null &&
-                user!.id === leadingBidRow.bidder_id &&
-                dealRow.bidder_decision === "pending"
-              }
-            />
-          </section>
-        ) : null}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <span className="inline-flex rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-900">
+                    {typeLabel}
+                  </span>
+                  {categoryDisplayLabel ? (
+                    <span className="inline-flex rounded-full border border-zinc-200 bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-700">
+                      {categoryDisplayLabel}
+                    </span>
+                  ) : null}
+                  {auctionStateLabelNo ? (
+                    <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-900">
+                      {auctionStateLabelNo}
+                    </span>
+                  ) : null}
+                </div>
+
+                {listing.type === "auction" ? (
+                  <>
+                    <div className="mt-5 space-y-3 border-t border-zinc-100 pt-5 text-zinc-700">
+                      <div>
+                        <p className={sectionLabelClass}>Auction ends</p>
+                        <p className="mt-1.5 text-sm font-medium text-zinc-900">
+                          {listing.auction_ends_at ? (
+                            <time dateTime={String(listing.auction_ends_at)}>
+                              {new Date(
+                                listing.auction_ends_at,
+                              ).toLocaleString()}
+                            </time>
+                          ) : (
+                            "—"
+                          )}
+                        </p>
+                      </div>
+                      {highestBidNok > 0 && leadingBidRow ? (
+                        <div className="space-y-2 text-sm">
+                          <p>
+                            <span className="text-zinc-500">
+                              {auctionTimeEnded
+                                ? "Winning bid: "
+                                : "Current bid: "}
+                            </span>
+                            <span className="tabular-nums font-semibold text-zinc-900">
+                              {highestBidNok}
+                            </span>
+                            <span className="text-zinc-500"> NOK</span>
+                          </p>
+                          <p>
+                            <span className="text-zinc-500">
+                              {auctionTimeEnded ? "Winner: " : "Leading bidder: "}
+                            </span>
+                            <span className="font-medium text-zinc-800">
+                              {bidderPrivacyLabel(
+                                user?.id,
+                                leadingBidRow.bidder_id,
+                              )}
+                            </span>
+                          </p>
+                          {viewerAuctionBidLabel ? (
+                            <p className="font-medium text-amber-800">
+                              {viewerAuctionBidLabel}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <p className="text-sm">
+                          {auctionTimeEnded
+                            ? "No bids were placed"
+                            : "No bids yet"}
+                        </p>
+                      )}
+                    </div>
+                    {sellerSection}
+                    {user ? (
+                      <div className="mt-5 border-t border-zinc-100 pt-5">
+                        <FavoriteButton
+                          listingId={id}
+                          isFavorite={isFavorite}
+                          formClassName="mt-0"
+                        />
+                      </div>
+                    ) : null}
+                    <div className="mt-6 space-y-6 border-t border-zinc-100 pt-6">
+                      {auctionTimeScheduled ? (
+                        <p className="text-sm text-zinc-700">Planlagt</p>
+                      ) : null}
+
+                      {showPlaceBid ? (
+                        <section aria-labelledby="listing-bid-heading">
+                          <h2
+                            id="listing-bid-heading"
+                            className={sectionLabelClass}
+                          >
+                            Place a bid
+                          </h2>
+                          <div className="mt-3">
+                            <PlaceBidForm
+                              listingId={id}
+                              minBidNok={minimumNextBidNok}
+                            />
+                          </div>
+                        </section>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {showBuyButton ? (
+                      <div className="mt-4">
+                        <FixedPriceOfferForm
+                          listingId={id}
+                          defaultOfferNok={listingPriceNok ?? 1}
+                          listingTitle={listing.title?.trim() || "Annonse"}
+                          originalPriceNok={listingPriceNok}
+                          thumbnailUrl={coverImage}
+                          openButtonClassName={fixedPriceOpenButtonClass}
+                        />
+                      </div>
+                    ) : null}
+                    {user ? (
+                      <div className="mt-4">
+                        <FavoriteButton
+                          listingId={id}
+                          isFavorite={isFavorite}
+                          formClassName="mt-0 w-full"
+                          buttonClassName={favoriteButtonFixedClassName}
+                        />
+                      </div>
+                    ) : null}
+                    {sellerSection}
+                  </>
+                )}
+              </div>
+            </aside>
+          </div>
+
+          <div className="space-y-10">
+            {listing.type === "auction" && auctionBids.length > 0 ? (
+              <section
+                aria-labelledby="listing-auction-bids-heading"
+                className={`${cardClass} p-6`}
+              >
+                <h2
+                  id="listing-auction-bids-heading"
+                  className="text-sm font-semibold uppercase tracking-wide text-zinc-500"
+                >
+                  Bids
+                </h2>
+                <ul className="mt-4 space-y-2 border-t border-zinc-100 pt-4 text-zinc-600">
+                  {auctionBids.map((bid) => {
+                    const amount = Number(bid.amount_nok);
+                    const when = bid.created_at
+                      ? new Date(bid.created_at).toLocaleString()
+                      : "—";
+
+                    return (
+                      <li key={bid.id} className="text-sm">
+                        <span className="font-medium text-zinc-900">
+                          {Number.isFinite(amount) ? amount : "—"} NOK
+                        </span>
+                        <span className="text-zinc-300"> · </span>
+                        {bidderPrivacyLabel(user?.id, bid.bidder_id)}
+                        <span className="text-zinc-300"> · </span>
+                        {when}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
+
+            <section
+              aria-labelledby="listing-description-heading"
+                className={`${cardClass} p-6 sm:p-8`}
+            >
+              <h2
+                id="listing-description-heading"
+                className="text-lg font-semibold text-zinc-900"
+              >
+                Description
+              </h2>
+              <p className="mt-1 text-xs text-zinc-500">
+                Listed{" "}
+                {listing.created_at
+                  ? new Date(listing.created_at).toLocaleString()
+                  : "—"}
+              </p>
+              <p className="mt-5 whitespace-pre-wrap leading-relaxed text-zinc-700">
+                {listing.description?.trim() || "—"}
+              </p>
+            </section>
+
+            {showDeleteFixedPrice ? (
+              <section
+                aria-labelledby="listing-delete-heading"
+                className={`${cardClass} p-6`}
+              >
+                <h2
+                  id="listing-delete-heading"
+                  className="text-sm font-semibold uppercase tracking-wide text-zinc-500"
+                >
+                  Slett annonse
+                </h2>
+                <div className="mt-4">
+                  <DeleteFixedPriceForm listingId={id} returnTo="/my-listings" />
+                </div>
+              </section>
+            ) : null}
+
+            {showAuctionEndedNotice && auctionEndedContactMessage ? (
+              <section
+                aria-labelledby="listing-auction-ended-heading"
+                className={`${cardClass} p-6`}
+              >
+                <h2
+                  id="listing-auction-ended-heading"
+                  className="text-sm font-semibold uppercase tracking-wide text-zinc-500"
+                >
+                  Bidding
+                </h2>
+                <p className="mt-3 text-zinc-700">
+                  {auctionEndedContactMessage}
+                </p>
+              </section>
+            ) : null}
+
+            {eligibleForAuctionDeal && dealRow ? (
+              <section
+                aria-labelledby="listing-deal-heading"
+                className={`${cardClass} p-6`}
+              >
+                <h2
+                  id="listing-deal-heading"
+                  className="text-sm font-semibold uppercase tracking-wide text-zinc-500"
+                >
+                  Handel
+                </h2>
+                <div className="mt-4">
+                  <AuctionDealPanel
+                    listingId={id}
+                    sellerDecision={dealRow.seller_decision}
+                    bidderDecision={dealRow.bidder_decision}
+                    showSellerButtons={
+                      user!.id === listing.seller_id &&
+                      dealRow.seller_decision === "pending"
+                    }
+                    showBidderButtons={
+                      leadingBidRow != null &&
+                      user!.id === leadingBidRow.bidder_id &&
+                      dealRow.bidder_decision === "pending"
+                    }
+                  />
+                </div>
+              </section>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );

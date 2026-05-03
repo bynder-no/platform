@@ -92,30 +92,18 @@ function priceText(nok: number | string | null) {
   return Number.isFinite(n) ? `${n} NOK` : "—";
 }
 
-function homeCardSellerUsernameLink(
+function homeCardSellerUsernameDisplay(
   sellerId: string | null,
   usernameBySellerId: Map<string, string>,
-  viewerUserId: string | null,
 ) {
   const u = sellerId ? usernameBySellerId.get(sellerId) : undefined;
   if (!u) {
-    return (
-      <span className="text-zinc-400">—</span>
-    );
+    return <span className="text-zinc-400">—</span>;
   }
-  const href =
-    viewerUserId != null &&
-    sellerId != null &&
-    viewerUserId === sellerId
-      ? "/profile"
-      : `/u/${encodeURIComponent(u)}`;
   return (
-    <Link
-      href={href}
-      className="font-medium text-zinc-700 underline-offset-2 hover:underline"
-    >
+    <span className="font-medium text-zinc-700 underline-offset-2 group-hover:underline">
       {u}
-    </Link>
+    </span>
   );
 }
 
@@ -183,74 +171,77 @@ function HomeAuctionListingCard({
     row.auction_ends_at ?? null,
     nowMs,
   );
+  const listingLabel = row.title?.trim()
+    ? `Se annonse: ${row.title.trim()}`
+    : "Se annonse";
+
   return (
     <div
       className={`${cardClass} hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md`}
     >
-      {coverImage ? (
-        <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
-          <Image
-            src={coverImage}
-            alt={row.title?.trim() || "Annonsebilde"}
-            width={224}
-            height={144}
-            unoptimized
-            className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        </div>
-      ) : (
-        <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
-          Ingen bilde
-        </div>
-      )}
-      <div className="flex items-start gap-2.5">
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <Link
-            href={`/listings/${row.id}`}
-            className="line-clamp-2 font-semibold text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2"
-          >
-            {row.title?.trim() || "—"}
-          </Link>
-          <p className="text-xs text-zinc-500">
-            {homeCardSellerUsernameLink(
-              row.seller_id,
-              sellerUsernameById,
-              viewerUserId,
-            )}
-          </p>
-          <Link
-            href={`/listings/${row.id}`}
-            className="flex flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
-          >
-            <span className="inline-flex w-fit rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-              {state}
-            </span>
-            {timeLeft ? (
-              <span className="text-xs text-zinc-500">
-                <span className="font-medium text-zinc-600">
-                  Tid igjen
-                </span>{" "}
-                <span className="tabular-nums">{timeLeft}</span>
+      <Link
+        href={`/listings/${row.id}`}
+        className="absolute inset-0 z-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+        aria-label={listingLabel}
+      />
+      <div className="relative z-10 flex flex-col gap-2.5 pointer-events-none">
+        {coverImage ? (
+          <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
+            <Image
+              src={coverImage}
+              alt=""
+              width={224}
+              height={144}
+              unoptimized
+              className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          </div>
+        ) : (
+          <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+            Ingen bilde
+          </div>
+        )}
+        <div className="flex items-start gap-2.5">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <p className="line-clamp-2 font-semibold text-zinc-900 group-hover:underline">
+              {row.title?.trim() || "—"}
+            </p>
+            <p className="text-xs text-zinc-500">
+              {homeCardSellerUsernameDisplay(row.seller_id, sellerUsernameById)}
+            </p>
+            <div className="flex flex-col gap-1 text-inherit">
+              <span className="inline-flex w-fit rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                {state}
               </span>
-            ) : null}
-            <span className="tabular-nums text-lg font-semibold text-zinc-900">
-              {liveNok} NOK
-            </span>
-            {bidPositionLabel ? (
-              <span className="text-xs font-medium text-amber-800">
-                {bidPositionLabel}
+              {timeLeft ? (
+                <span className="text-xs text-zinc-500">
+                  <span className="font-medium text-zinc-600">
+                    Tid igjen
+                  </span>{" "}
+                  <span className="tabular-nums">{timeLeft}</span>
+                </span>
+              ) : null}
+              <span className="tabular-nums text-lg font-semibold text-zinc-900">
+                {liveNok} NOK
               </span>
-            ) : null}
-          </Link>
+              {bidPositionLabel ? (
+                <span className="text-xs font-medium text-amber-800">
+                  {bidPositionLabel}
+                </span>
+              ) : null}
+            </div>
+          </div>
+          {viewerUserId &&
+          row.seller_id &&
+          row.seller_id !== viewerUserId ? (
+            <div className="relative z-20 shrink-0 self-start pointer-events-auto">
+              <HomeCardFavoriteButton
+                listingId={row.id}
+                isFavorite={favoriteIdSet.has(row.id)}
+              />
+            </div>
+          ) : null}
         </div>
-        {viewerUserId &&
-        row.seller_id &&
-        row.seller_id !== viewerUserId ? (
-          <HomeCardFavoriteButton
-            listingId={row.id}
-            isFavorite={favoriteIdSet.has(row.id)}
-          />
-        ) : null}
       </div>
     </div>
   );
@@ -377,7 +368,7 @@ export default async function HomePage() {
   }
 
   const cardClass =
-    "group flex w-full min-w-0 max-w-none flex-col gap-2.5 rounded-2xl border border-zinc-200 bg-white p-3 text-sm shadow-sm transition-all duration-300 ease-out cursor-pointer";
+    "group relative flex w-full min-w-0 max-w-none flex-col gap-2.5 rounded-2xl border border-zinc-200 bg-white p-3 text-sm shadow-sm transition-all duration-300 ease-out cursor-pointer";
 
   const sectionTitleClass =
     "text-base font-semibold text-zinc-900";
@@ -528,61 +519,68 @@ export default async function HomePage() {
             </p>
           ) : (
             <HomeListingCarousel ariaLabel="Fastprisannonser karusell">
-              {fixedRows.map((row) => (
+              {fixedRows.map((row) => {
+                const fixedListingLabel = row.title?.trim()
+                  ? `Se annonse: ${row.title.trim()}`
+                  : "Se annonse";
+                return (
                 <li key={row.id} className="py-1">
                   <div
                     className={`${cardClass} hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md`}
                   >
-                    {normalizeListingImageUrls(row.image_urls)[0] ? (
-                      <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
-                        <Image
-                          src={normalizeListingImageUrls(row.image_urls)[0]}
-                          alt={row.title?.trim() || "Annonsebilde"}
-                          width={224}
-                          height={144}
-                          unoptimized
-                          className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        />
+                    <Link
+                      href={`/listings/${row.id}`}
+                      className="absolute inset-0 z-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
+                      aria-label={fixedListingLabel}
+                    />
+                    <div className="relative z-10 flex flex-col gap-2.5 pointer-events-none">
+                      {normalizeListingImageUrls(row.image_urls)[0] ? (
+                        <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
+                          <Image
+                            src={normalizeListingImageUrls(row.image_urls)[0]}
+                            alt=""
+                            width={224}
+                            height={144}
+                            unoptimized
+                            className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          />
+                        </div>
+                      ) : (
+                        <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+                          Ingen bilde
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2.5">
+                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                          <p className="line-clamp-2 font-semibold text-zinc-900 group-hover:underline">
+                            {row.title?.trim() || "—"}
+                          </p>
+                          <p className="text-xs text-zinc-500">
+                            {homeCardSellerUsernameDisplay(
+                              row.seller_id,
+                              sellerUsernameById,
+                            )}
+                          </p>
+                          <p className="tabular-nums text-lg font-semibold text-zinc-900 group-hover:underline">
+                            {priceText(row.price_nok)}
+                          </p>
+                        </div>
+                        {user &&
+                        row.seller_id &&
+                        row.seller_id !== user.id ? (
+                          <div className="relative z-20 shrink-0 self-start pointer-events-auto">
+                            <HomeCardFavoriteButton
+                              listingId={row.id}
+                              isFavorite={favoriteIdSet.has(row.id)}
+                            />
+                          </div>
+                        ) : null}
                       </div>
-                    ) : (
-                      <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
-                        Ingen bilde
-                      </div>
-                    )}
-                    <div className="flex items-start gap-2.5">
-                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                        <Link
-                          href={`/listings/${row.id}`}
-                          className="line-clamp-2 font-semibold text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2"
-                        >
-                          {row.title?.trim() || "—"}
-                        </Link>
-                        <p className="text-xs text-zinc-500">
-                          {homeCardSellerUsernameLink(
-                            row.seller_id,
-                            sellerUsernameById,
-                            user?.id ?? null,
-                          )}
-                        </p>
-                        <Link
-                          href={`/listings/${row.id}`}
-                          className="tabular-nums text-lg font-semibold text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2"
-                        >
-                          {priceText(row.price_nok)}
-                        </Link>
-                      </div>
-                      {user &&
-                      row.seller_id &&
-                      row.seller_id !== user.id ? (
-                        <HomeCardFavoriteButton
-                          listingId={row.id}
-                          isFavorite={favoriteIdSet.has(row.id)}
-                        />
-                      ) : null}
                     </div>
                   </div>
                 </li>
-              ))}
+              );
+              })}
             </HomeListingCarousel>
           )}
         </section>
