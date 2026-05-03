@@ -27,11 +27,13 @@ function integerNokFromInput(raw: string) {
 type ListingAuctionBidPanelProps = {
   listingId: string;
   minBidNok: number | null;
+  minBidIncrementNok: number | null;
 };
 
 export function ListingAuctionBidPanel({
   listingId,
   minBidNok,
+  minBidIncrementNok,
 }: ListingAuctionBidPanelProps) {
   const [state, formAction, pending] = useActionState(placeBid, null);
   const [clientError, setClientError] = useState<string | null>(null);
@@ -80,27 +82,38 @@ export function ListingAuctionBidPanel({
       </h2>
 
       <div className="mt-4 flex flex-col gap-4">
-        {minBidNok != null ? (
-          <form
-            action={formAction}
-            className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
-          >
-            <input type="hidden" name="listing_id" value={listingId} />
-            <input type="hidden" name="amount_nok" value={String(minBidNok)} />
-            <button
-              type="submit"
-              disabled={pending}
-              className={`${primaryButtonClass} w-full sm:w-auto`}
-            >
-              {pending ? "Sender…" : `By ${minBidNok} NOK`}
-            </button>
-          </form>
-        ) : (
-          <p className="text-sm text-zinc-600">
-            Kunne ikke beregne neste gyldige bud (sjekk startpris og minste
-            økning).
-          </p>
-        )}
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2">
+          {minBidNok != null ? (
+            <form action={formAction} className="w-full sm:w-auto">
+              <input type="hidden" name="listing_id" value={listingId} />
+              <input
+                type="hidden"
+                name="amount_nok"
+                value={String(minBidNok)}
+              />
+              <button
+                type="submit"
+                disabled={pending}
+                className={`${primaryButtonClass} w-full sm:w-auto`}
+              >
+                {pending ? "Sender…" : `By ${minBidNok} NOK`}
+              </button>
+            </form>
+          ) : (
+            <p className="text-sm text-zinc-600">
+              Kunne ikke beregne neste gyldige bud (sjekk startpris og minste
+              økning).
+            </p>
+          )}
+          {minBidIncrementNok != null ? (
+            <p className="flex items-center gap-2 text-xs tabular-nums text-zinc-500 sm:shrink-0">
+              <span className="text-zinc-400" aria-hidden>
+                •
+              </span>
+              <span>Minste økning: {minBidIncrementNok} NOK</span>
+            </p>
+          ) : null}
+        </div>
 
         <div className="border-t border-zinc-200 pt-4">
           <p className="text-xs font-medium text-zinc-700">Egendefinert bud</p>
