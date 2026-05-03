@@ -5,11 +5,12 @@ import type { ChangeEvent } from "react";
 
 import { placeBid } from "@/app/listings/[id]/actions";
 
+/** Matches listing detail manual bid row (`ListingAuctionBidPanel`). */
 const inputClass =
-  "w-full min-w-[6rem] max-w-[10rem] rounded-lg border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900 placeholder-zinc-400 outline-none focus:ring-2 focus:ring-blue-500 sm:w-auto";
+  "min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none ring-zinc-400 focus:ring-2";
 
-const buttonClass =
-  "rounded-lg bg-blue-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50";
+const outlineButtonClass =
+  "shrink-0 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-800 transition hover:bg-zinc-50 disabled:opacity-50";
 
 function integerNokFromInput(raw: string) {
   const s = raw.trimStart();
@@ -38,9 +39,9 @@ export function DashboardCustomBidForm({
   return (
     <form
       action={formAction}
-      className="flex w-full flex-col gap-1 sm:items-end"
+      className="flex w-full flex-col gap-2"
     >
-      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input type="hidden" name="listing_id" value={listingId} />
         <input type="hidden" name="return_to" value="/dashboard" />
         <input
@@ -54,12 +55,22 @@ export function DashboardCustomBidForm({
           onChange={handleAmountChange}
           className={inputClass}
         />
-        <button type="submit" disabled={pending} className={buttonClass}>
+        <button
+          type="submit"
+          disabled={pending}
+          className={outlineButtonClass}
+        >
           {pending ? "Sender…" : "Send bud"}
         </button>
       </div>
+      <p className="text-xs text-zinc-500">
+        Minimum bud:{" "}
+        <span className="tabular-nums font-medium text-zinc-700">
+          {minNextBidNok} NOK
+        </span>
+      </p>
       {state?.error ? (
-        <p className="max-w-xs text-right text-xs text-red-600">
+        <p className="text-sm text-red-600" role="alert">
           {state.error}
         </p>
       ) : null}

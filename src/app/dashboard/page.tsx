@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -13,16 +12,10 @@ import {
   highestNokByListingId,
   type BidWithListingId,
 } from "@/lib/highest-bid-nok";
-import {
-  leadingBidderIdByListingId,
-  viewerAuctionBidPositionLabel,
-  type BidForLeadingRow,
-} from "@/lib/auction-viewer-bid-status";
+import { type BidForLeadingRow } from "@/lib/auction-viewer-bid-status";
 import { resolvePendingEndedAuctions } from "@/lib/auction-resolution";
-import { nextValidBidAmountNok } from "@/lib/auction-next-bid-nok";
 
-import { DashboardCustomBidForm } from "./dashboard-custom-bid-form";
-import { DashboardQuickBidForm } from "./dashboard-quick-bid-form";
+import { DashboardFollowedAuctionsGrid } from "./dashboard-followed-auctions-grid";
 
 export const dynamic = "force-dynamic";
 
@@ -45,27 +38,14 @@ function isAuctionLiveNow(
   return nowMs >= startsAtMs && nowMs < endsAtMs;
 }
 
-function formatAuctionTimeRemainingNo(endMs: number, nowMs: number): string {
-  const ms = endMs - nowMs;
-  if (ms <= 0) return "Avsluttet";
-  const totalMin = Math.floor(ms / 60_000);
-  if (totalMin < 60) return `${totalMin} min igjen`;
-  const hours = Math.floor(totalMin / 60);
-  const mins = totalMin % 60;
-  if (hours < 24) {
-    return mins > 0 ? `${hours} t ${mins} min igjen` : `${hours} t igjen`;
-  }
-  const days = Math.floor(hours / 24);
-  const h = hours % 24;
-  return h > 0 ? `${days} d ${h} t igjen` : `${days} d igjen`;
-}
-
 const TRACKED_LIVE_AUCTIONS_LIMIT = 4;
 
 type TrackedAuctionListingRow = {
   id: string;
   title: string | null;
   type: string | null;
+  category: string | null;
+  image_urls: unknown;
   auction_starts_at: string | null;
   auction_ends_at: string | null;
   seller_id: string | null;
@@ -103,38 +83,6 @@ export default async function DashboardPage() {
   const now = new Date();
   const nowMs = now.getTime();
 
-  const { data: favoriteRows, error: favoritesError } = await supabase
-    .from("favorites")
-    .select("listing_id, created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(30);
-
-  if (favoritesError) {
-    throw new Error(`Could not load favorites: ${favoritesError.message}`);
-  }
-
-  const favList = favoriteRows ?? [];
-  const favListingIds = favList
-    .map((r) => r.listing_id)
-    .filter((id): id is string => typeof id === "string" && id !== "");
-  type FavListingLite = { id: string; title: string | null; type: string | null };
-  let favListingsOrdered: FavListingLite[] = [];
-  if (favListingIds.length > 0) {
-    const { data: favListings, error: favListErr } = await supabase
-      .from("listings")
-      .select("id, title, type")
-      .in("id", favListingIds);
-
-    if (favListErr) {
-      throw new Error(`Could not load favorite listings: ${favListErr.message}`);
-    }
-    const byId = new Map((favListings ?? []).map((l) => [l.id, l as FavListingLite]));
-    favListingsOrdered = favList
-      .map((f) => byId.get(f.listing_id))
-      .filter((l): l is FavListingLite => Boolean(l));
-  }
-
   const { data: trackedBidRows, error: trackedBidsErr } = await supabase
     .from("bids")
     .select("listing_id")
@@ -167,8 +115,15 @@ export default async function DashboardPage() {
 
   let trackedLiveAuctions: TrackedAuctionListingRow[] = [];
   let highestNokTrackedFollow = new Map<string, number>();
-  const trackedListingIdsWithAnyBid = new Set<string>();
-  let trackedLeadingBidderByListingId = new Map<string, string | null>();
+  let bidRowsForListings: BidForLeadingRow[] = [];
+
+  const userBidListingIds = [
+    ...new Set(
+      (trackedBidRows ?? [])
+        .map((r) => r.listing_id)
+        .filter((id): id is string => typeof id === "string" && id !== ""),
+    ),
+  ];
 
   const trackedIds = [...trackedListingIdSet];
   if (trackedIds.length > 0) {
@@ -176,7 +131,7 @@ export default async function DashboardPage() {
       await supabase
         .from("listings")
         .select(
-          "id, title, type, auction_starts_at, auction_ends_at, seller_id, price_nok, min_bid_increment_nok",
+          "id, title, type, category, image_urls, auction_starts_at, auction_ends_at, seller_id, price_nok, min_bid_increment_nok",
         )
         .in("id", trackedIds)
         .eq("type", "auction");
@@ -226,42 +181,48 @@ export default async function DashboardPage() {
         );
       }
       const trackedFlat = (trackedBidAmountRows ?? []) as BidForLeadingRow[];
-      for (const r of trackedFlat) {
-        const lid = r.listing_id;
-        if (lid) trackedListingIdsWithAnyBid.add(lid);
-      }
-      trackedLeadingBidderByListingId =
-        leadingBidderIdByListingId(trackedFlat);
+      bidRowsForListings = trackedFlat;
       highestNokTrackedFollow = highestNokByListingId(
         trackedFlat as BidWithListingId[],
       );
     }
   }
 
+  const dashboardSellerUsernameById = new Map<string, string>();
+  const dashSellerIds = [
+    ...new Set(
+      trackedLiveAuctions
+        .map((l) => l.seller_id)
+        .filter((id): id is string => typeof id === "string" && id !== ""),
+    ),
+  ];
+  if (dashSellerIds.length > 0) {
+    const { data: dashSellerProfiles, error: dashSellerErr } = await supabase
+      .from("profiles")
+      .select("id, username")
+      .in("id", dashSellerIds);
+
+    if (dashSellerErr) {
+      throw new Error(
+        `Could not load seller profiles: ${dashSellerErr.message}`,
+      );
+    }
+    for (const p of dashSellerProfiles ?? []) {
+      const u = typeof p.username === "string" ? p.username.trim() : "";
+      if (p.id && u !== "") dashboardSellerUsernameById.set(p.id, u);
+    }
+  }
+
+  const highestNokByListingIdRecord = Object.fromEntries(highestNokTrackedFollow);
+  const sellerUsernameByIdRecord = Object.fromEntries(
+    dashboardSellerUsernameById,
+  );
+
   return (
     <div className="min-h-screen bg-zinc-50">
       <div className={pageShellClass}>
       <header className={pageHeaderClass}>
         <h1 className={pageTitleClass}>Dashboard</h1>
-        <div className="space-y-2 text-sm text-zinc-600">
-          <p>
-            Innlogget som{" "}
-            <span className="font-medium text-zinc-900">
-              {user.email ?? "—"}
-            </span>
-          </p>
-          <p className="font-mono text-xs text-zinc-500">
-            {user.id}
-          </p>
-        </div>
-        <p className="text-sm">
-          <Link
-            href="/create"
-            className="font-medium text-zinc-900 underline-offset-2 hover:underline"
-          >
-            Opprett annonse
-          </Link>
-        </p>
       </header>
 
       <div className={`${pageBodyGapClass} space-y-10`}>
@@ -278,125 +239,15 @@ export default async function DashboardPage() {
               for å se live auksjoner du følger.
             </p>
           ) : (
-            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200">
-              {trackedLiveAuctions.map((row) => {
-                const endMs = row.auction_ends_at
-                  ? new Date(row.auction_ends_at).getTime()
-                  : Number.NaN;
-                const endLabel = row.auction_ends_at
-                  ? new Date(row.auction_ends_at).toLocaleString()
-                  : "—";
-                const remaining = Number.isFinite(endMs)
-                  ? formatAuctionTimeRemainingNo(endMs, nowMs)
-                  : "—";
-                const hasAnyBid = highestNokTrackedFollow.has(row.id);
-                const high = hasAnyBid
-                  ? (highestNokTrackedFollow.get(row.id) ?? 0)
-                  : 0;
-                const bidPositionLabel =
-                  row.seller_id !== user.id
-                    ? viewerAuctionBidPositionLabel(
-                        user.id,
-                        trackedListingIdsWithAnyBid.has(row.id),
-                        trackedLeadingBidderByListingId.get(row.id) ?? null,
-                      )
-                    : null;
-                const quickAmount = nextValidBidAmountNok(
-                  hasAnyBid,
-                  high,
-                  row.price_nok,
-                  row.min_bid_increment_nok,
-                );
-                const showQuickBid =
-                  quickAmount != null &&
-                  row.seller_id != null &&
-                  row.seller_id !== user.id;
-                return (
-                  <li
-                    key={row.id}
-                    className="flex flex-col gap-3 px-3 py-4 text-sm"
-                  >
-                    <Link
-                      href={`/listings/${row.id}`}
-                      className="line-clamp-2 text-base font-semibold leading-snug text-zinc-900 underline-offset-2 hover:underline"
-                    >
-                      {row.title?.trim() || "—"}
-                    </Link>
-                    <div className="flex flex-col gap-1.5 text-zinc-600">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                          Live
-                        </span>
-                        <span className="tabular-nums font-medium text-zinc-800">
-                          {high} NOK
-                        </span>
-                        {bidPositionLabel ? (
-                          <span className="text-xs font-medium text-amber-800">
-                            {bidPositionLabel}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="flex flex-col gap-0.5 text-xs text-zinc-500 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-3 sm:gap-y-1">
-                        <span>Slutter {endLabel}</span>
-                        <span className="tabular-nums">{remaining}</span>
-                      </div>
-                    </div>
-                    {showQuickBid ? (
-                      <div className="flex w-full flex-col gap-2 border-t border-zinc-200 pt-3 sm:max-w-md sm:self-end">
-                        <DashboardQuickBidForm
-                          listingId={row.id}
-                          amountNok={quickAmount}
-                        />
-                        <DashboardCustomBidForm
-                          listingId={row.id}
-                          minNextBidNok={quickAmount}
-                        />
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        <section aria-labelledby="dash-fav-heading">
-          <h2 id="dash-fav-heading" className={sectionHeadingClass}>
-            Favoritter
-          </h2>
-          {favListingsOrdered.length === 0 ? (
-            <p className="mt-3 text-sm text-zinc-600">
-              Ingen favoritter ennå. Lagre annonser fra annonsesiden.
-            </p>
-          ) : (
-            <ul className="mt-4 divide-y divide-zinc-200 rounded-md border border-zinc-200">
-              {favListingsOrdered.map((row) => {
-                const rawType =
-                  typeof row.type === "string" ? row.type.trim() : "";
-                const typeLabel =
-                  rawType === "auction"
-                    ? "Auksjon"
-                    : rawType === "fixed_price"
-                      ? "Fastpris"
-                      : "—";
-                return (
-                  <li
-                    key={row.id}
-                    className="flex flex-col gap-1 px-3 py-3 text-sm sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
-                  >
-                    <Link
-                      href={`/listings/${row.id}`}
-                      className="font-medium text-zinc-900"
-                    >
-                      {row.title?.trim() || "—"}
-                    </Link>
-                    <span className="text-zinc-600">
-                      {typeLabel}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+            <DashboardFollowedAuctionsGrid
+              auctions={trackedLiveAuctions}
+              userId={user.id}
+              userBidListingIds={userBidListingIds}
+              highestNokByListingId={highestNokByListingIdRecord}
+              bidRowsForListings={bidRowsForListings}
+              sellerUsernameById={sellerUsernameByIdRecord}
+              nowMs={nowMs}
+            />
           )}
         </section>
       </div>
