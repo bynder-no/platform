@@ -12,7 +12,6 @@ import { HomeCardFavoriteButton } from "@/app/home-card-favorite-button";
 import { HomeListingCarousel } from "@/app/home-listing-carousel";
 import { HomeSearchAutocomplete } from "@/app/home-search-autocomplete";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
-import { formatAuctionTimeRemainingNo } from "@/lib/auction-time-remaining-no";
 import {
   highestNokByListingId,
   type BidWithListingId,
@@ -25,6 +24,10 @@ import {
 import { normalizeListingImageUrls } from "@/lib/listing-images";
 import { HOME_CATEGORY_SHORTCUTS } from "@/lib/home-category-shortcuts";
 import { ListingCategoryBadge } from "@/components/listing-category-badge";
+import {
+  AuctionListingCardHomeStyle,
+  auctionListingCardShellClass,
+} from "@/components/auction-listing-card-home-style";
 
 export const dynamic = "force-dynamic";
 
@@ -76,18 +79,6 @@ function CategoryLineIcon({ slug }: { slug: string }) {
   );
 }
 
-function auctionStateLabelNo(
-  nowMs: number,
-  startsAt: string | null,
-  endsAt: string | null,
-): "Planlagt" | "Live" | "Avsluttet" {
-  const startsAtMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
-  const endsAtMs = endsAt ? new Date(endsAt).getTime() : Number.NaN;
-  if (Number.isFinite(startsAtMs) && nowMs < startsAtMs) return "Planlagt";
-  if (Number.isFinite(endsAtMs) && nowMs >= endsAtMs) return "Avsluttet";
-  return "Live";
-}
-
 function priceText(nok: number | string | null) {
   if (nok == null) return "—";
   const n = Number(nok);
@@ -106,149 +97,6 @@ function homeCardSellerUsernameDisplay(
     <span className="font-medium text-zinc-700 underline-offset-2 group-hover:underline">
       {u}
     </span>
-  );
-}
-
-/** Remaining label: live → until end; planlagt → until start. */
-function homeAuctionTimeRemainingLabel(
-  state: "Planlagt" | "Live" | "Avsluttet",
-  startsAt: string | null,
-  endsAt: string | null,
-  nowMs: number,
-): string | null {
-  if (state === "Live") {
-    const endMs = endsAt ? new Date(endsAt).getTime() : Number.NaN;
-    if (!Number.isFinite(endMs)) return null;
-    return formatAuctionTimeRemainingNo(endMs, nowMs);
-  }
-  if (state === "Planlagt") {
-    const startMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
-    if (!Number.isFinite(startMs)) return null;
-    return formatAuctionTimeRemainingNo(startMs, nowMs);
-  }
-  return null;
-}
-
-type HomeAuctionCardProps = {
-  row: ListingCardRow;
-  nowMs: number;
-  cardClass: string;
-  sellerUsernameById: Map<string, string>;
-  viewerUserId: string | null;
-  auctionHighestNokById: Map<string, number>;
-  listingIdsWithAnyAuctionBid: Set<string>;
-  auctionLeadingBidderByListingId: Map<string, string | null>;
-  favoriteIdSet: Set<string>;
-};
-
-function HomeAuctionListingCard({
-  row,
-  nowMs,
-  cardClass,
-  sellerUsernameById,
-  viewerUserId,
-  auctionHighestNokById,
-  listingIdsWithAnyAuctionBid,
-  auctionLeadingBidderByListingId,
-  favoriteIdSet,
-}: HomeAuctionCardProps) {
-  const coverImage = normalizeListingImageUrls(row.image_urls)[0] ?? null;
-  const state = auctionStateLabelNo(
-    nowMs,
-    row.auction_starts_at ?? null,
-    row.auction_ends_at ?? null,
-  );
-  const liveNok = auctionHighestNokById.get(row.id) ?? 0;
-  const bidPositionLabel =
-    viewerUserId != null && row.seller_id !== viewerUserId
-      ? viewerAuctionBidPositionLabel(
-          viewerUserId,
-          listingIdsWithAnyAuctionBid.has(row.id),
-          auctionLeadingBidderByListingId.get(row.id) ?? null,
-        )
-      : null;
-  const timeLeft = homeAuctionTimeRemainingLabel(
-    state,
-    row.auction_starts_at ?? null,
-    row.auction_ends_at ?? null,
-    nowMs,
-  );
-  const listingLabel = row.title?.trim()
-    ? `Se annonse: ${row.title.trim()}`
-    : "Se annonse";
-
-  return (
-    <div
-      className={`${cardClass} hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md`}
-    >
-      <Link
-        href={`/listings/${row.id}`}
-        className="absolute inset-0 z-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
-        aria-label={listingLabel}
-      />
-      <div className="relative z-10 flex flex-col gap-2.5 pointer-events-none">
-        {coverImage ? (
-          <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
-            <Image
-              src={coverImage}
-              alt=""
-              width={224}
-              height={144}
-              unoptimized
-              className="h-44 w-full object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-          </div>
-        ) : (
-          <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
-            Ingen bilde
-          </div>
-        )}
-        <div className="flex items-start gap-2.5">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <p className="line-clamp-2 font-semibold text-zinc-900 group-hover:underline">
-              {row.title?.trim() || "—"}
-            </p>
-            <p className="text-xs text-zinc-500">
-              {homeCardSellerUsernameDisplay(row.seller_id, sellerUsernameById)}
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex w-fit shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                {state}
-              </span>
-              <ListingCategoryBadge category={row.category} />
-            </div>
-            <div className="flex flex-col gap-1 text-inherit">
-              {timeLeft ? (
-                <span className="text-xs text-zinc-500">
-                  <span className="font-medium text-zinc-600">
-                    Tid igjen
-                  </span>{" "}
-                  <span className="tabular-nums">{timeLeft}</span>
-                </span>
-              ) : null}
-              <span className="tabular-nums text-lg font-semibold text-zinc-900">
-                {liveNok} NOK
-              </span>
-              {bidPositionLabel ? (
-                <span className="text-xs font-medium text-amber-800">
-                  {bidPositionLabel}
-                </span>
-              ) : null}
-            </div>
-          </div>
-          {viewerUserId &&
-          row.seller_id &&
-          row.seller_id !== viewerUserId ? (
-            <div className="relative z-20 shrink-0 self-start pointer-events-auto">
-              <HomeCardFavoriteButton
-                listingId={row.id}
-                isFavorite={favoriteIdSet.has(row.id)}
-              />
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -372,9 +220,6 @@ export default async function HomePage() {
     );
   }
 
-  const cardClass =
-    "group relative flex w-full min-w-0 max-w-none flex-col gap-2.5 rounded-2xl border border-zinc-200 bg-white p-3 text-sm shadow-sm transition-all duration-300 ease-out cursor-pointer";
-
   const sectionTitleClass =
     "text-base font-semibold text-zinc-900";
 
@@ -487,18 +332,31 @@ export default async function HomePage() {
             <HomeListingCarousel ariaLabel="Auksjonsannonser karusell">
               {auctionRows.map((row) => (
                 <li key={row.id} className="py-1">
-                  <HomeAuctionListingCard
+                  <AuctionListingCardHomeStyle
                     row={row}
                     nowMs={nowMs}
-                    cardClass={cardClass}
                     sellerUsernameById={sellerUsernameById}
                     viewerUserId={user?.id ?? null}
-                    auctionHighestNokById={auctionHighestNokById}
-                    listingIdsWithAnyAuctionBid={listingIdsWithAnyAuctionBid}
-                    auctionLeadingBidderByListingId={
-                      auctionLeadingBidderByListingId
+                    liveNok={auctionHighestNokById.get(row.id) ?? 0}
+                    bidPositionLabel={
+                      user?.id != null && row.seller_id !== user.id
+                        ? viewerAuctionBidPositionLabel(
+                            user.id,
+                            listingIdsWithAnyAuctionBid.has(row.id),
+                            auctionLeadingBidderByListingId.get(row.id) ?? null,
+                          )
+                        : null
                     }
-                    favoriteIdSet={favoriteIdSet}
+                    favoriteSlot={
+                      user &&
+                      row.seller_id &&
+                      row.seller_id !== user.id ? (
+                        <HomeCardFavoriteButton
+                          listingId={row.id}
+                          isFavorite={favoriteIdSet.has(row.id)}
+                        />
+                      ) : null
+                    }
                   />
                 </li>
               ))}
@@ -531,7 +389,7 @@ export default async function HomePage() {
                 return (
                 <li key={row.id} className="py-1">
                   <div
-                    className={`${cardClass} hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md`}
+                    className={`${auctionListingCardShellClass} hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md`}
                   >
                     <Link
                       href={`/listings/${row.id}`}
