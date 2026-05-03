@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { NotificationRowLink } from "@/app/notifications/notification-row-link";
 import {
+  CLOSE_MESSAGES_INBOX_PANEL_EVENT,
+  CLOSE_NOTIFICATIONS_PANEL_EVENT,
   NOTIFICATIONS_PANEL_STATE_EVENT,
   OPEN_NOTIFICATIONS_PANEL_EVENT,
 } from "@/lib/chat-panel-events";
@@ -46,12 +48,19 @@ export function FloatingNotificationsPanel({
 
   useEffect(() => {
     const handler = () => {
+      window.dispatchEvent(new CustomEvent(CLOSE_MESSAGES_INBOX_PANEL_EVENT));
       setOpen(true);
       router.refresh();
     };
+    const handleClose = () => {
+      setOpen(false);
+    };
     window.addEventListener(OPEN_NOTIFICATIONS_PANEL_EVENT, handler);
-    return () =>
+    window.addEventListener(CLOSE_NOTIFICATIONS_PANEL_EVENT, handleClose);
+    return () => {
       window.removeEventListener(OPEN_NOTIFICATIONS_PANEL_EVENT, handler);
+      window.removeEventListener(CLOSE_NOTIFICATIONS_PANEL_EVENT, handleClose);
+    };
   }, [router]);
 
   useEffect(() => {
