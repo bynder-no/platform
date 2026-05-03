@@ -38,6 +38,25 @@ export function resolveDealStatusGroup({
   return "deal_venter";
 }
 
+export function dealCounterpartDisplayName(
+  username: string | null | undefined,
+): string {
+  const t = String(username ?? "").trim();
+  return t !== "" ? t : "bruker";
+}
+
+export function dealStatusWaitOnCounterpart(
+  username: string | null | undefined,
+): string {
+  return `Venter på ${dealCounterpartDisplayName(username)}`;
+}
+
+export function dealStatusRespondToCounterpart(
+  username: string | null | undefined,
+): string {
+  return `Du må svare til ${dealCounterpartDisplayName(username)}`;
+}
+
 type DealStatusDetailInput = {
   group: DealStatusGroup;
   viewerRole: "seller" | "buyer";
@@ -46,6 +65,8 @@ type DealStatusDetailInput = {
   bidderDecision: string;
   buyerReceivedCard: boolean;
   sellerReceivedPayment: boolean;
+  /** Brukernavn for den andre parten (selger ser kjøper, kjøper ser selger). */
+  counterpartUsername?: string | null;
 };
 
 export function dealStatusDetailText({
@@ -56,6 +77,7 @@ export function dealStatusDetailText({
   bidderDecision,
   buyerReceivedCard,
   sellerReceivedPayment,
+  counterpartUsername,
 }: DealStatusDetailInput): string {
   if (group === "no_deal") {
     return "Handelen ble ikke noe av";
@@ -96,9 +118,9 @@ export function dealStatusDetailText({
   if (viewerRole === "seller") {
     return sellerDecision === "pending"
       ? "Handling kreves fra deg"
-      : "Venter på motpart";
+      : dealStatusWaitOnCounterpart(counterpartUsername);
   }
   return bidderDecision === "pending"
     ? "Handling kreves fra deg"
-    : "Venter på motpart";
+    : dealStatusWaitOnCounterpart(counterpartUsername);
 }
