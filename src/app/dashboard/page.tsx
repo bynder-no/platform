@@ -19,6 +19,7 @@ import {
   type BidForLeadingRow,
 } from "@/lib/auction-viewer-bid-status";
 import { resolvePendingEndedAuctions } from "@/lib/auction-resolution";
+import { nextValidBidAmountNok } from "@/lib/auction-next-bid-nok";
 
 import { DashboardCustomBidForm } from "./dashboard-custom-bid-form";
 import { DashboardQuickBidForm } from "./dashboard-quick-bid-form";
@@ -71,26 +72,6 @@ type TrackedAuctionListingRow = {
   price_nok: number | string | null;
   min_bid_increment_nok: number | string | null;
 };
-
-function dashboardQuickBidAmountNok(
-  hasAnyBid: boolean,
-  highestNok: number,
-  priceNok: number | string | null,
-  minIncrementNok: number | string | null,
-): number | null {
-  const startPriceNok =
-    priceNok != null && Number.isFinite(Number(priceNok))
-      ? Math.trunc(Number(priceNok))
-      : null;
-  const minBidIncrementNok =
-    minIncrementNok != null && Number.isFinite(Number(minIncrementNok))
-      ? Math.trunc(Number(minIncrementNok))
-      : null;
-  if (startPriceNok == null || startPriceNok < 1) return null;
-  if (minBidIncrementNok == null || minBidIncrementNok < 1) return null;
-  if (!hasAnyBid) return startPriceNok;
-  return highestNok + minBidIncrementNok;
-}
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -320,7 +301,7 @@ export default async function DashboardPage() {
                         trackedLeadingBidderByListingId.get(row.id) ?? null,
                       )
                     : null;
-                const quickAmount = dashboardQuickBidAmountNok(
+                const quickAmount = nextValidBidAmountNok(
                   hasAnyBid,
                   high,
                   row.price_nok,

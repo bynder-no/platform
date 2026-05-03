@@ -13,10 +13,12 @@ import { AuctionDealPanel } from "./auction-deal-panel";
 import { FixedPriceOfferForm } from "./fixed-price-offer-form";
 import { DeleteFixedPriceForm } from "./delete-fixed-price-form";
 import { FavoriteButton } from "./favorite-button";
-import { PlaceBidForm } from "./place-bid-form";
+import { ListingAuctionBidPanel } from "./listing-auction-bid-panel";
 import { viewerAuctionBidPositionLabel } from "@/lib/auction-viewer-bid-status";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
 import { TITLE_KORTSELGER } from "@/lib/profile-titles";
+import { auctionTimeRemainingLabelFromState } from "@/lib/auction-time-remaining-no";
+import { nextValidBidAmountNok } from "@/lib/auction-next-bid-nok";
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +33,6 @@ type BidRow = {
   bidder_id: string;
 };
 
-function bidderPrivacyLabel(userId: string | undefined, bidderId: string) {
-  return userId && bidderId === userId ? "You" : "Another bidder";
-}
-
 const LISTING_CATEGORY_LABEL: Record<string, string> = {
   single_card: "Singelkort",
   slab: "PSA/slabs",
@@ -48,6 +46,22 @@ function listingCategoryDisplayLabel(
   if (category == null || String(category).trim() === "") return null;
   const k = String(category).trim();
   return LISTING_CATEGORY_LABEL[k] ?? null;
+}
+
+function formatAuctionEndsAtLineNbNo(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const datePart = d.toLocaleDateString("nb-NO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const timePart = d.toLocaleTimeString("nb-NO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${datePart} kl. ${timePart}`;
 }
 
 export default async function ListingDetailPage({ params }: PageProps) {
@@ -409,17 +423,12 @@ export default async function ListingDetailPage({ params }: PageProps) {
     listing.price_nok != null && Number.isFinite(Number(listing.price_nok))
       ? Math.trunc(Number(listing.price_nok))
       : null;
-  const minBidIncrementNok =
-    listing.min_bid_increment_nok != null &&
-    Number.isFinite(Number(listing.min_bid_increment_nok))
-      ? Math.trunc(Number(listing.min_bid_increment_nok))
-      : null;
-  const minimumNextBidNok =
-    highestBidNok > 0
-      ? minBidIncrementNok != null
-        ? highestBidNok + minBidIncrementNok
-        : null
-      : listingPriceNok;
+  const minimumNextBidNok = nextValidBidAmountNok(
+    hasAuctionBids,
+    highestBidNok,
+    listing.price_nok,
+    listing.min_bid_increment_nok,
+  );
 
   let isFavorite = false;
   if (user) {
@@ -450,6 +459,16 @@ export default async function ListingDetailPage({ params }: PageProps) {
         : auctionState === "ended"
           ? "Avsluttet"
           : "Live"
+      : null;
+
+  const auctionTimingLabel =
+    listing.type === "auction" && auctionStateLabelNo != null
+      ? auctionTimeRemainingLabelFromState(
+          auctionStateLabelNo,
+          listing.auction_starts_at ?? null,
+          listing.auction_ends_at ?? null,
+          nowMs,
+        )
       : null;
 
   const sectionLabelClass =
@@ -499,6 +518,16 @@ export default async function ListingDetailPage({ params }: PageProps) {
       ) : (
         <p className="mt-2 text-sm text-zinc-500">Ingen vurderinger ennå</p>
       )}
+      {listing.type === "fixed_price" && listing.created_at ? (
+        <p className="mt-2 text-sm text-zinc-500">
+          Lagt ut:{" "}
+          {new Date(listing.created_at).toLocaleDateString("nb-NO", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })}
+        </p>
+      ) : null}
       {sellerActiveTitle !== "" &&
       sellerActiveTitle !== TITLE_KORTSELGER ? (
         <p className="mt-3">
@@ -594,26 +623,128 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 </h1>
 
                 <div className="mt-6">
-                  <p className={sectionLabelClass}>Price</p>
-                  <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-zinc-900 sm:text-4xl">
-                    {listing.type === "auction" ? (
-                      <>
-                        <span>{highestBidNok > 0 ? highestBidNok : 0}</span>
-                        <span className="ml-1.5 text-lg font-medium text-zinc-500 sm:text-xl">
-                          NOK
-                        </span>
-                      </>
-                    ) : listing.price_nok != null ? (
-                      <>
-                        <span>{listing.price_nok}</span>
-                        <span className="ml-1.5 text-lg font-medium text-zinc-500 sm:text-xl">
-                          NOK
-                        </span>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </p>
+                  {listing.type === "auction" ? (
+                    <>
+                      <div className="rounded-xl border border-zinc-200 bg-zinc-50/90 px-3 py-3 sm:px-4">
+                        <p className={sectionLabelClass}>Høyeste bud</p>
+                        <div className="mt-1.5 text-2xl font-semibold tracking-tight tabular-nums text-zinc-900 sm:text-3xl">
+                          {hasAuctionBids ? (
+                            <>
+                              <span>{highestBidNok}</span>
+                              <span className="ml-1.5 text-base font-medium text-zinc-500 sm:text-lg">
+                                NOK
+                              </span>
+                            </>
+                          ) : listingPriceNok != null ? (
+                            <>
+                              <span>{listingPriceNok}</span>
+                              <span className="ml-1.5 text-base font-medium text-zinc-500 sm:text-lg">
+                                NOK
+                              </span>
+                              <span className="mt-1.5 block text-sm font-normal leading-snug text-zinc-500">
+                                {auctionTimeEnded
+                                  ? "Ingen bud mottatt"
+                                  : "Ingen bud ennå"}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-xl font-semibold tracking-tight text-zinc-700 sm:text-2xl">
+                              Ingen bud
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        {auctionStateLabelNo === "Avsluttet" ? (
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                            <span className="font-medium text-zinc-600">
+                              Avsluttet
+                            </span>
+                            {listing.auction_ends_at ? (
+                              <>
+                                <span className="text-zinc-400" aria-hidden>
+                                  ·
+                                </span>
+                                <span className="tabular-nums">
+                                  <time
+                                    dateTime={String(listing.auction_ends_at)}
+                                  >
+                                    {new Date(
+                                      listing.auction_ends_at,
+                                    ).toLocaleString("nb-NO")}
+                                  </time>
+                                </span>
+                              </>
+                            ) : null}
+                            <span className="text-zinc-400" aria-hidden>
+                              •
+                            </span>
+                            <span className="tabular-nums">
+                              {auctionBids.length} bud
+                            </span>
+                          </div>
+                        ) : auctionTimingLabel ? (
+                          <>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+                              <span className="font-medium text-zinc-600">
+                                Tid igjen
+                              </span>
+                              <span className="tabular-nums">
+                                {auctionTimingLabel}
+                              </span>
+                              <span className="text-zinc-400" aria-hidden>
+                                •
+                              </span>
+                              <span className="tabular-nums">
+                                {auctionBids.length} bud
+                              </span>
+                            </div>
+                            {listing.auction_ends_at ? (
+                              <p className="mt-1.5 text-sm text-zinc-500">
+                                Avsluttes{" "}
+                                <time
+                                  className="tabular-nums"
+                                  dateTime={String(listing.auction_ends_at)}
+                                >
+                                  {formatAuctionEndsAtLineNbNo(
+                                    String(listing.auction_ends_at),
+                                  )}
+                                </time>
+                              </p>
+                            ) : null}
+                          </>
+                        ) : null}
+                        {viewerAuctionBidLabel ? (
+                          <p className="text-xs font-medium text-amber-800">
+                            {viewerAuctionBidLabel}
+                          </p>
+                        ) : null}
+                        {!hasAuctionBids && listingPriceNok == null ? (
+                          <p className="text-sm text-zinc-600">
+                            {auctionTimeEnded
+                              ? "No bids were placed"
+                              : "No bids yet"}
+                          </p>
+                        ) : null}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className={sectionLabelClass}>Price</p>
+                      <p className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-zinc-900 sm:text-4xl">
+                        {listing.price_nok != null ? (
+                          <>
+                            <span>{listing.price_nok}</span>
+                            <span className="ml-1.5 text-lg font-medium text-zinc-500 sm:text-xl">
+                              NOK
+                            </span>
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-2">
@@ -632,61 +763,15 @@ export default async function ListingDetailPage({ params }: PageProps) {
                   ) : null}
                 </div>
 
+                {listing.type === "auction" && showPlaceBid ? (
+                  <ListingAuctionBidPanel
+                    listingId={id}
+                    minBidNok={minimumNextBidNok}
+                  />
+                ) : null}
+
                 {listing.type === "auction" ? (
                   <>
-                    <div className="mt-5 space-y-3 border-t border-zinc-100 pt-5 text-zinc-700">
-                      <div>
-                        <p className={sectionLabelClass}>Auction ends</p>
-                        <p className="mt-1.5 text-sm font-medium text-zinc-900">
-                          {listing.auction_ends_at ? (
-                            <time dateTime={String(listing.auction_ends_at)}>
-                              {new Date(
-                                listing.auction_ends_at,
-                              ).toLocaleString()}
-                            </time>
-                          ) : (
-                            "—"
-                          )}
-                        </p>
-                      </div>
-                      {highestBidNok > 0 && leadingBidRow ? (
-                        <div className="space-y-2 text-sm">
-                          <p>
-                            <span className="text-zinc-500">
-                              {auctionTimeEnded
-                                ? "Winning bid: "
-                                : "Current bid: "}
-                            </span>
-                            <span className="tabular-nums font-semibold text-zinc-900">
-                              {highestBidNok}
-                            </span>
-                            <span className="text-zinc-500"> NOK</span>
-                          </p>
-                          <p>
-                            <span className="text-zinc-500">
-                              {auctionTimeEnded ? "Winner: " : "Leading bidder: "}
-                            </span>
-                            <span className="font-medium text-zinc-800">
-                              {bidderPrivacyLabel(
-                                user?.id,
-                                leadingBidRow.bidder_id,
-                              )}
-                            </span>
-                          </p>
-                          {viewerAuctionBidLabel ? (
-                            <p className="font-medium text-amber-800">
-                              {viewerAuctionBidLabel}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <p className="text-sm">
-                          {auctionTimeEnded
-                            ? "No bids were placed"
-                            : "No bids yet"}
-                        </p>
-                      )}
-                    </div>
                     {sellerSection}
                     {user ? (
                       <div className="mt-5 border-t border-zinc-100 pt-5">
@@ -697,28 +782,6 @@ export default async function ListingDetailPage({ params }: PageProps) {
                         />
                       </div>
                     ) : null}
-                    <div className="mt-6 space-y-6 border-t border-zinc-100 pt-6">
-                      {auctionTimeScheduled ? (
-                        <p className="text-sm text-zinc-700">Planlagt</p>
-                      ) : null}
-
-                      {showPlaceBid ? (
-                        <section aria-labelledby="listing-bid-heading">
-                          <h2
-                            id="listing-bid-heading"
-                            className={sectionLabelClass}
-                          >
-                            Place a bid
-                          </h2>
-                          <div className="mt-3">
-                            <PlaceBidForm
-                              listingId={id}
-                              minBidNok={minimumNextBidNok}
-                            />
-                          </div>
-                        </section>
-                      ) : null}
-                    </div>
                   </>
                 ) : (
                   <>
@@ -744,6 +807,16 @@ export default async function ListingDetailPage({ params }: PageProps) {
                         />
                       </div>
                     ) : null}
+                    {listing.description?.trim() ? (
+                      <div className="mt-5 border-t border-zinc-100 pt-5">
+                        <h3 className="text-sm font-semibold text-zinc-900">
+                          Beskrivelse
+                        </h3>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700">
+                          {listing.description.trim()}
+                        </p>
+                      </div>
+                    ) : null}
                     {sellerSection}
                   </>
                 )}
@@ -752,60 +825,28 @@ export default async function ListingDetailPage({ params }: PageProps) {
           </div>
 
           <div className="space-y-10">
-            {listing.type === "auction" && auctionBids.length > 0 ? (
+            {listing.type === "auction" ? (
               <section
-                aria-labelledby="listing-auction-bids-heading"
-                className={`${cardClass} p-6`}
+                aria-labelledby="listing-description-heading"
+                className={`${cardClass} p-6 sm:p-8`}
               >
                 <h2
-                  id="listing-auction-bids-heading"
-                  className="text-sm font-semibold uppercase tracking-wide text-zinc-500"
+                  id="listing-description-heading"
+                  className="text-lg font-semibold text-zinc-900"
                 >
-                  Bids
+                  Description
                 </h2>
-                <ul className="mt-4 space-y-2 border-t border-zinc-100 pt-4 text-zinc-600">
-                  {auctionBids.map((bid) => {
-                    const amount = Number(bid.amount_nok);
-                    const when = bid.created_at
-                      ? new Date(bid.created_at).toLocaleString()
-                      : "—";
-
-                    return (
-                      <li key={bid.id} className="text-sm">
-                        <span className="font-medium text-zinc-900">
-                          {Number.isFinite(amount) ? amount : "—"} NOK
-                        </span>
-                        <span className="text-zinc-300"> · </span>
-                        {bidderPrivacyLabel(user?.id, bid.bidder_id)}
-                        <span className="text-zinc-300"> · </span>
-                        {when}
-                      </li>
-                    );
-                  })}
-                </ul>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Listed{" "}
+                  {listing.created_at
+                    ? new Date(listing.created_at).toLocaleString()
+                    : "—"}
+                </p>
+                <p className="mt-5 whitespace-pre-wrap leading-relaxed text-zinc-700">
+                  {listing.description?.trim() || "—"}
+                </p>
               </section>
             ) : null}
-
-            <section
-              aria-labelledby="listing-description-heading"
-                className={`${cardClass} p-6 sm:p-8`}
-            >
-              <h2
-                id="listing-description-heading"
-                className="text-lg font-semibold text-zinc-900"
-              >
-                Description
-              </h2>
-              <p className="mt-1 text-xs text-zinc-500">
-                Listed{" "}
-                {listing.created_at
-                  ? new Date(listing.created_at).toLocaleString()
-                  : "—"}
-              </p>
-              <p className="mt-5 whitespace-pre-wrap leading-relaxed text-zinc-700">
-                {listing.description?.trim() || "—"}
-              </p>
-            </section>
 
             {showDeleteFixedPrice ? (
               <section
