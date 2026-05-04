@@ -14,7 +14,8 @@ import {
 import { normalizeListingImageUrls } from "@/lib/listing-images";
 import {
   dealStatusGroupLabel,
-  dealStatusWaitOnCounterpart,
+  mineDealAuctionCardBadge,
+  mineDealFixedCardBadge,
   resolveDealStatusGroup,
   type DealStatusGroup,
 } from "./deal-status-ui";
@@ -156,76 +157,6 @@ function isSellerDealFullyCompleted(deal: DealRowLite): boolean {
 }
 
 /** Grouping for ended-auction outcome (seller «Mine salg» + bidder «Mine kjøp»). */
-/**
- * Short action/wait line for deal cards (same state the status line uses; display only).
- */
-function dealCardHandlingHint(
-  viewerRole: "seller" | "bidder",
-  deal: DealRowLite | null | undefined,
-  group: PostAuctionOutcomeGroup,
-  counterpartUsername: string | null | undefined,
-): string | null {
-  const wait = () => dealStatusWaitOnCounterpart(counterpartUsername);
-  if (group === "no_deal" || group === "deal_fullfort") {
-    return wait();
-  }
-  if (group === "deal_venter") {
-    const s = deal?.seller_decision ?? "pending";
-    const b = deal?.bidder_decision ?? "pending";
-    const mine = viewerRole === "seller" ? s : b;
-    const theirs = viewerRole === "seller" ? b : s;
-    if (mine === "pending") return "Krever handling fra deg";
-    if (theirs === "pending") return wait();
-    return wait();
-  }
-  // deal_bekreftet
-  if (!deal) return null;
-  if (deal.seller_decision !== "deal" || deal.bidder_decision !== "deal") {
-    return wait();
-  }
-  if (!deal.buyer_received_card) {
-    return viewerRole === "bidder"
-      ? "Krever handling fra deg"
-      : wait();
-  }
-  if (!deal.seller_received_payment) {
-    return viewerRole === "seller"
-      ? "Krever handling fra deg"
-      : wait();
-  }
-  return wait();
-}
-
-function fixedDealHandlingHint(
-  viewerRole: "seller" | "buyer",
-  row: {
-    group: DealStatusGroup;
-    sellerDecision: string;
-    bidderDecision: string;
-    buyerReceivedCard: boolean;
-    sellerReceivedPayment: boolean;
-  },
-  counterpartUsername: string | null | undefined,
-): string {
-  const wait = () => dealStatusWaitOnCounterpart(counterpartUsername);
-  if (row.group === "no_deal" || row.group === "deal_fullfort") {
-    return wait();
-  }
-  if (row.group === "deal_venter") {
-    const mine = viewerRole === "seller" ? row.sellerDecision : row.bidderDecision;
-    return mine === "pending" ? "Krever handling fra deg" : wait();
-  }
-  if (row.group === "deal_bekreftet") {
-    if (!row.buyerReceivedCard) {
-      return viewerRole === "buyer" ? "Krever handling fra deg" : wait();
-    }
-    if (!row.sellerReceivedPayment) {
-      return viewerRole === "seller" ? "Krever handling fra deg" : wait();
-    }
-  }
-  return wait();
-}
-
 function postAuctionOutcomeGroup(
   deal: DealRowLite | null | undefined,
   hasBids: boolean,
@@ -280,41 +211,6 @@ function MineDealsTaskColumn({ tasks }: { tasks: MineDealsTaskRow[] }) {
       ))}
     </ul>
   );
-}
-
-const auctionMineCardNeutralBadgeClass =
-  "inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800";
-
-/** Auksjonskort i «Deal venter»: visning uten å endre intern `group`. */
-function auctionDealVenterMineCardBadge(
-  viewerRole: "seller" | "bidder",
-  deal: DealRowLite | null | undefined,
-  counterpartUsername: string | null | undefined,
-): { text: string; className: string } {
-  const s = String(deal?.seller_decision ?? "pending");
-  const b = String(deal?.bidder_decision ?? "pending");
-  const mine = viewerRole === "seller" ? s : b;
-  if (mine === "pending") {
-    return {
-      text: "Handling kreves av deg",
-      className:
-        "inline-flex w-fit rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-900",
-    };
-  }
-  const un = String(counterpartUsername ?? "").trim();
-  const text =
-    viewerRole === "seller"
-      ? un !== ""
-        ? `Venter på ${un}`
-        : "Venter på kjøper"
-      : un !== ""
-        ? `Venter på ${un}`
-        : "Venter på selger";
-  return {
-    text,
-    className:
-      "inline-flex w-fit rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-900",
-  };
 }
 
 function auctionDealDecisionsAreBothDeal(deal: DealRowLite | null | undefined): boolean {
@@ -818,7 +714,6 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     });
     return {
       ...row,
-      heading: dealStatusGroupLabel(group),
       group,
     };
   });
@@ -832,7 +727,6 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     });
     return {
       ...row,
-      heading: dealStatusGroupLabel(group),
       group,
     };
   });
@@ -1238,20 +1132,12 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             String(leadingBidderId).trim(),
                                           ) ?? null
                                         : null;
-                                    const handlingHint = dealCardHandlingHint(
-                                      "seller",
-                                      deal,
+                                    const auctionStatusBadge = mineDealAuctionCardBadge({
+                                      viewerRole: "seller",
                                       group,
-                                      bidderUn,
-                                    );
-                                    const auctionVenterBadge =
-                                      group === "deal_venter"
-                                        ? auctionDealVenterMineCardBadge(
-                                            "seller",
-                                            deal,
-                                            bidderUn,
-                                          )
-                                        : null;
+                                      deal,
+                                      counterpartUsername: bidderUn,
+                                    });
                                     return (
                                       <li key={row.id} className={mineDealCardClass}>
                                         <MineDealCardImage imageUrls={row.image_urls} />
@@ -1266,18 +1152,9 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          {auctionVenterBadge ? (
-                                            <p className={auctionVenterBadge.className}>
-                                              {auctionVenterBadge.text}
-                                            </p>
-                                          ) : (
-                                            <p className={auctionMineCardNeutralBadgeClass}>
-                                              {dealStatusGroupLabel(group)}
-                                            </p>
-                                          )}
-                                          {group !== "deal_venter" && handlingHint ? (
-                                            <p className="text-xs text-zinc-600">{handlingHint}</p>
-                                          ) : null}
+                                          <p className={auctionStatusBadge.className}>
+                                            {auctionStatusBadge.text}
+                                          </p>
                                           {bidderUn ? (
                                             <p className="text-xs text-zinc-600">
                                               Budgiver:{" "}
@@ -1350,6 +1227,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                     counterpartIdRaw !== ""
                                       ? `?buyer=${encodeURIComponent(counterpartIdRaw)}`
                                       : "";
+                                  const fixedStatusBadge = mineDealFixedCardBadge({
+                                    viewerRole: "seller",
+                                    group: row.group,
+                                    sellerDecision: row.sellerDecision,
+                                    bidderDecision: row.bidderDecision,
+                                    buyerReceivedCard: row.buyerReceivedCard,
+                                    sellerReceivedPayment: row.sellerReceivedPayment,
+                                    counterpartUsername: counterpart,
+                                  });
                                   return (
                                     <li
                                       key={`${row.listingId}-${counterpartIdRaw}`}
@@ -1379,11 +1265,8 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             NOK
                                           </p>
                                         )}
-                                        <p className="inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
-                                          {row.heading}
-                                        </p>
-                                        <p className="text-xs text-zinc-600">
-                                          {fixedDealHandlingHint("seller", row, counterpart)}
+                                        <p className={fixedStatusBadge.className}>
+                                          {fixedStatusBadge.text}
                                         </p>
                                         {counterpart ? (
                                           <p className="text-xs text-zinc-600">
@@ -1455,20 +1338,12 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                       usernameByUserId.get(
                                         String(row.seller_id).trim(),
                                       ) ?? null;
-                                    const handlingHint = dealCardHandlingHint(
-                                      "bidder",
-                                      deal,
+                                    const auctionStatusBadge = mineDealAuctionCardBadge({
+                                      viewerRole: "bidder",
                                       group,
-                                      sellerUn,
-                                    );
-                                    const auctionVenterBadge =
-                                      group === "deal_venter"
-                                        ? auctionDealVenterMineCardBadge(
-                                            "bidder",
-                                            deal,
-                                            sellerUn,
-                                          )
-                                        : null;
+                                      deal,
+                                      counterpartUsername: sellerUn,
+                                    });
                                     return (
                                       <li key={row.id} className={mineDealCardClass}>
                                         <MineDealCardImage imageUrls={row.image_urls} />
@@ -1485,18 +1360,9 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             </span>{" "}
                                             NOK
                                           </p>
-                                          {auctionVenterBadge ? (
-                                            <p className={auctionVenterBadge.className}>
-                                              {auctionVenterBadge.text}
-                                            </p>
-                                          ) : (
-                                            <p className={auctionMineCardNeutralBadgeClass}>
-                                              {dealStatusGroupLabel(group)}
-                                            </p>
-                                          )}
-                                          {group !== "deal_venter" && handlingHint ? (
-                                            <p className="text-xs text-zinc-600">{handlingHint}</p>
-                                          ) : null}
+                                          <p className={auctionStatusBadge.className}>
+                                            {auctionStatusBadge.text}
+                                          </p>
                                           {sellerUn ? (
                                             <p className="text-xs text-zinc-600">
                                               Selger:{" "}
@@ -1562,6 +1428,15 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                   const counterpart =
                                     usernameByUserId.get(String(row.counterpartId).trim()) ??
                                     null;
+                                  const fixedStatusBadge = mineDealFixedCardBadge({
+                                    viewerRole: "buyer",
+                                    group: row.group,
+                                    sellerDecision: row.sellerDecision,
+                                    bidderDecision: row.bidderDecision,
+                                    buyerReceivedCard: row.buyerReceivedCard,
+                                    sellerReceivedPayment: row.sellerReceivedPayment,
+                                    counterpartUsername: counterpart,
+                                  });
                                   return (
                                     <li key={row.listingId} className={mineDealCardClass}>
                                       <MineDealCardImage imageUrls={row.listingImageUrls} />
@@ -1588,11 +1463,8 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                                             NOK
                                           </p>
                                         )}
-                                        <p className="inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
-                                          {row.heading}
-                                        </p>
-                                        <p className="text-xs text-zinc-600">
-                                          {fixedDealHandlingHint("buyer", row, counterpart)}
+                                        <p className={fixedStatusBadge.className}>
+                                          {fixedStatusBadge.text}
                                         </p>
                                         {counterpart ? (
                                           <p className="text-xs text-zinc-600">

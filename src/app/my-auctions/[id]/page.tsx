@@ -7,16 +7,12 @@ import { BuyerReceivedCardForm } from "./buyer-received-card-form";
 import { DealRatingForm } from "./deal-rating-form";
 import { DealChatForm } from "./deal-chat-form";
 import { DealMessagesPanel } from "./deal-messages-panel";
-import { postDealFulfillmentStatusText } from "./deal-status";
 import { SellerReceivedPaymentForm } from "./seller-received-payment-form";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
 import { createClient } from "@/lib/supabase/server";
 import {
   dealCounterpartDisplayName,
-  dealStatusDetailText,
-  dealStatusGroupLabel,
-  dealStatusRespondToCounterpart,
-  dealStatusWaitOnCounterpart,
+  dealRoomStatusBadge,
   resolveDealStatusGroup,
 } from "../deal-status-ui";
 import {
@@ -70,18 +66,8 @@ function dealVenterActionHint(
   const theirs = viewerRole === "seller" ? b : s;
   const name = dealCounterpartDisplayName(counterpartUsername);
   if (mine === "pending") return "Gi ditt svar";
-  if (theirs === "pending") return `Venter på svar fra ${name}`;
-  return `Venter på svar fra ${name}`;
-}
-
-/** Display-only; seller-auksjon «Deal venter» neste linje. */
-function sellerAuctionDealVenterNextActionLine(
-  deal: { seller_decision: string; bidder_decision: string } | null,
-  counterpartUsername: string | null | undefined,
-): string {
-  const s = deal?.seller_decision ?? "pending";
-  if (s === "pending") return dealStatusRespondToCounterpart(counterpartUsername);
-  return dealStatusWaitOnCounterpart(counterpartUsername);
+  if (theirs === "pending") return `Du venter på svar fra ${name}`;
+  return `Du venter på svar fra ${name}`;
 }
 
 export default async function MyAuctionDealRoomPage({
@@ -365,8 +351,7 @@ export default async function MyAuctionDealRoomPage({
       sellerReceivedPayment,
       isCompleted: showFixedDealCompletedMessage,
     });
-    const fixedStatusLabel = dealStatusGroupLabel(fixedStatusGroup);
-    const fixedStatusDetail = dealStatusDetailText({
+    const fixedDealRoomBadge = dealRoomStatusBadge({
       group: fixedStatusGroup,
       viewerRole: isFixedSeller ? "seller" : "buyer",
       isFixedPrice: true,
@@ -441,11 +426,8 @@ export default async function MyAuctionDealRoomPage({
               </p>
               <div className="mt-4 rounded-md border border-zinc-200 p-3">
                 <p className={sectionLabelClass}>Status nå</p>
-                <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
-                  {fixedStatusLabel}
-                </p>
-                <p className="mt-2 text-zinc-600">
-                  Neste steg: {fixedStatusDetail}
+                <p className={`mt-1 ${fixedDealRoomBadge.className}`}>
+                  {fixedDealRoomBadge.text}
                 </p>
               </div>
             </div>
@@ -839,8 +821,7 @@ export default async function MyAuctionDealRoomPage({
           sellerReceivedPayment: dealRow.seller_received_payment,
           isCompleted: showDealCompletedMessage,
         });
-  const topStatusLabel = dealStatusGroupLabel(auctionStatusGroup);
-  const topStatusHelperText = dealStatusDetailText({
+  const auctionDealRoomBadge = dealRoomStatusBadge({
     group: auctionStatusGroup,
     viewerRole: isSeller ? "seller" : "buyer",
     isFixedPrice: false,
@@ -927,21 +908,9 @@ export default async function MyAuctionDealRoomPage({
               </div>
               <div className="border-t border-zinc-100 pt-3">
                 <p className={sectionLabelClass}>Status</p>
-                <p className="mt-2 inline-flex w-fit rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 text-xs font-semibold text-zinc-800">
-                  {topStatusLabel}
+                <p className={`mt-2 ${auctionDealRoomBadge.className}`}>
+                  {auctionDealRoomBadge.text}
                 </p>
-                {auctionStatusGroup === "deal_venter" ? (
-                  <p className="mt-2 text-sm font-medium text-zinc-900">
-                    {sellerAuctionDealVenterNextActionLine(
-                      dealRow,
-                      counterpartUsername,
-                    )}
-                  </p>
-                ) : (
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-600">
-                    {topStatusHelperText}
-                  </p>
-                )}
               </div>
             </div>
           </section>
@@ -969,12 +938,8 @@ export default async function MyAuctionDealRoomPage({
                 </p>
                 <div className="mt-4 rounded-md border border-zinc-200 p-3">
                   <p className={sectionLabelClass}>Status nå</p>
-                  <p className="mt-1 inline-flex w-fit rounded-full border border-zinc-300 px-2 py-0.5 text-xs font-semibold text-zinc-700">
-                    {topStatusLabel}
-                  </p>
-                  <p className="mt-2 text-zinc-600">
-                    Neste steg:{" "}
-                    {topStatusHelperText}
+                  <p className={`mt-1 ${auctionDealRoomBadge.className}`}>
+                    {auctionDealRoomBadge.text}
                   </p>
                 </div>
               </div>
@@ -1022,24 +987,6 @@ export default async function MyAuctionDealRoomPage({
                 dealRow.bidder_decision === "pending"
               }
             />
-            {dealRow.seller_decision === "deal" &&
-            dealRow.bidder_decision === "deal"
-              ? (() => {
-                  const viewer = isSeller ? "seller" : "bidder";
-                  const line = postDealFulfillmentStatusText(
-                    viewer,
-                    dealRow.seller_decision,
-                    dealRow.bidder_decision,
-                    dealRow.buyer_received_card,
-                    dealRow.seller_received_payment,
-                  );
-                  return line ? (
-                    <p className="mt-3 text-zinc-700">
-                      {line}
-                    </p>
-                  ) : null;
-                })()
-              : null}
           </section>
         ) : null}
 
