@@ -1,13 +1,15 @@
 "use client";
 
+import { useActionState } from "react";
 import type { RefObject } from "react";
 
 import {
   acceptConversationRequest,
   declineConversationRequest,
 } from "@/app/messages/actions";
+import { setListingDealDecision } from "@/app/listings/[id]/actions";
 
-import type { ChatPreview } from "./floating-chat-types";
+import type { ChatPreview, InboxThread } from "./floating-chat-types";
 
 function formatMessageTime(value: string | null) {
   if (!value) return "—";
@@ -18,7 +20,7 @@ function formatMessageTime(value: string | null) {
 }
 
 type FloatingChatThreadWindowProps = {
-  thread: ChatPreview;
+  thread: InboxThread;
   currentUserId: string;
   minimized: boolean;
   onMinimize: () => void;
@@ -56,19 +58,31 @@ export function FloatingChatThreadWindow({
   routerRefresh,
   onSubmitSend,
 }: FloatingChatThreadWindowProps) {
+  const [, dealDecisionFormAction] = useActionState(setListingDealDecision, null);
   const uid = String(currentUserId);
   const selectedThread = thread;
+  const isDealThread = selectedThread.kind === "deal";
+  const responderRole = isDealThread ? selectedThread.responderRole : null;
+  const canRenderDealActions =
+    isDealThread &&
+    Boolean(selectedThread.listingId) &&
+    responderRole !== null;
 
   const canSend =
-    String(selectedThread.status) === "accepted" ||
-    (String(selectedThread.status) === "pending" &&
-      String(selectedThread.requesterId) === uid);
+    isDealThread
+      ? true
+      : String(selectedThread.status) === "accepted" ||
+        (String(selectedThread.status) === "pending" &&
+          String(selectedThread.requesterId) === uid);
   const isRecipient =
+    !isDealThread &&
     String(selectedThread.status) === "pending" &&
     String(selectedThread.recipientId) === uid;
   const isRequesterWaiting =
+    !isDealThread &&
     String(selectedThread.status) === "pending" &&
     String(selectedThread.requesterId) === uid;
+  const canShowDealActions = canRenderDealActions && selectedThread.canRespond;
 
   if (minimized) {
     return (
@@ -88,7 +102,7 @@ export function FloatingChatThreadWindow({
       <div className="flex h-[min(72vh,480px)] flex-col">
         <div className="flex shrink-0 items-center gap-1 border-b border-zinc-200 bg-zinc-100/90 px-2 py-2">
           <p className="min-w-0 flex-1 truncate px-1 text-sm font-semibold text-zinc-900">
-            {selectedThread.otherName}
+            {isDealThread ? selectedThread.listingTitle : selectedThread.otherName}
           </p>
           <button
             type="button"
@@ -112,7 +126,80 @@ export function FloatingChatThreadWindow({
           </button>
         </div>
         <div className="shrink-0 border-b border-zinc-100 bg-white px-3 py-2">
-          {isRecipient ? (
+          {isDealThread ? (
+            <div className="space-y-2">
+              <div className="flex items-start gap-2">
+                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100">
+                  {selectedThread.listingImageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={selectedThread.listingImageUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  ) : null}
+                </div>
+                <div className="min-w-0">
+                  <p className="line-clamp-1 text-xs font-medium text-zinc-900">
+                    {selectedThread.listingTitle}
+                  </p>
+                  <p className="text-[11px] text-zinc-600">
+                    Snakker med {selectedThread.otherName}
+                  </p>
+                  <a
+                    href={selectedThread.listingUrl}
+                    className="text-[11px] font-medium text-blue-600 hover:underline"
+                  >
+                    Se annonse
+                  </a>
+                </div>
+              </div>
+              {canShowDealActions ? (
+                <div className="flex items-center gap-2">
+                  <form action={dealDecisionFormAction}>
+                    <input type="hidden" name="listing_id" value={selectedThread.listingId} />
+                    <input type="hidden" name="role" value={responderRole} />
+                    <input type="hidden" name="decision" value="deal" />
+                    {selectedThread.dealBidderId !== "" ? (
+                      <input
+                        type="hidden"
+                        name="deal_bidder_id"
+                        value={selectedThread.dealBidderId}
+                      />
+                    ) : null}
+                    <button
+                      type="submit"
+                      className="rounded-lg bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-700"
+                    >
+                      Deal
+                    </button>
+                  </form>
+                  <form action={dealDecisionFormAction}>
+                    <input type="hidden" name="listing_id" value={selectedThread.listingId} />
+                    <input type="hidden" name="role" value={responderRole} />
+                    <input type="hidden" name="decision" value="no_deal" />
+                    {selectedThread.dealBidderId !== "" ? (
+                      <input
+                        type="hidden"
+                        name="deal_bidder_id"
+                        value={selectedThread.dealBidderId}
+                      />
+                    ) : null}
+                    <button
+                      type="submit"
+                      className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                    >
+                      No deal
+                    </button>
+                  </form>
+                </div>
+              ) : (
+                <p className="text-[11px] text-zinc-500">
+                  Ingen tilgjengelige deal-handlinger nå
+                </p>
+              )}
+            </div>
+          ) : isRecipient ? (
             <div className="flex items-center gap-2">
               <form
                 action={async (formData) => {
@@ -199,6 +286,18 @@ export function FloatingChatThreadWindow({
           className="shrink-0 border-t border-zinc-200 bg-white px-3 py-2"
         >
           <input type="hidden" name="thread_id" value={selectedThread.id} />
+          {isDealThread ? (
+            <>
+              <input type="hidden" name="listing_id" value={selectedThread.listingId} />
+              {selectedThread.dealBidderId !== "" ? (
+                <input
+                  type="hidden"
+                  name="deal_bidder_id"
+                  value={selectedThread.dealBidderId}
+                />
+              ) : null}
+            </>
+          ) : null}
           <div className="flex items-end gap-2">
             <textarea
               name="body"
