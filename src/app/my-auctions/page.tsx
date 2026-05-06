@@ -544,6 +544,10 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     "no_deal",
     "deal_fullfort",
   ];
+  const hiddenOverviewGroups = new Set<DealStatusGroup>(["no_deal", "deal_fullfort"]);
+  const visibleOverviewAuctionGroupOrder = postAuctionOutcomeGroupOrder.filter(
+    (group) => !hiddenOverviewGroups.has(group),
+  );
 
   const sellerRowVms = sellerRowsSorted.map((row) => {
     const bidRows = bidsByListing.get(row.id) ?? [];
@@ -698,12 +702,6 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     .filter((v): v is NonNullable<typeof v> => v != null)
     .filter((v) => titleMatchesSearch(v.title));
 
-  const fixedGroupOrder: DealStatusGroup[] = [
-    "deal_venter",
-    "deal_bekreftet",
-    "no_deal",
-    "deal_fullfort",
-  ];
   const fixedSellerGrouped = fixedSellerVms.map((row) => {
     const group = resolveDealStatusGroup({
       sellerDecision: row.sellerDecision,
@@ -731,10 +729,23 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
     };
   });
 
-  const hasSellerRows = visibleSellerRowVms.length > 0;
-  const hasBidderMineDealsRows = visibleBidderMineDealsRowVms.length > 0;
-  const hasFixedSellerRows = fixedSellerGrouped.length > 0;
-  const hasFixedBuyerRows = fixedBuyerGrouped.length > 0;
+  const visibleSellerOverviewRowVms = visibleSellerRowVms.filter(
+    (row) => !hiddenOverviewGroups.has(row.group),
+  );
+  const visibleBidderOverviewRowVms = visibleBidderMineDealsRowVms.filter(
+    (row) => !hiddenOverviewGroups.has(row.group),
+  );
+  const visibleFixedSellerOverviewRows = fixedSellerGrouped.filter(
+    (row) => !hiddenOverviewGroups.has(row.group),
+  );
+  const visibleFixedBuyerOverviewRows = fixedBuyerGrouped.filter(
+    (row) => !hiddenOverviewGroups.has(row.group),
+  );
+
+  const hasSellerRows = visibleSellerOverviewRowVms.length > 0;
+  const hasBidderMineDealsRows = visibleBidderOverviewRowVms.length > 0;
+  const hasFixedSellerRows = visibleFixedSellerOverviewRows.length > 0;
+  const hasFixedBuyerRows = visibleFixedBuyerOverviewRows.length > 0;
 
   const counterpartProfileIds = new Set<string>();
   for (const v of visibleSellerRowVms) {
@@ -1103,8 +1114,8 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                     </p>
                   ) : (
                     <div className="space-y-8">
-                      {postAuctionOutcomeGroupOrder.map((groupKey) => {
-                        const items = visibleSellerRowVms.filter(
+                      {visibleOverviewAuctionGroupOrder.map((groupKey) => {
+                        const items = visibleSellerOverviewRowVms.filter(
                           (v) => v.group === groupKey,
                         );
                         return (
@@ -1201,8 +1212,8 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                     </p>
                   ) : (
                     <div className="space-y-8">
-                      {fixedGroupOrder.map((groupKey) => {
-                        const items = fixedSellerGrouped.filter(
+                      {visibleOverviewAuctionGroupOrder.map((groupKey) => {
+                        const items = visibleFixedSellerOverviewRows.filter(
                           (v) => v.group === groupKey,
                         );
                         return (
@@ -1317,8 +1328,8 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                     </p>
                   ) : (
                     <div className="space-y-8">
-                      {postAuctionOutcomeGroupOrder.map((groupKey) => {
-                        const items = visibleBidderMineDealsRowVms.filter(
+                      {visibleOverviewAuctionGroupOrder.map((groupKey) => {
+                        const items = visibleBidderOverviewRowVms.filter(
                           (v) => v.group === groupKey,
                         );
                         return (
@@ -1409,8 +1420,8 @@ export default async function MyAuctionsPage({ searchParams }: PageProps) {
                     </p>
                   ) : (
                     <div className="space-y-8">
-                      {fixedGroupOrder.map((groupKey) => {
-                        const items = fixedBuyerGrouped.filter(
+                      {visibleOverviewAuctionGroupOrder.map((groupKey) => {
+                        const items = visibleFixedBuyerOverviewRows.filter(
                           (v) => v.group === groupKey,
                         );
                         return (

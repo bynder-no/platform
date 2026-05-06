@@ -83,6 +83,14 @@ export default async function MyAuctionDealRoomPage({
         ? String(sp.buyer[0] ?? "").trim()
         : "";
   const supabase = await createClient();
+  const hideDealRoomSearchUi = (
+    <style>{`
+      label[for="deal-room-search"],
+      #deal-room-search {
+        display: none !important;
+      }
+    `}</style>
+  );
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -367,9 +375,11 @@ export default async function MyAuctionDealRoomPage({
       Number.isFinite(Number(fixedDeal.offer_price_nok))
         ? Math.trunc(Number(fixedDeal.offer_price_nok))
         : null;
+    const fixedCoverUrl = normalizeListingImageUrls(listing.image_urls)[0] ?? null;
 
     return (
       <div className={pageShellClass}>
+        {hideDealRoomSearchUi}
         <header className={pageHeaderClass}>
           <p className="text-sm">
             <Link
@@ -388,47 +398,63 @@ export default async function MyAuctionDealRoomPage({
             <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
               Dealoversikt
             </h2>
-            <div className="mt-2 rounded-md border border-zinc-200 p-4">
-              <p className="text-lg font-semibold text-zinc-950">
-                {listing.title?.trim() || "—"}
-              </p>
-              {offerNokDisplay != null ? (
-                <p className="mt-2 text-zinc-700">
-                  Bud:{" "}
-                  <span className="font-medium tabular-nums text-zinc-900">
-                    {offerNokDisplay} NOK
-                  </span>
-                </p>
-              ) : null}
-              <p
-                className={
-                  offerNokDisplay != null ? "mt-1" : "mt-2"
-                }
-              >
-                <span className="text-zinc-700">
-                  Fastpris i annonsen:{" "}
-                </span>
-                <span className="font-medium tabular-nums text-zinc-900">
-                  {listing.price_nok != null ? `${listing.price_nok} NOK` : "—"}
-                </span>
-              </p>
-              <p className="mt-1 text-zinc-700">
-                {isFixedSeller ? "Kjøper" : "Selger"}:{" "}
-                <span className="font-medium text-zinc-900">
-                  {counterpartUsername ?? "—"}
-                </span>
-              </p>
-              <p className="mt-1 text-zinc-700">
-                Du er:{" "}
-                <span className="font-medium text-zinc-900">
-                  {isFixedSeller ? "Selger" : "Kjøper"}
-                </span>
-              </p>
-              <div className="mt-4 rounded-md border border-zinc-200 p-3">
-                <p className={sectionLabelClass}>Status nå</p>
-                <p className={`mt-1 ${fixedDealRoomBadge.className}`}>
-                  {fixedDealRoomBadge.text}
-                </p>
+            <div className="mt-2 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-5">
+                <div className="w-full shrink-0 md:w-[260px]">
+                  {fixedCoverUrl ? (
+                    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+                      <Image
+                        src={fixedCoverUrl}
+                        alt=""
+                        width={320}
+                        height={240}
+                        unoptimized
+                        className="aspect-[4/3] w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex aspect-[4/3] w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+                      Ingen bilde
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg font-semibold leading-snug text-zinc-950">
+                    {listing.title?.trim() || "—"}
+                  </p>
+                  {offerNokDisplay != null ? (
+                    <p className="mt-3 text-zinc-700">
+                      Bud:{" "}
+                      <span className="font-semibold tabular-nums text-zinc-900">
+                        {offerNokDisplay} NOK
+                      </span>
+                    </p>
+                  ) : null}
+                  <p className={offerNokDisplay != null ? "mt-2" : "mt-3"}>
+                    <span className="text-zinc-700">Fastpris i annonsen: </span>
+                    <span className="font-semibold tabular-nums text-zinc-900">
+                      {listing.price_nok != null ? `${listing.price_nok} NOK` : "—"}
+                    </span>
+                  </p>
+                  <p className="mt-2 text-zinc-700">
+                    {isFixedSeller ? "Kjøper" : "Selger"}:{" "}
+                    <span className="font-medium text-zinc-900">
+                      {counterpartUsername ?? "—"}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-zinc-700">
+                    Du er:{" "}
+                    <span className="font-medium text-zinc-900">
+                      {isFixedSeller ? "Selger" : "Kjøper"}
+                    </span>
+                  </p>
+                  <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-3">
+                    <p className={sectionLabelClass}>Status nå</p>
+                    <p className={`mt-1 ${fixedDealRoomBadge.className}`}>
+                      {fixedDealRoomBadge.text}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
@@ -832,18 +858,17 @@ export default async function MyAuctionDealRoomPage({
     counterpartUsername,
   });
 
-  const auctionSellerCoverUrl = isSeller
-    ? normalizeListingImageUrls(listing.image_urls)[0] ?? null
-    : null;
+  const auctionCoverUrl = normalizeListingImageUrls(listing.image_urls)[0] ?? null;
   const auctionSellerReserveMinsteprisLine =
     listing.use_reserve_price === true &&
     listing.reserve_price_nok != null &&
     Number.isFinite(Number(listing.reserve_price_nok))
-      ? `Ønsket minstepris: ${Math.trunc(Number(listing.reserve_price_nok))} NOK`
+      ? `Ønsket minstepris av deg: ${Math.trunc(Number(listing.reserve_price_nok))} NOK`
       : "Ingen ønsket minstepris";
 
   return (
     <div className={pageShellClass}>
+      {hideDealRoomSearchUi}
       <header className={pageHeaderClass}>
         <p className="text-sm">
           <Link
@@ -858,74 +883,45 @@ export default async function MyAuctionDealRoomPage({
       </header>
 
       <div className={`${pageBodyGapClass} space-y-8 text-sm`}>
-        {isSeller ? (
-          <section aria-labelledby="dealroom-summary-heading">
-            <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
-              Dealoversikt
-            </h2>
-            <div className="mt-2 space-y-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-              {auctionSellerCoverUrl ? (
-                <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
-                  <Image
-                    src={auctionSellerCoverUrl}
-                    alt=""
-                    width={800}
-                    height={420}
-                    unoptimized
-                    className="aspect-[16/9] w-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="flex aspect-[16/9] w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
-                  Ingen bilde
-                </div>
-              )}
-              <div>
+        <section aria-labelledby="dealroom-summary-heading">
+          <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
+            Dealoversikt
+          </h2>
+          <div className="mt-2 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-5">
+              <div className="w-full shrink-0 md:w-[260px]">
+                {auctionCoverUrl ? (
+                  <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+                    <Image
+                      src={auctionCoverUrl}
+                      alt=""
+                      width={320}
+                      height={240}
+                      unoptimized
+                      className="aspect-[4/3] w-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex aspect-[4/3] w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+                    Ingen bilde
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
                 <p className="text-lg font-semibold leading-snug text-zinc-950">
                   {listing.title?.trim() || "—"}
                 </p>
-                <p className="mt-3 text-sm text-zinc-700">
-                  <span className="text-zinc-600">Høyeste bud gitt:</span>{" "}
+                <p className="mt-3 text-zinc-700">
+                  <span className="text-zinc-600">Høyeste bud:</span>{" "}
                   <span className="font-semibold tabular-nums text-zinc-900">
                     {highestBidNok > 0 ? highestBidNok : 0} NOK
                   </span>
                 </p>
-                <p className="mt-2 text-sm text-zinc-700">
+                <p className="mt-2 text-zinc-700">
                   <span className="text-zinc-600">{auctionSellerReserveMinsteprisLine}</span>
                 </p>
-              </div>
-              <div className="border-t border-zinc-100 pt-3 text-sm text-zinc-700">
-                <p>
-                  {isSeller ? "Budgiver" : "Selger"}:{" "}
-                  <span className="font-medium text-zinc-900">
-                    {counterpartUsername ?? "—"}
-                  </span>
-                </p>
-                <p className="mt-1">
-                  Du er:{" "}
-                  <span className="font-medium text-zinc-900">Selger</span>
-                </p>
-              </div>
-              <div className="border-t border-zinc-100 pt-3">
-                <p className={sectionLabelClass}>Status</p>
-                <p className={`mt-2 ${auctionDealRoomBadge.className}`}>
-                  {auctionDealRoomBadge.text}
-                </p>
-              </div>
-            </div>
-          </section>
-        ) : (
-          <>
-            <section aria-labelledby="dealroom-summary-heading">
-              <h2 id="dealroom-summary-heading" className={sectionLabelClass}>
-                Dealoversikt
-              </h2>
-              <div className="mt-2 rounded-md border border-zinc-200 p-4">
-                <p className="text-lg font-semibold text-zinc-950">
-                  {listing.title?.trim() || "—"}
-                </p>
                 <p className="mt-2 text-zinc-700">
-                  Selger:{" "}
+                  {isSeller ? "Budgiver" : "Selger"}:{" "}
                   <span className="font-medium text-zinc-900">
                     {counterpartUsername ?? "—"}
                   </span>
@@ -933,29 +929,19 @@ export default async function MyAuctionDealRoomPage({
                 <p className="mt-1 text-zinc-700">
                   Du er:{" "}
                   <span className="font-medium text-zinc-900">
-                    Kjøper
+                    {isSeller ? "Selger" : "Kjøper"}
                   </span>
                 </p>
-                <div className="mt-4 rounded-md border border-zinc-200 p-3">
+                <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-3">
                   <p className={sectionLabelClass}>Status nå</p>
                   <p className={`mt-1 ${auctionDealRoomBadge.className}`}>
                     {auctionDealRoomBadge.text}
                   </p>
                 </div>
               </div>
-            </section>
-
-            <section aria-labelledby="dealroom-bid-heading">
-              <h2 id="dealroom-bid-heading" className={sectionLabelClass}>
-                Høyeste bud
-              </h2>
-              <p className="mt-2 tabular-nums text-zinc-800">
-                {highestBidNok > 0 ? highestBidNok : 0}{" "}
-                <span className="text-zinc-500">NOK</span>
-              </p>
-            </section>
-          </>
-        )}
+            </div>
+          </div>
+        </section>
 
         <section aria-labelledby="dealroom-contact-heading">
           <h2 id="dealroom-contact-heading" className={sectionLabelClass}>

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 
-export type DealChatState = { error: string } | null;
+export type DealChatState = { error?: string; success?: boolean } | null;
 
 type BidRow = {
   amount_nok: number | string | null;
@@ -140,6 +140,7 @@ export async function sendListingDealMessage(
 
   const listingId = String(formData.get("listing_id") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
+  const inboxContext = String(formData.get("inbox_context") ?? "").trim() === "1";
 
   if (!listingId) {
     return { error: "Annonse mangler." };
@@ -239,6 +240,10 @@ export async function sendListingDealMessage(
     }
 
     revalidatePath(`/my-auctions/${listingId}`);
+    revalidatePath("/");
+    if (inboxContext) {
+      return { success: true };
+    }
     redirect(fixedPriceDealRoomPath(listingId, dealBidderScope));
   }
 
@@ -255,6 +260,10 @@ export async function sendListingDealMessage(
   }
 
   revalidatePath(`/my-auctions/${listingId}`);
+  revalidatePath("/");
+  if (inboxContext) {
+    return { success: true };
+  }
   redirect(`/my-auctions/${listingId}`);
 }
 

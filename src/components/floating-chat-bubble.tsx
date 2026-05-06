@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import { markConversationThreadRead, sendConversationMessage } from "@/app/messages/actions";
+import { sendListingDealMessage } from "@/app/my-auctions/[id]/actions";
 import {
   CHAT_PANEL_STATE_EVENT,
   CLOSE_MESSAGES_INBOX_PANEL_EVENT,
@@ -24,13 +25,18 @@ import {
   FloatingChatChatterPanel,
   LIST_PAGE_SIZE,
 } from "./floating-chat/floating-chat-chatter-panel";
-import type { ChatPatch, ChatPreview } from "./floating-chat/floating-chat-types";
+import type {
+  ChatPatch,
+  ChatPreview,
+  DealPreview,
+  InboxThread,
+} from "./floating-chat/floating-chat-types";
 import { FloatingChatThreadWindow } from "./floating-chat/floating-chat-thread-window";
 
-export type { ChatPreview } from "./floating-chat/floating-chat-types";
+export type { InboxThread } from "./floating-chat/floating-chat-types";
 
 type FloatingChatBubbleProps = {
-  chats: ChatPreview[];
+  chats: InboxThread[];
   currentUserId: string;
 };
 
@@ -54,6 +60,39 @@ function pushPreviousToMinimized(
   return { activeThreadId: nextActiveId, minimizedThreadIds: minimized };
 }
 
+function mergeChatPreview(
+  incoming: ChatPreview,
+  prevRow: InboxThread | undefined,
+  isOpenThread: boolean,
+): ChatPreview {
+  if (isOpenThread && prevRow && prevRow.unreadCount === 0 && incoming.unreadCount > 0) {
+    return { ...incoming, kind: "chat" as const, unreadCount: 0 };
+  }
+  return { ...incoming, kind: "chat" as const };
+}
+
+function mergeDealPreview(incoming: DealPreview): DealPreview {
+  return { ...incoming, kind: "deal" as const };
+}
+
+function applyChatPatch(thread: ChatPreview, patch: ChatPatch): ChatPreview {
+  return {
+    ...thread,
+    ...patch,
+    kind: "chat" as const,
+    messages: patch.messages ?? thread.messages,
+  };
+}
+
+function applyDealPatch(thread: DealPreview, patch: ChatPatch): DealPreview {
+  return {
+    ...thread,
+    ...patch,
+    kind: "deal" as const,
+    messages: patch.messages ?? thread.messages,
+  };
+}
+
 export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleProps) {
   const router = useRouter();
   const uid = String(currentUserId);
@@ -66,7 +105,7 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
 
   const [composerByThreadId, setComposerByThreadId] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "unread" | "requests">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "unread" | "requests" | "deals">("all");
   const [listCap, setListCap] = useState(LIST_PAGE_SIZE);
   const [sendPending, setSendPending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -74,8 +113,8 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
   const [threadPatches, setThreadPatches] = useState<Record<string, ChatPatch>>({});
   const [hiddenThreadIds, setHiddenThreadIds] = useState(() => new Set<string>());
 
-  const mergeSourceRef = useRef<ChatPreview[] | null>(null);
-  const mergedThreadsForEventRef = useRef<ChatPreview[]>(chats);
+  const mergeSourceRef = useRef<InboxThread[] | null>(null);
+  const mergedThreadsForEventRef = useRef<InboxThread[]>(chats);
   const threadMessagesScrollRef = useRef<HTMLDivElement | null>(null);
   const threadMessagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -84,19 +123,14 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
       mergeSourceRef.current !== null && mergeSourceRef.current.length > 0
         ? mergeSourceRef.current
         : chats;
-    const next = chats.map((incoming) => {
+    const next: InboxThread[] = chats.map((incoming) => {
       const prevRow = prevRows.find((t) => String(t.id) === String(incoming.id));
       const isOpenThread =
         activeThreadId && String(incoming.id) === String(activeThreadId);
-      if (
-        isOpenThread &&
-        prevRow &&
-        prevRow.unreadCount === 0 &&
-        incoming.unreadCount > 0
-      ) {
-        return { ...incoming, unreadCount: 0 };
+      if (incoming.kind === "chat") {
+        return mergeChatPreview(incoming, prevRow, Boolean(isOpenThread));
       }
-      return incoming;
+      return mergeDealPreview(incoming);
     });
     mergeSourceRef.current = next;
     return next;
@@ -105,26 +139,26 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
   mergedThreadsForEventRef.current = mergedThreads;
 
   const patchedThreads = useMemo(() => {
-    return mergedThreads.map((t) => {
+    const next: InboxThread[] = mergedThreads.map((t) => {
       const patch = threadPatches[String(t.id)];
       if (!patch) return t;
-      return {
-        ...t,
-        ...patch,
-        messages: patch.messages ?? t.messages,
-      };
+      if (t.kind === "chat") {
+        return applyChatPatch(t, patch);
+      }
+      return applyDealPatch(t, patch);
     });
+    return next;
   }, [mergedThreads, threadPatches]);
 
   const localThreads = useMemo(() => {
     return patchedThreads.filter((t) => !hiddenThreadIds.has(String(t.id)));
   }, [patchedThreads, hiddenThreadIds]);
 
-  const activeThread = useMemo(
+  const activeThread = useMemo<InboxThread | undefined>(
     () =>
       activeThreadId
-        ? localThreads.find((thread) => String(thread.id) === String(activeThreadId)) ?? null
-        : null,
+        ? localThreads.find((thread) => String(thread.id) === String(activeThreadId))
+        : undefined,
     [localThreads, activeThreadId],
   );
 
@@ -191,7 +225,7 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
       setChatStack((prev) => pushPreviousToMinimized(prev, id));
       const rows = mergedThreadsForEventRef.current;
       const row = rows.find((t) => String(t.id) === id);
-      if (row && String(row.status) === "accepted") {
+      if (row && row.kind === "chat" && String(row.status) === "accepted") {
         setThreadPatches((p) => ({
           ...p,
           [id]: { ...p[id], unreadCount: 0 },
@@ -217,7 +251,7 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
     );
   }, [isMessengerPanelOpen]);
 
-  function selectTab(next: "all" | "unread" | "requests") {
+  function selectTab(next: "all" | "unread" | "requests" | "deals") {
     setActiveTab(next);
     setListCap(LIST_PAGE_SIZE);
   }
@@ -227,17 +261,19 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
     setListCap(LIST_PAGE_SIZE);
   }
 
-  function openThreadFromRow(chat: ChatPreview) {
+  function openThreadFromRow(chat: InboxThread) {
     const id = String(chat.id);
     setIsMessengerPanelOpen(false);
     setChatStack((prev) => pushPreviousToMinimized(prev, id));
-    if (String(chat.status) === "accepted") {
+    if (chat.kind === "chat" && String(chat.status) === "accepted") {
       setThreadPatches((prev) => ({
         ...prev,
         [id]: { ...prev[id], unreadCount: 0 },
       }));
     }
-    void markConversationThreadRead(id).then(() => router.refresh());
+    if (chat.kind === "chat") {
+      void markConversationThreadRead(id).then(() => router.refresh());
+    }
   }
 
   function handleMinimizeActive() {
@@ -278,30 +314,38 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
     if (activeTab === "requests") {
       base = localThreads.filter(
         (thread) =>
+          thread.kind === "chat" &&
           String(thread.status) === "pending" && String(thread.recipientId) === uid,
       );
     } else if (activeTab === "unread") {
       base = localThreads.filter(
         (thread) =>
+          thread.kind === "chat" &&
           String(thread.status) === "accepted" &&
           thread.unreadCount > 0,
       );
+    } else if (activeTab === "deals") {
+      base = localThreads.filter((thread) => thread.kind === "deal");
     } else {
       base = localThreads.filter(
         (thread) =>
-          String(thread.status) === "accepted" ||
-          (String(thread.status) === "pending" && String(thread.requesterId) === uid),
+          thread.kind === "chat" &&
+          (String(thread.status) === "accepted" ||
+            (String(thread.status) === "pending" && String(thread.requesterId) === uid)),
       );
     }
     const query = searchQuery.trim().toLowerCase();
     if (!query) return base;
     return base.filter((thread) => {
-      const haystack = `${thread.otherName} ${thread.preview}`.toLowerCase();
+      const haystack =
+        thread.kind === "deal"
+          ? `${thread.otherName} ${thread.listingTitle} ${thread.preview}`.toLowerCase()
+          : `${thread.otherName} ${thread.preview}`.toLowerCase();
       return haystack.includes(query);
     });
   }, [activeTab, localThreads, searchQuery, uid]);
 
-  const shownThreads = useMemo(
+  const shownThreads = useMemo<InboxThread[]>(
     () => filteredThreads.slice(0, listCap),
     [filteredThreads, listCap],
   );
@@ -311,24 +355,32 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
     () =>
       localThreads.filter(
         (t) =>
-          String(t.status) === "accepted" ||
-          (String(t.status) === "pending" && String(t.requesterId) === uid),
+          t.kind === "chat" &&
+          (String(t.status) === "accepted" ||
+            (String(t.status) === "pending" && String(t.requesterId) === uid)),
       ).length,
     [localThreads, uid],
   );
   const countUleste = useMemo(
     () =>
       localThreads.filter(
-        (t) => String(t.status) === "accepted" && t.unreadCount > 0,
+        (t) => t.kind === "chat" && String(t.status) === "accepted" && t.unreadCount > 0,
       ).length,
     [localThreads],
   );
   const countForespørsler = useMemo(
     () =>
       localThreads.filter(
-        (t) => String(t.status) === "pending" && String(t.recipientId) === uid,
+        (t) =>
+          t.kind === "chat" &&
+          String(t.status) === "pending" &&
+          String(t.recipientId) === uid,
       ).length,
     [localThreads, uid],
+  );
+  const countDeals = useMemo(
+    () => localThreads.filter((t) => t.kind === "deal").length,
+    [localThreads],
   );
 
   const onSubmitSend = useCallback(
@@ -337,7 +389,13 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
       setSendPending(true);
       setSendError(null);
       try {
-        const result = await sendConversationMessage(null, formData);
+        let result: { error?: string; success?: boolean } | null = null;
+        if (activeThread.kind === "deal") {
+          formData.set("inbox_context", "1");
+          result = await sendListingDealMessage(null, formData);
+        } else {
+          result = await sendConversationMessage(null, formData);
+        }
         if (result?.error) {
           setSendError(result.error);
           return;
@@ -386,6 +444,7 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
           countAlle={countAlle}
           countUleste={countUleste}
           countForespørsler={countForespørsler}
+          countDeals={countDeals}
           listTabShowsUnreadDot={activeTab === "all"}
         />
       ) : null}
