@@ -325,7 +325,18 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
           thread.unreadCount > 0,
       );
     } else if (activeTab === "deals") {
-      base = localThreads.filter((thread) => thread.kind === "deal");
+      base = localThreads
+        .filter((thread): thread is DealPreview => thread.kind === "deal")
+        .sort((a, b) => {
+          const aMs = a.sortCreatedAt ? new Date(a.sortCreatedAt).getTime() : Number.NaN;
+          const bMs = b.sortCreatedAt ? new Date(b.sortCreatedAt).getTime() : Number.NaN;
+          if (Number.isFinite(aMs) && Number.isFinite(bMs)) {
+            return bMs - aMs;
+          }
+          if (Number.isFinite(aMs)) return -1;
+          if (Number.isFinite(bMs)) return 1;
+          return String(a.id).localeCompare(String(b.id));
+        });
     } else {
       base = localThreads.filter(
         (thread) =>

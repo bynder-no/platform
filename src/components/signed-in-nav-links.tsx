@@ -23,7 +23,6 @@ const NAV_GROUP_LEFT: NavLinkItem[] = [
 
 const NAV_GROUP_MIDDLE: NavLinkItem[] = [
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/my-auctions", label: "Mine deals" },
 ];
 
 const NAV_GROUP_RIGHT: NavLinkItem[] = [

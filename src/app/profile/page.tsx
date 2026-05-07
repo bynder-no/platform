@@ -246,12 +246,6 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                   Mine aktive annonser
                 </Link>
                 <Link
-                  href="/my-auctions"
-                  className="inline-flex justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100"
-                >
-                  Mine deals
-                </Link>
-                <Link
                   href="/favorites"
                   className="inline-flex justify-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-900 transition hover:bg-zinc-100"
                 >

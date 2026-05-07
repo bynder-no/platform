@@ -283,6 +283,7 @@ export async function markBuyerReceivedCard(
   }
 
   const listingId = String(formData.get("listing_id") ?? "").trim();
+  const inboxContext = String(formData.get("inbox_context") ?? "").trim() === "1";
   if (!listingId) {
     return { error: "Annonse mangler." };
   }
@@ -353,6 +354,10 @@ export async function markBuyerReceivedCard(
 
     await maybeSetDealCompletedAt(supabase, listingId, user.id);
     revalidatePath(`/my-auctions/${listingId}`);
+    revalidatePath("/");
+    if (inboxContext) {
+      return null;
+    }
     redirect(fixedPriceDealRoomPath(listingId, user.id));
   }
 
@@ -429,6 +434,10 @@ export async function markBuyerReceivedCard(
   await maybeSetDealCompletedAt(supabase, listingId);
 
   revalidatePath(`/my-auctions/${listingId}`);
+  revalidatePath("/");
+  if (inboxContext) {
+    return null;
+  }
   redirect(`/my-auctions/${listingId}`);
 }
 
@@ -448,6 +457,7 @@ export async function markSellerReceivedPayment(
   }
 
   const listingId = String(formData.get("listing_id") ?? "").trim();
+  const inboxContext = String(formData.get("inbox_context") ?? "").trim() === "1";
   if (!listingId) {
     return { error: "Annonse mangler." };
   }
@@ -523,6 +533,10 @@ export async function markSellerReceivedPayment(
 
     await maybeSetDealCompletedAt(supabase, listingId, scopeBidder);
     revalidatePath(`/my-auctions/${listingId}`);
+    revalidatePath("/");
+    if (inboxContext) {
+      return null;
+    }
     redirect(fixedPriceDealRoomPath(listingId, scopeBidder));
   }
 
@@ -587,6 +601,10 @@ export async function markSellerReceivedPayment(
   await maybeSetDealCompletedAt(supabase, listingId);
 
   revalidatePath(`/my-auctions/${listingId}`);
+  revalidatePath("/");
+  if (inboxContext) {
+    return null;
+  }
   redirect(`/my-auctions/${listingId}`);
 }
 

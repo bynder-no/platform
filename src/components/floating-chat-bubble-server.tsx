@@ -31,6 +31,7 @@ type DealRow = {
   listing_id: string;
   seller_id: string;
   bidder_id: string;
+  created_at: string | null;
   seller_decision: string;
   bidder_decision: string;
   buyer_received_card: boolean | null;
@@ -164,7 +165,7 @@ export async function FloatingChatBubbleServer() {
   const { data: dealRowsRaw, error: dealRowsErr } = await supabase
     .from("listing_deals")
     .select(
-      "id, listing_id, seller_id, bidder_id, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
+      "id, listing_id, seller_id, bidder_id, created_at, seller_decision, bidder_decision, buyer_received_card, seller_received_payment, completed_at",
     )
     .or(`seller_id.eq.${user.id},bidder_id.eq.${user.id}`);
   if (dealRowsErr) {
@@ -191,7 +192,7 @@ export async function FloatingChatBubbleServer() {
 
   const { data: listingRowsRaw, error: listingRowsErr } = await supabase
     .from("listings")
-    .select("id, title, image_urls, type")
+    .select("id, title, image_urls, type, created_at")
     .in(
       "id",
       dealListingIds.length > 0 ? dealListingIds : ["00000000-0000-0000-0000-000000000000"],
@@ -272,6 +273,12 @@ export async function FloatingChatBubbleServer() {
       bidderId: String(deal.bidder_id ?? "").trim(),
       sellerDecision: String(deal.seller_decision ?? "pending"),
       bidderDecision: String(deal.bidder_decision ?? "pending"),
+      buyerReceivedCard: deal.buyer_received_card === true,
+      sellerReceivedPayment: deal.seller_received_payment === true,
+      sortCreatedAt:
+        String(deal.created_at ?? "").trim() ||
+        String(listing?.created_at ?? "").trim() ||
+        null,
       otherName: profileLabel(counterpart),
       listingTitle: String(listing?.title ?? "").trim() || "Annonse",
       listingImageUrl: normalizeListingImageUrls(listing?.image_urls)[0] ?? null,
