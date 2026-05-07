@@ -1,6 +1,5 @@
 "use client";
 
-import { useActionState } from "react";
 import type { RefObject } from "react";
 
 import {
@@ -8,6 +7,10 @@ import {
   declineConversationRequest,
 } from "@/app/messages/actions";
 import { setListingDealDecision } from "@/app/listings/[id]/actions";
+import {
+  markBuyerReceivedCard,
+  markSellerReceivedPayment,
+} from "@/app/my-auctions/[id]/actions";
 
 import type { ChatPreview, InboxThread } from "./floating-chat-types";
 
@@ -58,7 +61,6 @@ export function FloatingChatThreadWindow({
   routerRefresh,
   onSubmitSend,
 }: FloatingChatThreadWindowProps) {
-  const [, dealDecisionFormAction] = useActionState(setListingDealDecision, null);
   const uid = String(currentUserId);
   const selectedThread = thread;
   const isDealThread = selectedThread.kind === "deal";
@@ -83,6 +85,18 @@ export function FloatingChatThreadWindow({
     String(selectedThread.status) === "pending" &&
     String(selectedThread.requesterId) === uid;
   const canShowDealActions = canRenderDealActions && selectedThread.canRespond;
+  const dealAcceptedByBoth =
+    isDealThread &&
+    selectedThread.sellerDecision === "deal" &&
+    selectedThread.bidderDecision === "deal";
+  const buyerReceivedCardConfirmed =
+    isDealThread && selectedThread.buyerReceivedCard === true;
+  const sellerReceivedPaymentConfirmed =
+    isDealThread && selectedThread.sellerReceivedPayment === true;
+  const dealCompleted =
+    isDealThread && buyerReceivedCardConfirmed && sellerReceivedPaymentConfirmed;
+  const isDealBuyer = isDealThread && selectedThread.viewerRole === "buyer";
+  const isDealSeller = isDealThread && selectedThread.viewerRole === "seller";
 
   if (minimized) {
     return (
@@ -156,10 +170,16 @@ export function FloatingChatThreadWindow({
               </div>
               {canShowDealActions ? (
                 <div className="flex items-center gap-2">
-                  <form action={dealDecisionFormAction}>
+                  <form
+                    action={async (formData) => {
+                      await setListingDealDecision(null, formData);
+                      routerRefresh();
+                    }}
+                  >
                     <input type="hidden" name="listing_id" value={selectedThread.listingId} />
                     <input type="hidden" name="role" value={responderRole} />
                     <input type="hidden" name="decision" value="deal" />
+                    <input type="hidden" name="inbox_context" value="1" />
                     {selectedThread.dealBidderId !== "" ? (
                       <input
                         type="hidden"
@@ -174,10 +194,16 @@ export function FloatingChatThreadWindow({
                       Deal
                     </button>
                   </form>
-                  <form action={dealDecisionFormAction}>
+                  <form
+                    action={async (formData) => {
+                      await setListingDealDecision(null, formData);
+                      routerRefresh();
+                    }}
+                  >
                     <input type="hidden" name="listing_id" value={selectedThread.listingId} />
                     <input type="hidden" name="role" value={responderRole} />
                     <input type="hidden" name="decision" value="no_deal" />
+                    <input type="hidden" name="inbox_context" value="1" />
                     {selectedThread.dealBidderId !== "" ? (
                       <input
                         type="hidden"
@@ -198,6 +224,83 @@ export function FloatingChatThreadWindow({
                   Ingen tilgjengelige deal-handlinger nå
                 </p>
               )}
+              {dealAcceptedByBoth ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {isDealBuyer ? (
+                    buyerReceivedCardConfirmed ? (
+                      <p className="text-[11px] text-zinc-500">
+                        Kort mottatt bekreftet
+                      </p>
+                    ) : (
+                      <form
+                        action={async (formData) => {
+                          await markBuyerReceivedCard(null, formData);
+                          routerRefresh();
+                        }}
+                      >
+                        <input
+                          type="hidden"
+                          name="listing_id"
+                          value={selectedThread.listingId}
+                        />
+                        <input type="hidden" name="inbox_context" value="1" />
+                        {selectedThread.dealBidderId !== "" ? (
+                          <input
+                            type="hidden"
+                            name="deal_bidder_id"
+                            value={selectedThread.dealBidderId}
+                          />
+                        ) : null}
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 hover:bg-zinc-100"
+                        >
+                          Kort mottatt
+                        </button>
+                      </form>
+                    )
+                  ) : null}
+                  {isDealSeller ? (
+                    sellerReceivedPaymentConfirmed ? (
+                      <p className="text-[11px] text-zinc-500">
+                        Betaling mottatt bekreftet
+                      </p>
+                    ) : (
+                      <form
+                        action={async (formData) => {
+                          await markSellerReceivedPayment(null, formData);
+                          routerRefresh();
+                        }}
+                      >
+                        <input
+                          type="hidden"
+                          name="listing_id"
+                          value={selectedThread.listingId}
+                        />
+                        <input type="hidden" name="inbox_context" value="1" />
+                        {selectedThread.dealBidderId !== "" ? (
+                          <input
+                            type="hidden"
+                            name="deal_bidder_id"
+                            value={selectedThread.dealBidderId}
+                          />
+                        ) : null}
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 hover:bg-zinc-100"
+                        >
+                          Betaling mottatt
+                        </button>
+                      </form>
+                    )
+                  ) : null}
+                  {dealCompleted ? (
+                    <p className="text-[11px] font-medium text-emerald-700">
+                      Deal fullført
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ) : isRecipient ? (
             <div className="flex items-center gap-2">

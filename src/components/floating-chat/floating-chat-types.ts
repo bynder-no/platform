@@ -26,6 +26,9 @@ export type DealPreview = {
   bidderId: string;
   sellerDecision: string;
   bidderDecision: string;
+  buyerReceivedCard: boolean;
+  sellerReceivedPayment: boolean;
+  sortCreatedAt: string | null;
   otherName: string;
   listingTitle: string;
   listingImageUrl: string | null;

@@ -710,6 +710,7 @@ export async function setListingDealDecision(
   const listingId = String(formData.get("listing_id") ?? "").trim();
   const role = String(formData.get("role") ?? "").trim();
   const decisionRaw = String(formData.get("decision") ?? "").trim();
+  const inboxContext = String(formData.get("inbox_context") ?? "").trim() === "1";
 
   if (!listingId) {
     return { error: "Annonse mangler." };
@@ -817,6 +818,10 @@ export async function setListingDealDecision(
     revalidatePath("/");
     revalidatePath("/fixed-price");
     revalidatePath("/search");
+    if (inboxContext) {
+      revalidatePath(`/my-auctions/${listingId}`);
+      return null;
+    }
     if (returnTo === dealRoomPath) {
       revalidatePath(dealRoomPath);
       redirect(dealRoomPath);
@@ -987,6 +992,11 @@ export async function setListingDealDecision(
   const returnTo = String(formData.get("return_to") ?? "").trim();
   const dealRoomPath = `/my-auctions/${listingId}`;
   revalidatePath(`/listings/${listingId}`);
+  revalidatePath("/");
+  if (inboxContext) {
+    revalidatePath(dealRoomPath);
+    return null;
+  }
   if (returnTo === dealRoomPath) {
     revalidatePath(dealRoomPath);
     redirect(dealRoomPath);
