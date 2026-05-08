@@ -1,7 +1,16 @@
 import { FloatingNotificationsPanel } from "@/components/floating-notifications-panel";
 import { createClient } from "@/lib/supabase/server";
 import { isNormalChatNotificationType } from "@/lib/normal-chat-badges";
-import type { NotificationRow } from "@/lib/notification-display";
+import {
+  isDealRelatedNotificationType,
+  type NotificationRow,
+} from "@/lib/notification-display";
+
+type ListingDealRow = {
+  listing_id: string;
+  bidder_id: string;
+  seller_id: string;
+};
 
 export async function FloatingNotificationsPanelServer() {
   const supabase = await createClient();
@@ -28,9 +37,80 @@ export async function FloatingNotificationsPanelServer() {
     (row) => !isNormalChatNotificationType(row.type),
   );
 
-  const listingIds = [
+  const dealCandidateListingIds = [
     ...new Set(
       notifications
+        .filter(
+          (row) => isDealRelatedNotificationType(row.type) && !!row.listing_id && !row.thread_id,
+        )
+        .map((row) => String(row.listing_id ?? "").trim())
+        .filter((id) => id !== ""),
+    ),
+  ];
+
+  const listingDealsByListingId = new Map<string, ListingDealRow[]>();
+  if (dealCandidateListingIds.length > 0) {
+    const { data: dealRows, error: dealsError } = await supabase
+      .from("listing_deals")
+      .select("listing_id, bidder_id, seller_id")
+      .in("listing_id", dealCandidateListingIds);
+
+    if (dealsError) {
+      console.error("floating notifications listing_deals:", dealsError.message);
+    } else {
+      for (const row of (dealRows ?? []) as ListingDealRow[]) {
+        const listingId = String(row.listing_id ?? "").trim();
+        if (listingId === "") continue;
+        const existing = listingDealsByListingId.get(listingId) ?? [];
+        existing.push(row);
+        listingDealsByListingId.set(listingId, existing);
+      }
+    }
+  }
+
+  const notificationsWithResolvedThread: NotificationRow[] = notifications.map((row) => {
+    if (!isDealRelatedNotificationType(row.type)) return row;
+    const fromThreadColumn = String(row.thread_id ?? "").trim();
+    if (fromThreadColumn !== "") {
+      return { ...row, resolved_thread_id: fromThreadColumn };
+    }
+    const listingId = String(row.listing_id ?? "").trim();
+    if (listingId === "") return row;
+
+    const bidderId = String(row.bidder_id ?? "").trim();
+    if (bidderId !== "") {
+      return { ...row, resolved_thread_id: `deal:${listingId}:${bidderId}` };
+    }
+
+    const listingDeals = listingDealsByListingId.get(listingId) ?? [];
+    const viewerDeal = listingDeals.find((deal) => String(deal.bidder_id ?? "").trim() === user.id);
+    if (viewerDeal) {
+      const viewerBidderId = String(viewerDeal.bidder_id ?? "").trim();
+      if (viewerBidderId !== "") {
+        return { ...row, resolved_thread_id: `deal:${listingId}:${viewerBidderId}` };
+      }
+    }
+
+    if (listingDeals.length === 1) {
+      const onlyBidder = String(listingDeals[0]?.bidder_id ?? "").trim();
+      if (onlyBidder !== "") {
+        return { ...row, resolved_thread_id: `deal:${listingId}:${onlyBidder}` };
+      }
+    }
+
+    if (listingDeals.length > 0) {
+      const fallbackBidder = String(listingDeals[0]?.bidder_id ?? "").trim();
+      if (fallbackBidder !== "") {
+        return { ...row, resolved_thread_id: `deal:${listingId}:${fallbackBidder}` };
+      }
+    }
+
+    return { ...row, resolved_thread_id: `deal:${listingId}:auction` };
+  });
+
+  const listingIds = [
+    ...new Set(
+      notificationsWithResolvedThread
         .map((n) => n.listing_id)
         .filter((id): id is string => !!id),
     ),
@@ -54,7 +134,7 @@ export async function FloatingNotificationsPanelServer() {
 
   return (
     <FloatingNotificationsPanel
-      initialNotifications={notifications}
+      initialNotifications={notificationsWithResolvedThread}
       listingTitleById={listingTitleById}
     />
   );

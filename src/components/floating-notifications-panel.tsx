@@ -151,6 +151,7 @@ export function FloatingNotificationsPanel({
                       <NotificationRowLink
                         notificationId={n.id}
                         href={destination}
+                        openThreadId={n.resolved_thread_id ?? n.thread_id}
                         isUnread={!n.is_read}
                         onAfterNavigate={closePanel}
                         className={`flex items-start gap-3 px-3 py-3 hover:bg-zinc-50 ${
