@@ -1,10 +1,9 @@
-import { fixedPriceOfferSellerDealHref } from "@/lib/notification-destinations";
-
 export type NotificationRow = {
   id: string;
   type: string;
   listing_id: string | null;
   thread_id: string | null;
+  resolved_thread_id?: string | null;
   bidder_id: string | null;
   is_read: boolean;
   message: string | null;
@@ -18,6 +17,16 @@ export type NotificationCategory =
   | "Rating"
   | "Auksjon"
   | "System";
+
+export function isDealRelatedNotificationType(type: string): boolean {
+  return (
+    type === "fixed_price_offer" ||
+    type === "deal_action_required" ||
+    type === "deal_requires_action" ||
+    type === "deal_relevant" ||
+    type === "rating_available"
+  );
+}
 
 export function categoryForType(type: string): NotificationCategory {
   if (
@@ -96,47 +105,31 @@ export function categoryIcon(category: NotificationCategory): string {
 
 /** Deep link when user activates a notification (no /notifications fallback). */
 export function destinationHref(row: NotificationRow): string {
-  if (row.type === "fixed_price_offer" && row.listing_id) {
-    return fixedPriceOfferSellerDealHref(row.listing_id, row.bidder_id);
+  if (isDealRelatedNotificationType(row.type)) {
+    const threadId = String(row.resolved_thread_id ?? row.thread_id ?? "").trim();
+    if (threadId !== "") {
+      const params = new URLSearchParams();
+      params.set("chatThread", threadId);
+      return `/?${params.toString()}`;
+    }
+    return "/";
   }
   const category = categoryForType(row.type);
   if (category === "Meldinger") return "/";
-  if (category === "Deals" || category === "Rating") {
-    if (row.listing_id) return `/my-auctions/${row.listing_id}`;
-    return "/my-auctions";
-  }
   if (row.listing_id) return `/listings/${row.listing_id}`;
   return "/";
 }
 
 export function destinationLabel(row: NotificationRow): string {
-  if (row.type === "fixed_price_offer") {
-    return row.listing_id ? "Gå til fastpris-deal" : "Gå til Mine deals";
-  }
+  if (isDealRelatedNotificationType(row.type)) return "Åpne i Meldinger/Deals";
   const category = categoryForType(row.type);
   if (category === "Meldinger") return "Åpne meldinger";
-  if (category === "Deals" || category === "Rating") {
-    return row.listing_id ? "Gå til deal" : "Gå til Mine deals";
-  }
   return "Se annonse";
 }
 
 export function listingHrefForContext(row: NotificationRow): string | null {
   if (!row.listing_id) return null;
-  if (row.type === "fixed_price_offer") {
-    return fixedPriceOfferSellerDealHref(row.listing_id, row.bidder_id);
-  }
-  const category = categoryForType(row.type);
-  if (category === "Deals" || category === "Rating") {
-    return `/my-auctions/${row.listing_id}`;
-  }
-  if (
-    row.type === "deal_action_required" ||
-    row.type === "deal_requires_action" ||
-    row.type === "deal_relevant"
-  ) {
-    return `/my-auctions/${row.listing_id}`;
-  }
+  if (isDealRelatedNotificationType(row.type)) return `/listings/${row.listing_id}`;
   return `/listings/${row.listing_id}`;
 }
 
