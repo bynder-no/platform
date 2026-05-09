@@ -8,6 +8,7 @@ import {
   pageShellClass,
   pageTitleClass,
 } from "@/lib/page-layout";
+import { userPublicLabel } from "@/lib/user-display-name";
 
 export const dynamic = "force-dynamic";
 
@@ -98,8 +99,11 @@ export default async function FollowersPage({ params }: PageProps) {
     }
   }
 
-  const profileLabel =
-    String(profile.display_name ?? "").trim() || String(profile.username ?? "").trim() || "Bruker";
+  const profileLabel = userPublicLabel(
+    profile.username,
+    profile.display_name,
+    "Bruker",
+  );
 
   return (
     <div className={pageShellClass}>
@@ -138,9 +142,12 @@ export default async function FollowersPage({ params }: PageProps) {
           <ul className="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white">
             {followerProfiles.map((row) => {
               const rowUsername = String(row.username ?? "").trim();
-              const rowDisplayName = String(row.display_name ?? "").trim();
               const rowActiveTitle = String(row.active_title ?? "").trim();
-              const rowLabel = rowDisplayName || rowUsername || "Bruker";
+              const rowLabel = userPublicLabel(
+                row.username,
+                row.display_name,
+                "Bruker",
+              );
               const rowHref =
                 rowUsername !== "" ? `/u/${encodeURIComponent(rowUsername)}` : null;
               const rating = ratingByUserId.get(String(row.id));

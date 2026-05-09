@@ -50,7 +50,7 @@ export default async function SettingsPage() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("display_name, username, shop_name, active_title")
+    .select("username, shop_name, active_title")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -58,7 +58,6 @@ export default async function SettingsPage() {
     throw new Error(`Could not load profile: ${profileError.message}`);
   }
 
-  const defaultDisplayName = profile?.display_name?.trim() ?? "";
   const defaultUsername = profile?.username?.trim() ?? "";
   const defaultShopName = profile?.shop_name?.trim() ?? "";
   const defaultActiveTitle = profile?.active_title?.trim() || "Kortselger";
@@ -109,21 +108,7 @@ export default async function SettingsPage() {
         <form action={submitSettingsForm} className="mt-10 flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium text-zinc-800">
-              Display name
-            </span>
-            <input
-              type="text"
-              name="display_name"
-              autoComplete="name"
-              defaultValue={defaultDisplayName}
-              className={inputClass}
-              placeholder="How you want to appear"
-            />
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium text-zinc-800">
-              Username
+              Brukernavn
             </span>
             <input
               type="text"
@@ -131,7 +116,7 @@ export default async function SettingsPage() {
               autoComplete="username"
               defaultValue={defaultUsername}
               className={inputClass}
-              placeholder="Public profile URL (optional)"
+              placeholder="Offentlig profil (/u/…)"
             />
           </label>
 

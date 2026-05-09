@@ -209,18 +209,18 @@ function AuctionsListingCard({
           width={224}
           height={144}
           unoptimized
-          className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover"
+          className="mb-2 h-36 w-full shrink-0 rounded-md border border-zinc-200 object-cover"
         />
       ) : (
-        <div className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+        <div className="mb-2 flex h-36 w-full shrink-0 items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
           Ingen bilde
         </div>
       )}
-      <div className="flex items-start gap-2">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className="flex min-h-0 flex-1 items-start gap-2">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1">
           <Link
             href={`/listings/${row.id}`}
-            className="line-clamp-2 font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2"
+            className="line-clamp-2 overflow-hidden break-words font-medium text-zinc-900 no-underline outline-none ring-zinc-400 hover:underline focus-visible:ring-2"
           >
             {row.title?.trim() || "—"}
           </Link>
@@ -231,30 +231,6 @@ function AuctionsListingCard({
               viewerUserId,
             )}
           </p>
-          <Link
-            href={`/listings/${row.id}`}
-            className="flex flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
-          >
-            <span className="text-xs font-medium text-emerald-700">
-              {state}
-            </span>
-            {timeLeft ? (
-              <span className="text-xs text-zinc-500">
-                <span className="font-medium text-zinc-600">
-                  Tid igjen
-                </span>{" "}
-                <span className="tabular-nums">{timeLeft}</span>
-              </span>
-            ) : null}
-            <span className="tabular-nums text-zinc-600">
-              {liveNok} NOK
-            </span>
-            {bidPositionLabel ? (
-              <span className="text-xs font-medium text-amber-800">
-                {bidPositionLabel}
-              </span>
-            ) : null}
-          </Link>
         </div>
         {viewerUserId &&
         row.seller_id &&
@@ -266,6 +242,30 @@ function AuctionsListingCard({
           />
         ) : null}
       </div>
+      <Link
+        href={`/listings/${row.id}`}
+        className="mt-auto flex flex-col gap-1 text-inherit no-underline outline-none ring-zinc-400 focus-visible:ring-2"
+      >
+        <span className="text-xs font-medium text-emerald-700">
+          {state}
+        </span>
+        {timeLeft ? (
+          <span className="text-xs text-zinc-500">
+            <span className="font-medium text-zinc-600">
+              Tid igjen
+            </span>{" "}
+            <span className="tabular-nums">{timeLeft}</span>
+          </span>
+        ) : null}
+        <span className="tabular-nums text-zinc-600">
+          {liveNok} NOK
+        </span>
+        {bidPositionLabel ? (
+          <span className="text-xs font-medium text-amber-800">
+            {bidPositionLabel}
+          </span>
+        ) : null}
+      </Link>
     </div>
   );
 }
@@ -401,7 +401,7 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
   }
 
   const cardClass =
-    "flex min-w-[11rem] max-w-[14rem] flex-1 shrink-0 flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm shadow-sm";
+    "flex h-full min-h-0 min-w-[11rem] max-w-[14rem] flex-1 shrink-0 flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm shadow-sm";
 
   const selectedSortLabel =
     SORT_FILTERS.find((item) => item.value === sortFilter)?.label ?? "Nyeste";
@@ -621,9 +621,9 @@ export default async function PublicAuctionsPage({ searchParams }: PageProps) {
             </p>
           ) : (
             <>
-              <ul className="mt-4 flex flex-wrap gap-3">
+              <ul className="mt-4 flex flex-wrap items-stretch gap-3">
                 {rows.map((row) => (
-                  <li key={row.id}>
+                  <li key={row.id} className="flex h-full min-h-0">
                     <AuctionsListingCard
                       row={row}
                       nowMs={nowMs}

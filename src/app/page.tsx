@@ -331,7 +331,7 @@ export default async function HomePage() {
           ) : (
             <HomeListingCarousel ariaLabel="Auksjonsannonser karusell">
               {auctionRows.map((row) => (
-                <li key={row.id} className="py-1">
+                <li key={row.id} className="flex h-full py-1">
                   <AuctionListingCardHomeStyle
                     row={row}
                     nowMs={nowMs}
@@ -387,7 +387,7 @@ export default async function HomePage() {
                   ? `Se annonse: ${row.title.trim()}`
                   : "Se annonse";
                 return (
-                <li key={row.id} className="py-1">
+                <li key={row.id} className="flex h-full py-1">
                   <div
                     className={`${auctionListingCardShellClass} hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md`}
                   >
@@ -396,9 +396,9 @@ export default async function HomePage() {
                       className="absolute inset-0 z-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
                       aria-label={fixedListingLabel}
                     />
-                    <div className="relative z-10 flex flex-col gap-2.5 pointer-events-none">
+                    <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-2.5 pointer-events-none">
                       {normalizeListingImageUrls(row.image_urls)[0] ? (
-                        <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
+                        <div className="mb-1.5 shrink-0 overflow-hidden rounded-xl border border-zinc-200">
                           <Image
                             src={normalizeListingImageUrls(row.image_urls)[0]}
                             alt=""
@@ -409,13 +409,13 @@ export default async function HomePage() {
                           />
                         </div>
                       ) : (
-                        <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+                        <div className="mb-1.5 flex h-44 w-full shrink-0 items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
                           Ingen bilde
                         </div>
                       )}
-                      <div className="flex items-start gap-2.5">
-                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                          <p className="line-clamp-2 font-semibold text-zinc-900 group-hover:underline">
+                      <div className="flex min-h-0 flex-1 items-stretch gap-2.5">
+                        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5">
+                          <p className="line-clamp-2 overflow-hidden break-words font-semibold text-zinc-900 group-hover:underline">
                             {row.title?.trim() || "—"}
                           </p>
                           <p className="text-xs text-zinc-500">
@@ -425,7 +425,7 @@ export default async function HomePage() {
                             )}
                           </p>
                           <ListingCategoryBadge category={row.category} />
-                          <p className="tabular-nums text-lg font-semibold text-zinc-900 group-hover:underline">
+                          <p className="mt-auto tabular-nums text-lg font-semibold text-zinc-900 group-hover:underline">
                             {priceText(row.price_nok)}
                           </p>
                         </div>

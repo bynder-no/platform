@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { userPublicLabel } from "@/lib/user-display-name";
 
 export const DISCOVER_BATCH_SIZE = 18;
 const DISCOVER_POOL_SIZE = 360;
@@ -138,8 +139,11 @@ export async function getDiscoverShuffledItems({
       const sellerId = String(seller.id ?? "").trim();
       const username = String(seller.username ?? "").trim();
       const displayName = String(seller.display_name ?? "").trim();
-      if (sellerId && (displayName || username)) {
-        sellerNameById.set(sellerId, displayName || username);
+      if (sellerId && (username || displayName)) {
+        sellerNameById.set(
+          sellerId,
+          userPublicLabel(username, displayName, "Ukjent selger"),
+        );
       }
       if (sellerId && username) {
         sellerUsernameById.set(sellerId, username);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 
+import { HomeCardFavoriteButton } from "@/app/home-card-favorite-button";
 import { FixedPriceOfferForm } from "@/app/listings/[id]/fixed-price-offer-form";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -11,6 +12,7 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
+import { userPublicLabel } from "@/lib/user-display-name";
 
 export const dynamic = "force-dynamic";
 
@@ -30,23 +32,10 @@ type BidRow = {
   amount_nok: number | null;
 };
 
-function formatPostedAt(createdAt: string | null) {
-  if (!createdAt) return "Lagt ut: —";
-  const timeMs = new Date(createdAt).getTime();
-  if (!Number.isFinite(timeMs)) return "Lagt ut: —";
-
-  const diffMs = Date.now() - timeMs;
-  const diffMinutes = Math.floor(diffMs / (1000 * 60));
-  if (diffMinutes < 1) return "Lagt ut: nettopp";
-  if (diffMinutes < 60) return `Lagt ut: ${diffMinutes} min siden`;
-
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `Lagt ut: ${diffHours} t siden`;
-
-  const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 7) return `Lagt ut: ${diffDays} d siden`;
-
-  return `Lagt ut: ${new Date(timeMs).toLocaleDateString("nb-NO")}`;
+function typeLabel(type: string | null) {
+  if (type === "auction") return "Auksjon";
+  if (type === "fixed_price") return "Fastpris";
+  return "Annonse";
 }
 
 export default async function FollowingPage() {
@@ -139,8 +128,7 @@ export default async function FollowingPage() {
       for (const seller of sellerRows ?? []) {
         const sellerId = String(seller.id ?? "").trim();
         const username = String(seller.username ?? "").trim();
-        const displayName = String(seller.display_name ?? "").trim();
-        const sellerLabel = displayName || username;
+        const sellerLabel = userPublicLabel(username, seller.display_name, "");
         if (sellerId !== "" && sellerLabel !== "") {
           sellerNameById.set(sellerId, sellerLabel);
         }
@@ -148,6 +136,26 @@ export default async function FollowingPage() {
           sellerUsernameById.set(sellerId, username);
         }
       }
+    }
+  }
+
+  const favoriteIdSet = new Set<string>();
+  const listingIdsForFavorites = listings
+    .map((row) => row.id)
+    .filter((id): id is string => typeof id === "string" && id !== "");
+  if (listingIdsForFavorites.length > 0) {
+    const { data: favRows, error: favErr } = await supabase
+      .from("favorites")
+      .select("listing_id")
+      .eq("user_id", user.id)
+      .in("listing_id", listingIdsForFavorites);
+
+    if (favErr) {
+      throw new Error(`Could not load favorites: ${favErr.message}`);
+    }
+    for (const r of favRows ?? []) {
+      const lid = r.listing_id;
+      if (typeof lid === "string" && lid !== "") favoriteIdSet.add(lid);
     }
   }
 
@@ -167,7 +175,7 @@ export default async function FollowingPage() {
             Ingen aktive annonser fra brukere du følger akkurat nå.
           </p>
         ) : (
-          <ul className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+          <ul className="mx-auto flex w-full max-w-[26rem] flex-col gap-4 sm:max-w-[29rem]">
             {listings.map((row) => {
               const sellerId = String(row.seller_id ?? "").trim();
               const sellerName = sellerNameById.get(sellerId);
@@ -176,12 +184,7 @@ export default async function FollowingPage() {
                 sellerUsername != null
                   ? `/u/${encodeURIComponent(sellerUsername)}`
                   : null;
-              const typeLabel =
-                row.type === "auction"
-                  ? "Auksjon"
-                  : row.type === "fixed_price"
-                    ? "Fastpris"
-                    : "Annonse";
+              const typeLbl = typeLabel(row.type);
               const coverImage = normalizeListingImageUrls(row.image_urls)[0] ?? null;
               const highestBid = highestBidByListingId.get(row.id);
               const priceLabel =
@@ -200,81 +203,97 @@ export default async function FollowingPage() {
                 row.status === "active" &&
                 sellerId !== "" &&
                 sellerId !== user.id;
+
               return (
-                <li key={row.id} className="ui-card overflow-hidden text-sm">
-                  <div className="flex flex-col">
-                    <div className="space-y-1 px-4 py-3">
-                      <p className="text-sm font-semibold text-zinc-900">
-                        {sellerHref ? (
-                          <Link href={sellerHref} className="hover:underline">
-                            {sellerName ?? "Ukjent selger"}
-                          </Link>
-                        ) : (
-                          sellerName ?? "Ukjent selger"
-                        )}
-                      </p>
-                      <p className="text-xs text-zinc-500">
-                        la ut en annonse · {formatPostedAt(row.created_at).replace("Lagt ut: ", "")}
-                      </p>
-                    </div>
+                <li
+                  key={row.id}
+                  className="ui-card overflow-hidden transition duration-200 hover:-translate-y-0.5"
+                >
+                  <div className="border-b border-zinc-100 px-3.5 py-2">
+                    <p className="text-sm font-semibold text-zinc-900">
+                      {sellerHref ? (
+                        <Link href={sellerHref} className="hover:underline">
+                          {sellerName ?? "Ukjent selger"}
+                        </Link>
+                      ) : (
+                        sellerName ?? "Ukjent selger"
+                      )}
+                    </p>
+                  </div>
+
+                  <Link
+                    href={`/listings/${row.id}`}
+                    className="group relative block aspect-[5/6] w-full overflow-hidden bg-zinc-100"
+                  >
                     {coverImage ? (
                       <Image
                         src={coverImage}
                         alt={row.title?.trim() || "Annonsebilde"}
-                        width={960}
-                        height={540}
+                        width={800}
+                        height={1000}
                         unoptimized
-                        className="h-72 w-full border-y border-zinc-200 object-cover"
+                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
                       />
                     ) : (
-                      <div className="flex h-72 w-full items-center justify-center border-y border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+                      <div className="flex h-full w-full items-center justify-center text-xs text-zinc-500">
                         Ingen bilde
                       </div>
                     )}
-                    <div className="space-y-2 px-4 py-3">
-                      <p>
-                        <span className="ui-badge ui-badge-accent">{typeLabel}</span>
-                      </p>
-                      <Link
-                        href={`/listings/${row.id}`}
-                        className="line-clamp-2 text-base font-semibold text-zinc-900 hover:underline"
-                      >
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-zinc-900/90 via-zinc-900/55 to-transparent px-2.5 pb-2.5 pt-10 text-white">
+                      <span className="mb-1.5 inline-flex rounded-full bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-zinc-800">
+                        {typeLbl}
+                      </span>
+                      <p className="mb-1.5 line-clamp-2 break-words text-sm font-semibold leading-snug text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">
                         {row.title?.trim() || "—"}
-                      </Link>
-                      <p className="text-base font-semibold text-zinc-900">
+                      </p>
+                      <p className="text-sm font-semibold tabular-nums text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">
                         {priceLabel}
                       </p>
-                      <div className="flex flex-wrap items-center gap-4 pt-1 text-sm">
-                        <Link
-                          href={`/listings/${row.id}`}
-                          className="ui-button-secondary px-4 py-2 text-sm font-semibold no-underline"
-                        >
-                          Se annonse
-                        </Link>
-                        <span className="text-zinc-600">
-                          ♡ Favoritt
-                        </span>
-                        {showFixedPriceOffer ? (
-                          <div className="[&>div]:mt-0">
-                            <FixedPriceOfferForm
-                              listingId={row.id}
-                              defaultOfferNok={
-                                row.price_nok != null && Number.isFinite(Number(row.price_nok))
-                                  ? Math.max(1, Math.trunc(Number(row.price_nok)))
-                                  : 1
-                              }
-                              listingTitle={row.title?.trim() || "Annonse"}
-                              originalPriceNok={
-                                row.price_nok != null && Number.isFinite(Number(row.price_nok))
-                                  ? Math.trunc(Number(row.price_nok))
-                                  : null
-                              }
-                              thumbnailUrl={coverImage}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
                     </div>
+                  </Link>
+
+                  <div className="flex items-center justify-between gap-3 border-t border-zinc-100 px-3.5 py-2 text-xs text-zinc-600">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-2">
+                      {sellerHref ? (
+                        <Link href={sellerHref} className="hover:underline">
+                          Se profil
+                        </Link>
+                      ) : null}
+                      <Link
+                        href={`/listings/${row.id}`}
+                        className="hover:underline"
+                      >
+                        Se annonse
+                      </Link>
+                      {showFixedPriceOffer ? (
+                        <div className="min-w-0 basis-full sm:basis-auto [&>div]:mt-0">
+                          <FixedPriceOfferForm
+                            listingId={row.id}
+                            defaultOfferNok={
+                              row.price_nok != null &&
+                              Number.isFinite(Number(row.price_nok))
+                                ? Math.max(1, Math.trunc(Number(row.price_nok)))
+                                : 1
+                            }
+                            listingTitle={row.title?.trim() || "Annonse"}
+                            originalPriceNok={
+                              row.price_nok != null &&
+                              Number.isFinite(Number(row.price_nok))
+                                ? Math.trunc(Number(row.price_nok))
+                                : null
+                            }
+                            thumbnailUrl={coverImage}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                    {sellerId !== "" && sellerId !== user.id ? (
+                      <HomeCardFavoriteButton
+                        listingId={row.id}
+                        isFavorite={favoriteIdSet.has(row.id)}
+                        returnTo="/following"
+                      />
+                    ) : null}
                   </div>
                 </li>
               );

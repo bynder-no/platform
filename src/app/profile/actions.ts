@@ -75,12 +75,11 @@ export async function updateProfile(
     redirect("/login");
   }
 
-  const display_name =
-    String(formData.get("display_name") ?? "").trim() || null;
-
   // Optional; blank clears to null (same as the profile form).
   const usernameRaw = String(formData.get("username") ?? "");
   const username = usernameRaw.trim() || null;
+  /** Mirror username into display_name for backward compatibility (single public name). */
+  const display_name = username;
   const shopNameRaw = String(formData.get("shop_name") ?? "");
   const shop_name = shopNameRaw.trim() || null;
   const activeTitleRaw = String(formData.get("active_title") ?? "").trim();

@@ -14,6 +14,7 @@ const buttonClass =
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -30,13 +31,33 @@ export default function SignupPage() {
       return;
     }
 
+    const trimmedUsername = username.trim();
+    if (trimmedUsername === "") {
+      setError("Choose a username.");
+      return;
+    }
+
     setLoading(true);
 
     const supabase = createClient();
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
     });
+
+    if (!signUpError && signUpData.user) {
+      const { error: profileErr } = await supabase.from("profiles").upsert(
+        {
+          id: signUpData.user.id,
+          username: trimmedUsername,
+          display_name: trimmedUsername,
+        },
+        { onConflict: "id" },
+      );
+      if (profileErr) {
+        console.error("signup profile upsert:", profileErr.message);
+      }
+    }
 
     setLoading(false);
 
@@ -52,10 +73,28 @@ export default function SignupPage() {
     <div className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-4 py-16">
       <h1 className={pageTitleClass}>Sign up</h1>
       <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-        Create an account with email and password.
+        Create an account with email, username, and password.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium text-zinc-800 dark:text-zinc-200">
+            Username
+          </span>
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            required
+            minLength={2}
+            maxLength={40}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className={inputClass}
+            placeholder="your_public_name"
+          />
+        </label>
+
         <label className="flex flex-col gap-1 text-sm">
           <span className="font-medium text-zinc-800 dark:text-zinc-200">
             Email

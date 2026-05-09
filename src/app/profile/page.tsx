@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
 
 import {
@@ -12,7 +11,8 @@ import {
   pageHeaderClass,
   pageShellClass,
 } from "@/lib/page-layout";
-import { normalizeListingImageUrls } from "@/lib/listing-images";
+import { userPublicLabel } from "@/lib/user-display-name";
+import { ProfileShopListingCard } from "@/components/profile-shop-listing-card";
 
 import { DeleteFixedPriceButton } from "./delete-fixed-price-button";
 
@@ -128,8 +128,12 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
     ratingAverageDisplay = (Math.round(avg * 10) / 10).toFixed(1);
   }
 
-  const defaultDisplayName = profile?.display_name?.trim() ?? "";
   const defaultUsername = profile?.username?.trim() ?? "";
+  const profileHeadingName = userPublicLabel(
+    profile?.username,
+    profile?.display_name,
+    "Min profil",
+  );
   const defaultUsernamePath =
     defaultUsername !== "" ? encodeURIComponent(defaultUsername) : "";
   const activeTitle = profile?.active_title?.trim() || "Kortselger";
@@ -149,6 +153,11 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
       : `${ratingAverageDisplay} av 5 (${ratingCount})`;
   const shopHeading = profile?.shop_name?.trim() || "Min butikk";
 
+  const statCardClass =
+    "flex min-h-[72px] min-w-0 flex-col justify-between overflow-hidden rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2";
+  const statLabelClass = "text-xs leading-tight break-words text-zinc-500";
+  const statValueClass = "text-sm font-semibold tabular-nums text-zinc-900";
+
   return (
     <div className="min-h-screen bg-zinc-50">
       <div className={pageShellClass}>
@@ -160,7 +169,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                   Min Pokeshop
                 </p>
                 <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">
-                  {defaultDisplayName || "Min profil"}
+                  {profileHeadingName}
                 </h1>
                 <p className="text-sm text-zinc-600">{activeTitle}</p>
                 <p className="text-sm text-zinc-500">@{defaultUsername || "—"}</p>
@@ -182,9 +191,9 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               </div>
 
               <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 lg:gap-2">
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
-                  <p className="text-zinc-500">Følgere</p>
-                  <p className="font-semibold tabular-nums text-zinc-900">
+                <div className={statCardClass}>
+                  <p className={statLabelClass}>Følgere</p>
+                  <p className={statValueClass}>
                     {defaultUsernamePath !== "" ? (
                       <Link
                         href={`/u/${defaultUsernamePath}/followers`}
@@ -197,9 +206,9 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                     )}
                   </p>
                 </div>
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
-                  <p className="text-zinc-500">Følger</p>
-                  <p className="font-semibold tabular-nums text-zinc-900">
+                <div className={statCardClass}>
+                  <p className={statLabelClass}>Følger</p>
+                  <p className={statValueClass}>
                     {defaultUsernamePath !== "" ? (
                       <Link
                         href={`/u/${defaultUsernamePath}/following`}
@@ -212,21 +221,21 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                     )}
                   </p>
                 </div>
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
-                  <p className="text-zinc-500">Aktive fastprisannonser</p>
-                  <p className="font-semibold tabular-nums text-zinc-900">
+                <div className={statCardClass}>
+                  <p className={statLabelClass}>Aktive fastprisannonser</p>
+                  <p className={statValueClass}>
                     {fixedPriceRows.length}
                   </p>
                 </div>
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
-                  <p className="text-zinc-500">Aktive auksjoner</p>
-                  <p className="font-semibold tabular-nums text-zinc-900">
+                <div className={statCardClass}>
+                  <p className={statLabelClass}>Aktive auksjoner</p>
+                  <p className={statValueClass}>
                     {auctionRows.length}
                   </p>
                 </div>
-                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm">
-                  <p className="text-zinc-500">Fullførte handler</p>
-                  <p className="font-semibold tabular-nums text-zinc-900">
+                <div className={statCardClass}>
+                  <p className={statLabelClass}>Fullførte handler</p>
+                  <p className={statValueClass}>
                     {completedDealsCount}
                   </p>
                 </div>
@@ -313,67 +322,42 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
             </Link>
           </div>
         ) : (
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {fixedPriceRows.map((row) => (
-              <li
-                key={row.id}
-                className="flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white text-sm shadow-sm"
-              >
-                <div className="relative -mx-px -mt-px aspect-[16/9] w-[calc(100%+2px)] max-h-44 shrink-0 overflow-hidden bg-zinc-100">
-                  {normalizeListingImageUrls(row.image_urls)[0] ? (
-                    <Image
-                      src={normalizeListingImageUrls(row.image_urls)[0]}
-                      alt={row.title ?? "Annonsebilde"}
-                      width={320}
-                      height={180}
-                      unoptimized
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full min-h-[9rem] w-full items-center justify-center border-b border-dashed border-zinc-200 bg-zinc-50 text-xs text-zinc-500">
-                      Ingen bilde
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col gap-3 p-3">
-                  <div className="space-y-1">
-                    <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      {row.category ?? "Uten kategori"}
-                    </p>
-                    <Link
-                      href={`/listings/${row.id}`}
-                      className="line-clamp-2 font-semibold text-zinc-900 hover:underline"
-                    >
-                      {row.title}
-                    </Link>
-                    <p className="text-base font-semibold text-zinc-900">
-                      {row.price_nok != null ? `${row.price_nok} NOK` : "Pris mangler"}
-                    </p>
-                  </div>
-                  <div className="mt-auto flex flex-wrap gap-3">
-                    <Link
-                      href={`/listings/${row.id}`}
-                      className="inline-flex rounded-lg border border-zinc-300 bg-white px-4 py-2 text-xs font-medium text-zinc-900 transition hover:bg-zinc-100"
-                    >
-                      Se produkt
-                    </Link>
-                    {user.id && row.type === "fixed_price" ? (
+          <ul className="mt-4 grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 [&_li]:min-w-0">
+            {fixedPriceRows.map((row) => {
+              const priceLabel =
+                row.price_nok != null
+                  ? `Fastpris: ${row.price_nok} NOK`
+                  : "Pris mangler";
+              return (
+                <ProfileShopListingCard
+                  key={row.id}
+                  listingId={row.id}
+                  title={row.title}
+                  priceLabel={priceLabel}
+                  image_urls={row.image_urls}
+                  typeLabel="Fastpris"
+                  footerLeft={
+                    <>
+                      <Link
+                        href={`/listings/${row.id}`}
+                        className="hover:underline"
+                      >
+                        Se produkt
+                      </Link>
                       <Link
                         href={`/listings/${row.id}/edit`}
-                        className="inline-flex rounded-lg border border-zinc-300 bg-white px-4 py-2 text-xs font-medium text-zinc-900 transition hover:bg-zinc-100"
+                        className="hover:underline"
                       >
                         Rediger
                       </Link>
-                    ) : null}
-                    {user.id && row.type === "fixed_price" ? (
-                      <span className="inline-flex [&_button]:!rounded-lg [&_button]:!border [&_button]:!border-red-200 [&_button]:!bg-red-50 [&_button]:!px-3 [&_button]:!py-1.5 [&_button]:!text-xs [&_button]:!font-medium [&_button]:!text-red-600 [&_button]:!shadow-none [&_button]:transition [&_button]:hover:!bg-red-100">
+                      <span className="inline-flex items-center [&_button]:!rounded-lg [&_button]:!border [&_button]:!border-red-200 [&_button]:!bg-red-50 [&_button]:!px-3 [&_button]:!py-1.5 [&_button]:!text-xs [&_button]:!font-medium [&_button]:!text-red-600 [&_button]:!shadow-none [&_button]:transition [&_button]:hover:!bg-red-100">
                         <DeleteFixedPriceButton listingId={row.id} />
                       </span>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            ))}
+                    </>
+                  }
+                />
+              );
+            })}
           </ul>
         )}
       </section>

@@ -75,7 +75,7 @@ const SORT_FILTERS: { value: ListingSortFilter; label: string }[] = [
 ];
 
 const listingCardClass =
-  "group relative flex w-full min-w-0 max-w-none flex-col gap-2.5 rounded-2xl border border-zinc-200 bg-white p-3 text-sm shadow-sm transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md";
+  "group relative flex h-full w-full min-w-0 max-w-none flex-col gap-2.5 rounded-2xl border border-zinc-200 bg-white p-3 text-sm shadow-sm transition-all duration-300 ease-out cursor-pointer hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md";
 
 function searchSellerDisplay(
   sellerId: string | null,
@@ -283,9 +283,9 @@ function SearchListingCard({
           className="absolute inset-0 z-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
           aria-label={listingLabel}
         />
-        <div className="relative z-10 flex flex-col gap-2.5 pointer-events-none">
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-2.5 pointer-events-none">
           {coverImage ? (
-            <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
+            <div className="mb-1.5 shrink-0 overflow-hidden rounded-xl border border-zinc-200">
               <Image
                 src={coverImage}
                 alt=""
@@ -296,23 +296,25 @@ function SearchListingCard({
               />
             </div>
           ) : (
-            <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+            <div className="mb-1.5 flex h-44 w-full shrink-0 items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
               Ingen bilde
             </div>
           )}
-          <div className="flex items-start gap-2.5">
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <p className="line-clamp-2 font-semibold text-zinc-900 group-hover:underline">
+          <div className="flex min-h-0 flex-1 items-stretch gap-2.5">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5">
+              <p className="line-clamp-2 overflow-hidden break-words font-semibold text-zinc-900 group-hover:underline">
                 {row.title?.trim() || "—"}
               </p>
               <p className="text-xs text-zinc-500">
                 {searchSellerDisplay(row.seller_id, sellerUsernameById)}
               </p>
-              <ListingCategoryBadge category={row.category} />
-              <div className="flex flex-col gap-1 text-inherit">
-                <span className="inline-flex w-fit rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex w-fit shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
                   {state}
                 </span>
+                <ListingCategoryBadge category={row.category} />
+              </div>
+              <div className="mt-auto flex flex-col gap-1 text-inherit">
                 {timeLeft ? (
                   <span className="text-xs text-zinc-500">
                     <span className="font-medium text-zinc-600">Tid igjen</span>{" "}
@@ -353,9 +355,9 @@ function SearchListingCard({
         className="absolute inset-0 z-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-2"
         aria-label={listingLabel}
       />
-      <div className="relative z-10 flex flex-col gap-2.5 pointer-events-none">
+      <div className="relative z-10 flex min-h-0 flex-1 flex-col gap-2.5 pointer-events-none">
         {coverImage ? (
-          <div className="mb-1.5 overflow-hidden rounded-xl border border-zinc-200">
+          <div className="mb-1.5 shrink-0 overflow-hidden rounded-xl border border-zinc-200">
             <Image
               src={coverImage}
               alt=""
@@ -366,20 +368,20 @@ function SearchListingCard({
             />
           </div>
         ) : (
-          <div className="mb-1.5 flex h-44 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+          <div className="mb-1.5 flex h-44 w-full shrink-0 items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
             Ingen bilde
           </div>
         )}
-        <div className="flex items-start gap-2.5">
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <p className="line-clamp-2 font-semibold text-zinc-900 group-hover:underline">
+        <div className="flex min-h-0 flex-1 items-stretch gap-2.5">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-1.5">
+            <p className="line-clamp-2 overflow-hidden break-words font-semibold text-zinc-900 group-hover:underline">
               {row.title?.trim() || "—"}
             </p>
             <p className="text-xs text-zinc-500">
               {searchSellerDisplay(row.seller_id, sellerUsernameById)}
             </p>
             <ListingCategoryBadge category={row.category} />
-            <p className="tabular-nums text-lg font-semibold text-zinc-900">
+            <p className="mt-auto tabular-nums text-lg font-semibold text-zinc-900">
               {priceText(row.price_nok)}
             </p>
           </div>
@@ -918,7 +920,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <>
               <ul className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {rows.map((row) => (
-                  <li key={row.id} className="min-w-0">
+                  <li key={row.id} className="flex h-full min-h-0 min-w-0 w-full">
                     <SearchListingCard
                       row={row}
                       nowMs={nowMs}

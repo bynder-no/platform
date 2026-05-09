@@ -77,7 +77,7 @@ export function HomeListingCarousel({
       <ul
         ref={trackRef}
         aria-label={ariaLabel}
-        className="mt-4 grid grid-flow-col auto-cols-[calc((100%-0.75rem)/2)] gap-3 overflow-x-auto overflow-y-visible px-1 py-2 scroll-smooth [-ms-overflow-style:none] [scrollbar-width:thin] sm:auto-cols-[calc((100%-1.5rem)/3)] sm:gap-3 lg:auto-cols-[calc((100%-2.25rem)/4)] lg:gap-3 [&::-webkit-scrollbar]:h-1.5"
+        className="mt-4 grid grid-flow-col auto-cols-[calc((100%-0.75rem)/2)] items-stretch gap-3 overflow-x-auto overflow-y-visible px-1 py-2 scroll-smooth [-ms-overflow-style:none] [scrollbar-width:thin] sm:auto-cols-[calc((100%-1.5rem)/3)] sm:gap-3 lg:auto-cols-[calc((100%-2.25rem)/4)] lg:gap-3 [&::-webkit-scrollbar]:h-1.5"
       >
         {children}
       </ul>
