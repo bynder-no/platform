@@ -95,7 +95,7 @@ export default async function FavoritesPage() {
                 >
                   <Link
                     href={`/listings/${row.id}`}
-                    className="min-w-0 font-semibold text-zinc-900 hover:underline"
+                    className="min-w-0 max-w-full font-semibold text-zinc-900 hover:underline line-clamp-2 overflow-hidden break-words"
                   >
                     {row.title}
                   </Link>

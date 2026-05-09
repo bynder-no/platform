@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +15,9 @@ import { FavoriteButton } from "./favorite-button";
 import { ListingAuctionBidPanel } from "./listing-auction-bid-panel";
 import { viewerAuctionBidPositionLabel } from "@/lib/auction-viewer-bid-status";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
+
+import { ListingImageGallery } from "./listing-image-gallery";
+import { userPublicLabel } from "@/lib/user-display-name";
 import { TITLE_KORTSELGER } from "@/lib/profile-titles";
 import { auctionTimeRemainingLabelFromState } from "@/lib/auction-time-remaining-no";
 import {
@@ -197,9 +199,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
   const sellerUsername = seller?.username?.trim() || null;
   const sellerLabel =
-    seller?.display_name?.trim() ||
-    seller?.username?.trim() ||
-    null;
+    userPublicLabel(seller?.username, seller?.display_name, "") || null;
   const sellerActiveTitle =
     typeof seller?.active_title === "string"
       ? seller.active_title.trim()
@@ -481,7 +481,6 @@ export default async function ListingDetailPage({ params }: PageProps) {
     "text-xs font-semibold uppercase tracking-wide text-zinc-500";
   const imageUrls = normalizeListingImageUrls(listing.image_urls);
   const coverImage = imageUrls[0] ?? null;
-  const restImages = imageUrls.slice(1, 3);
 
   const navLinkClass =
     "text-sm font-medium text-zinc-700 underline-offset-2 hover:underline";
@@ -547,7 +546,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-zinc-50">
-      <div className={pageShellClass}>
+      <div className={`${pageShellClass} max-w-7xl`}>
         <header className={pageHeaderClass}>
           <nav
             aria-label="Listing page"
@@ -575,7 +574,7 @@ export default async function ListingDetailPage({ params }: PageProps) {
         </header>
 
         <div className={`${pageBodyGapClass} space-y-10 text-sm text-zinc-900`}>
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-10 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(300px,400px)] lg:items-start lg:gap-12 xl:grid-cols-[minmax(0,1fr)_minmax(320px,440px)] xl:gap-14">
             <section
               aria-labelledby="listing-images-heading"
               className="order-1 min-w-0"
@@ -583,39 +582,12 @@ export default async function ListingDetailPage({ params }: PageProps) {
               <h2 id="listing-images-heading" className="sr-only">
                 Bilder
               </h2>
-              <div className={`${cardClass} p-4 sm:p-6`}>
+              <div className={`${cardClass} p-5 sm:p-8 lg:p-10`}>
                 {coverImage ? (
-                  <div className="space-y-4">
-                    <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50">
-                      <Image
-                        src={coverImage}
-                        alt={`Bilde av ${listing.title}`}
-                        width={1280}
-                        height={960}
-                        unoptimized
-                        className="mx-auto h-auto max-h-[min(56vh,520px)] w-full object-contain"
-                      />
-                    </div>
-                    {restImages.length > 0 ? (
-                      <ul className="flex flex-wrap gap-2 sm:gap-3">
-                        {restImages.map((url) => (
-                          <li
-                            key={url}
-                            className="w-[calc(50%-0.25rem)] shrink-0 sm:w-28"
-                          >
-                            <Image
-                              src={url}
-                              alt={`Ekstra bilde av ${listing.title}`}
-                              width={160}
-                              height={120}
-                              unoptimized
-                              className="h-24 w-full rounded-lg border border-zinc-200 bg-white object-cover"
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </div>
+                  <ListingImageGallery
+                    imageUrls={imageUrls}
+                    title={listing.title ?? "Annonse"}
+                  />
                 ) : (
                   <p className="text-zinc-600">Ingen bilder lagt til.</p>
                 )}

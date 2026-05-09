@@ -14,6 +14,7 @@ import {
   DISCOVER_BATCH_SIZE,
   getDiscoverShuffledItems,
 } from "@/app/discover/discover-data";
+import { userPublicLabel } from "@/lib/user-display-name";
 
 export const dynamic = "force-dynamic";
 
@@ -125,7 +126,7 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               id="discover-user-search"
               name="q"
               defaultValue={query}
-              placeholder="Søk etter brukernavn eller navn"
+              placeholder="Søk etter brukernavn"
               className="ui-input w-full"
             />
             <button
@@ -148,15 +149,21 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
               <ul className="space-y-2">
                 {userResults.map((profile) => {
                   const username = String(profile.username ?? "").trim();
-                  const displayName = String(profile.display_name ?? "").trim();
+                  const label = userPublicLabel(
+                    profile.username,
+                    profile.display_name,
+                    "Bruker",
+                  );
                   return (
                     <li key={profile.id}>
                       <Link
                         href={`/u/${encodeURIComponent(username)}`}
                         className="block rounded-md px-2 py-1.5 text-sm text-zinc-800 hover:bg-zinc-100"
                       >
-                        <span className="font-medium">{displayName || username}</span>
-                        <span className="text-zinc-500"> @{username}</span>
+                        <span className="font-medium">{label}</span>
+                        {username ? (
+                          <span className="text-zinc-500"> @{username}</span>
+                        ) : null}
                       </Link>
                     </li>
                   );
@@ -166,16 +173,18 @@ export default async function DiscoverPage({ searchParams }: DiscoverPageProps) 
           </div>
         ) : null}
 
-        {shuffledItems.length === 0 ? (
-          <p className="text-sm text-zinc-600">
-            Ingen aktive annonser akkurat nå.
-          </p>
-        ) : (
-          <DiscoverGrid
-            allItems={shuffledItems}
-            batchSize={DISCOVER_BATCH_SIZE}
-          />
-        )}
+        <div className="mt-10">
+          {shuffledItems.length === 0 ? (
+            <p className="text-sm text-zinc-600">
+              Ingen aktive annonser akkurat nå.
+            </p>
+          ) : (
+            <DiscoverGrid
+              allItems={shuffledItems}
+              batchSize={DISCOVER_BATCH_SIZE}
+            />
+          )}
+        </div>
       </section>
     </div>
   );

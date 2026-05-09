@@ -1,7 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { notFound } from "next/navigation";
 
+import { HomeCardFavoriteButton } from "@/app/home-card-favorite-button";
 import {
   LISTING_CATEGORY_OPTIONS,
   parseListingCategory,
@@ -19,7 +19,8 @@ import {
   pageTitleClass,
 } from "@/lib/page-layout";
 import { publicListingFeedOrFilter } from "@/app/listings/public-auction-feed-filter";
-import { normalizeListingImageUrls } from "@/lib/listing-images";
+import { ProfileShopListingCard } from "@/components/profile-shop-listing-card";
+import { userPublicLabel } from "@/lib/user-display-name";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +130,32 @@ export default async function PublicProfilePage({
       selectedCategory == null ? true : row.category === selectedCategory,
     );
   const auctionRows = rows.filter((row) => row.type === "auction");
+
+  const fixedListingIds = fixedPriceRows
+    .map((r) => r.id)
+    .filter((id): id is string => typeof id === "string" && id !== "");
+  const favoriteIdSet = new Set<string>();
+  if (user && fixedListingIds.length > 0 && !isOwnProfile) {
+    const { data: favRows, error: favErr } = await supabase
+      .from("favorites")
+      .select("listing_id")
+      .eq("user_id", user.id)
+      .in("listing_id", fixedListingIds);
+
+    if (favErr) {
+      throw new Error(`Could not load favorites: ${favErr.message}`);
+    }
+    for (const r of favRows ?? []) {
+      const lid = r.listing_id;
+      if (typeof lid === "string" && lid !== "") favoriteIdSet.add(lid);
+    }
+  }
+
+  const profileBasePath = `/u/${encodeURIComponent(username)}`;
+  const favoriteReturnTo =
+    selectedCategory == null
+      ? profileBasePath
+      : `${profileBasePath}?category=${encodeURIComponent(selectedCategory)}`;
   const { data: ratingsReceived, error: ratingsError } = await supabase
     .from("deal_ratings")
     .select("score")
@@ -161,7 +188,11 @@ export default async function PublicProfilePage({
   const completedDealsCount = salesCount + purchasesCount;
   const activeTitle = String(profile?.active_title ?? "").trim() || "Kortselger";
   const shopHeading = String(profile?.shop_name ?? "").trim() || "Butikk";
-  const displayName = String(profile?.display_name ?? "").trim() || "—";
+  const publicName = userPublicLabel(
+    profile?.username,
+    profile?.display_name,
+    "—",
+  );
   const usernameLabel = String(profile?.username ?? "").trim() || "—";
 
   return (
@@ -201,9 +232,9 @@ export default async function PublicProfilePage({
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500">
                 Min Pokeshop
               </p>
-              <h1 className={pageTitleClass}>{displayName}</h1>
+              <h1 className={pageTitleClass}>{publicName}</h1>
               <p className="text-sm text-zinc-600">
-                {activeTitle} {displayName}
+                {activeTitle}
               </p>
               <p className="text-sm text-zinc-600">
                 @{usernameLabel} · Rating: {ratingDisplayText}
@@ -314,66 +345,61 @@ export default async function PublicProfilePage({
             Ingen aktive fastprisannonser i butikken akkurat nå.
           </p>
         ) : (
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-4 grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3 [&_li]:min-w-0">
             {fixedPriceRows.map((row) => {
               const rowSellerId = String(row.seller_id ?? "").trim();
-              const isOwnListing = user != null && rowSellerId !== "" && user.id === rowSellerId;
+              const isOwnListing =
+                user != null && rowSellerId !== "" && user.id === rowSellerId;
               const canBuy =
                 user != null &&
                 !isOwnListing &&
                 row.type === "fixed_price" &&
                 row.status === "active";
+              const priceLabel =
+                row.price_nok != null
+                  ? `Fastpris: ${row.price_nok} NOK`
+                  : "Pris mangler";
+
               return (
-                <li key={row.id} className="ui-card overflow-hidden p-3 text-sm">
-                  <div className="flex h-full flex-col justify-between gap-3">
-                    {normalizeListingImageUrls(row.image_urls)[0] ? (
-                      <Image
-                        src={normalizeListingImageUrls(row.image_urls)[0]}
-                        alt={row.title ?? "Annonsebilde"}
-                        width={320}
-                        height={144}
-                        unoptimized
-                        className="h-40 w-full rounded-xl border border-zinc-200 object-cover"
+                <ProfileShopListingCard
+                  key={row.id}
+                  listingId={row.id}
+                  title={row.title}
+                  priceLabel={priceLabel}
+                  image_urls={row.image_urls}
+                  typeLabel="Fastpris"
+                  footerLeft={
+                    <>
+                      <Link
+                        href={`/listings/${row.id}`}
+                        className="hover:underline"
+                      >
+                        Se annonse
+                      </Link>
+                      {canBuy ? (
+                        <Link
+                          href={`/listings/${row.id}`}
+                          className="hover:underline"
+                        >
+                          Gi bud
+                        </Link>
+                      ) : user == null ? (
+                        <span className="text-zinc-500">
+                          Logg inn for å gi bud
+                        </span>
+                      ) : null}
+                    </>
+                  }
+                  footerRight={
+                    user != null && !isOwnListing ? (
+                      <HomeCardFavoriteButton
+                        listingId={row.id}
+                        isFavorite={favoriteIdSet.has(row.id)}
+                        returnTo={favoriteReturnTo}
                       />
-                    ) : (
-                      <div className="flex h-40 w-full items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
-                        Ingen bilde
-                      </div>
-                    )}
-                    <div className="space-y-1">
-                      <span className="ui-badge ui-badge-accent">
-                        {row.category ?? "Uten kategori"}
-                      </span>
-                      <Link
-                        href={`/listings/${row.id}`}
-                        className="line-clamp-2 font-semibold text-zinc-900 hover:underline"
-                      >
-                        {row.title}
-                      </Link>
-                      <p className="text-base font-semibold text-zinc-900">
-                        {row.price_nok != null ? `${row.price_nok} NOK` : "Pris mangler"}
-                      </p>
-                    </div>
-                    <Link
-                      href={`/listings/${row.id}`}
-                      className="ui-button-secondary inline-flex px-3 py-1.5 text-xs"
-                    >
-                      Se produkt
-                    </Link>
-                    {canBuy ? (
-                      <Link
-                        href={`/listings/${row.id}`}
-                        className="ui-button inline-flex px-3 py-1.5 text-xs"
-                      >
-                        Gi bud
-                      </Link>
-                    ) : user == null ? (
-                      <p className="text-xs text-zinc-600">
-                        Logg inn for å gi bud
-                      </p>
-                    ) : null}
-                  </div>
-                </li>
+                    ) : undefined
+                  }
+                />
               );
             })}
           </ul>

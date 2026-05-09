@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { userPublicLabel } from "@/lib/user-display-name";
 import { getUnreadInboundCountsByThreadId } from "@/lib/normal-chat-badges";
 import { normalizeListingImageUrls } from "@/lib/listing-images";
 import {
@@ -55,7 +56,7 @@ function profileLabel(
     | null,
 ) {
   if (!p) return "Medlem";
-  return p.display_name?.trim() || p.username?.trim() || "Medlem";
+  return userPublicLabel(p.username, p.display_name, "Medlem");
 }
 
 function previewText(body: string | null | undefined) {

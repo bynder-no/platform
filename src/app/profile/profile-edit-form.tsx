@@ -11,14 +11,12 @@ const buttonClass =
   "rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200";
 
 type ProfileEditFormProps = {
-  defaultDisplayName: string;
   defaultUsername: string;
   defaultShopName: string;
   defaultActiveTitle: string;
 };
 
 export function ProfileEditForm({
-  defaultDisplayName,
   defaultUsername,
   defaultShopName,
   defaultActiveTitle,
@@ -29,21 +27,7 @@ export function ProfileEditForm({
     <form action={formAction} className="mt-10 flex flex-col gap-4">
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium text-zinc-800 dark:text-zinc-200">
-          Display name
-        </span>
-        <input
-          type="text"
-          name="display_name"
-          autoComplete="name"
-          defaultValue={defaultDisplayName}
-          className={inputClass}
-          placeholder="How you want to appear"
-        />
-      </label>
-
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium text-zinc-800 dark:text-zinc-200">
-          Username
+          Brukernavn
         </span>
         <input
           type="text"
@@ -51,7 +35,7 @@ export function ProfileEditForm({
           autoComplete="username"
           defaultValue={defaultUsername}
           className={inputClass}
-          placeholder="Public profile URL (optional)"
+          placeholder="Offentlig profil (/u/…)"
         />
       </label>
 

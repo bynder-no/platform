@@ -107,17 +107,17 @@ function FixedPriceListingCard({
           width={224}
           height={144}
           unoptimized
-          className="mb-2 h-36 w-full rounded-md border border-zinc-200 object-cover"
+          className="mb-2 h-36 w-full shrink-0 rounded-md border border-zinc-200 object-cover"
         />
       ) : (
-        <span className="mb-2 flex h-36 w-full items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
+        <span className="mb-2 flex h-36 w-full shrink-0 items-center justify-center rounded-md border border-dashed border-zinc-300 bg-zinc-50 text-xs text-zinc-500">
           Ingen bilde
         </span>
       )}
-      <span className="line-clamp-2 font-medium text-zinc-900">
+      <span className="line-clamp-2 min-h-0 flex-1 overflow-hidden break-words font-medium text-zinc-900">
         {row.title?.trim() || "—"}
       </span>
-      <span className="tabular-nums text-zinc-600">
+      <span className="mt-auto tabular-nums text-zinc-600">
         {priceText(row.price_nok)}
       </span>
     </Link>
@@ -192,7 +192,7 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
   const rows = rawRows.slice(0, PAGE_SIZE);
 
   const cardClass =
-    "flex min-w-[11rem] max-w-[14rem] flex-1 shrink-0 flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm shadow-sm";
+    "flex h-full min-h-0 min-w-[11rem] max-w-[14rem] flex-1 shrink-0 flex-col gap-1 rounded-md border border-zinc-200 bg-white px-3 py-3 text-sm shadow-sm";
 
   const selectedSortLabel =
     SORT_FILTERS.find((item) => item.value === sortFilter)?.label ?? "Nyeste";
@@ -410,9 +410,9 @@ export default async function PublicFixedPricePage({ searchParams }: PageProps) 
             </p>
           ) : (
             <>
-              <ul className="mt-4 flex flex-wrap gap-3">
+              <ul className="mt-4 flex flex-wrap items-stretch gap-3">
                 {rows.map((row) => (
-                  <li key={row.id}>
+                  <li key={row.id} className="flex h-full min-h-0">
                     <FixedPriceListingCard row={row} cardClass={cardClass} />
                   </li>
                 ))}

@@ -250,6 +250,10 @@ export async function toggleFavorite(
       redirect(returnTo);
     }
   }
+  if (returnTo === "/following") {
+    revalidatePath("/following");
+    redirect("/following");
+  }
 
   redirect(`/listings/${listingId}`);
 }
