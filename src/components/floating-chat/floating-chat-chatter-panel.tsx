@@ -1,5 +1,7 @@
 "use client";
 
+import { formatChatterListTime } from "@/lib/chatter-list-time";
+
 import type { DealPreview, InboxThread } from "./floating-chat-types";
 
 const LIST_PAGE_SIZE = 20;
@@ -45,7 +47,9 @@ function DealListItem({ deal }: { deal: DealPreview }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <p className="line-clamp-1 text-sm font-medium text-zinc-900">{deal.listingTitle}</p>
-            <span className="shrink-0 text-[11px] text-zinc-500">{deal.when}</span>
+            <span className="shrink-0 text-right text-[11px] tabular-nums text-zinc-500">
+              {formatChatterListTime(deal.when)}
+            </span>
           </div>
           <p className="mt-0.5 line-clamp-1 text-xs text-zinc-600">{deal.preview}</p>
           {deal.statusBadge ? (
@@ -183,7 +187,9 @@ export function FloatingChatChatterPanel({
                           </span>
                         ) : null}
                       </div>
-                      <span className="shrink-0 text-[11px] text-zinc-500">{chat.when}</span>
+                      <span className="shrink-0 text-right text-[11px] tabular-nums text-zinc-500">
+                        {formatChatterListTime(chat.when)}
+                      </span>
                     </div>
                     <p className="truncate text-xs text-zinc-600">{chat.preview}</p>
                   </div>

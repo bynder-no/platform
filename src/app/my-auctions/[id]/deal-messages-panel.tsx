@@ -2,11 +2,18 @@
 
 import { useMemo, useState } from "react";
 
+import {
+  indexOfLatestOwnMessage,
+  OutgoingDeliveryLabel,
+} from "@/components/chat-outgoing-delivery-label";
+
 type DealMessage = {
   id: string;
   body: string | null;
   sender_id: string | null;
   created_at: string | null;
+  /** Present only when DB exposes a read column (not used yet). */
+  read_at?: string | null;
 };
 
 type DealMessagesPanelProps = {
@@ -32,6 +39,13 @@ export function DealMessagesPanel({
     );
   }, [messages, normalizedQuery]);
 
+  const latestOwnFilteredIdx = useMemo(() => {
+    const mapped = filteredMessages.map((m) => ({
+      senderId: String(m.sender_id ?? ""),
+    }));
+    return indexOfLatestOwnMessage(mapped, currentUserId);
+  }, [filteredMessages, currentUserId]);
+
   return (
     <div>
       <label htmlFor="deal-room-search" className="sr-only">
@@ -55,9 +69,12 @@ export function DealMessagesPanel({
         </p>
       ) : (
         <ul className="mt-3 space-y-3 border-t border-zinc-200 pt-3">
-          {filteredMessages.map((m) => {
+          {filteredMessages.map((m, idx) => {
             const when = m.created_at ? new Date(m.created_at).toLocaleString() : "—";
             const label = m.sender_id === currentUserId ? "Deg" : "Annen bruker";
+            const isOwn = m.sender_id === currentUserId;
+            const showDelivery =
+              isOwn && latestOwnFilteredIdx >= 0 && idx === latestOwnFilteredIdx;
             return (
               <li key={m.id} className="text-sm">
                 <p className="font-medium text-zinc-800">
@@ -72,6 +89,9 @@ export function DealMessagesPanel({
                 <p className="mt-1 whitespace-pre-wrap text-zinc-700">
                   {String(m.body ?? "").trim() || "—"}
                 </p>
+                {showDelivery ? (
+                  <OutgoingDeliveryLabel readAt={m.read_at} />
+                ) : null}
               </li>
             );
           })}

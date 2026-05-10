@@ -16,6 +16,7 @@ import { type BidForLeadingRow } from "@/lib/auction-viewer-bid-status";
 import { resolvePendingEndedAuctions } from "@/lib/auction-resolution";
 
 import { DashboardFollowedAuctionsGrid } from "./dashboard-followed-auctions-grid";
+import { DashboardMyAuctionsGrid } from "./dashboard-my-auctions-grid";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,29 @@ function isAuctionLiveNow(
   if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs)) return false;
   return nowMs >= startsAtMs && nowMs < endsAtMs;
 }
+
+/** Same phase boundaries as dashboard auction cards / my-listings timing. */
+function auctionTimingPhaseNo(
+  nowMs: number,
+  startsAt: string | null,
+  endsAt: string | null,
+): "Planlagt" | "Live" | "Avsluttet" {
+  const startsAtMs = startsAt ? new Date(startsAt).getTime() : Number.NaN;
+  const endsAtMs = endsAt ? new Date(endsAt).getTime() : Number.NaN;
+  if (Number.isFinite(startsAtMs) && nowMs < startsAtMs) return "Planlagt";
+  if (Number.isFinite(endsAtMs) && nowMs >= endsAtMs) return "Avsluttet";
+  return "Live";
+}
+
+type OwnedAuctionListingRow = {
+  id: string;
+  title: string | null;
+  type: string | null;
+  category: string | null;
+  image_urls: unknown;
+  auction_starts_at: string | null;
+  auction_ends_at: string | null;
+};
 
 const TRACKED_LIVE_AUCTIONS_LIMIT = 4;
 
@@ -218,6 +242,71 @@ export default async function DashboardPage() {
     dashboardSellerUsernameById,
   );
 
+  const { data: ownedAuctionRowsRaw, error: ownedAuctionErr } = await supabase
+    .from("listings")
+    .select(
+      "id, title, type, category, image_urls, auction_starts_at, auction_ends_at",
+    )
+    .eq("seller_id", user.id)
+    .eq("type", "auction")
+    .eq("status", "active");
+
+  if (ownedAuctionErr) {
+    throw new Error(
+      `Could not load your auction listings: ${ownedAuctionErr.message}`,
+    );
+  }
+
+  const ownedActiveAuctions: OwnedAuctionListingRow[] = (
+    ownedAuctionRowsRaw ?? []
+  ).filter((row) => {
+    const phase = auctionTimingPhaseNo(
+      nowMs,
+      row.auction_starts_at ?? null,
+      row.auction_ends_at ?? null,
+    );
+    return phase !== "Avsluttet";
+  }) as OwnedAuctionListingRow[];
+
+  ownedActiveAuctions.sort((a, b) => {
+    const ea = a.auction_ends_at
+      ? new Date(a.auction_ends_at).getTime()
+      : Number.POSITIVE_INFINITY;
+    const eb = b.auction_ends_at
+      ? new Date(b.auction_ends_at).getTime()
+      : Number.POSITIVE_INFINITY;
+    return ea - eb;
+  });
+
+  let ownedHighestNokRecord: Record<string, number> = {};
+  let ownedBidCountRecord: Record<string, number> = {};
+  const ownedAuctionIds = ownedActiveAuctions.map((r) => r.id).filter(Boolean);
+  if (ownedAuctionIds.length > 0) {
+    const { data: ownedBidRows, error: ownedBidErr } = await supabase
+      .from("bids")
+      .select("listing_id, amount_nok, created_at")
+      .in("listing_id", ownedAuctionIds);
+
+    if (ownedBidErr) {
+      throw new Error(
+        `Could not load bids for your auctions: ${ownedBidErr.message}`,
+      );
+    }
+
+    const ownedFlat = (ownedBidRows ?? []) as BidWithListingId[];
+    ownedHighestNokRecord = Object.fromEntries(
+      highestNokByListingId(ownedFlat),
+    );
+    const counts = new Map<string, number>();
+    for (const r of ownedFlat) {
+      const lid = r.listing_id;
+      if (typeof lid === "string" && lid !== "") {
+        counts.set(lid, (counts.get(lid) ?? 0) + 1);
+      }
+    }
+    ownedBidCountRecord = Object.fromEntries(counts);
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50">
       <div className={pageShellClass}>
@@ -246,6 +335,24 @@ export default async function DashboardPage() {
               highestNokByListingId={highestNokByListingIdRecord}
               bidRowsForListings={bidRowsForListings}
               sellerUsernameById={sellerUsernameByIdRecord}
+              nowMs={nowMs}
+            />
+          )}
+        </section>
+
+        <section aria-labelledby="dash-my-auctions-heading">
+          <h2 id="dash-my-auctions-heading" className={sectionHeadingClass}>
+            Mine auksjoner
+          </h2>
+          {ownedActiveAuctions.length === 0 ? (
+            <p className="mt-3 text-sm text-zinc-600">
+              Du har ingen aktive auksjoner akkurat nå.
+            </p>
+          ) : (
+            <DashboardMyAuctionsGrid
+              auctions={ownedActiveAuctions}
+              highestNokByListingId={ownedHighestNokRecord}
+              bidCountByListingId={ownedBidCountRecord}
               nowMs={nowMs}
             />
           )}

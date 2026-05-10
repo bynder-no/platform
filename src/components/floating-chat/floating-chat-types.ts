@@ -13,6 +13,7 @@ export type ChatPreview = {
     senderId: string;
     body: string;
     createdAt: string | null;
+    readAt?: string | null;
   }>;
 };
 
@@ -47,6 +48,7 @@ export type DealPreview = {
     senderId: string;
     body: string;
     createdAt: string | null;
+    readAt?: string | null;
   }>;
 };
 

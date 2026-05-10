@@ -12,15 +12,14 @@ import {
   markSellerReceivedPayment,
 } from "@/app/my-auctions/[id]/actions";
 
-import type { ChatPreview, InboxThread } from "./floating-chat-types";
+import {
+  indexOfLatestOwnMessage,
+  OutgoingDeliveryLabel,
+} from "@/components/chat-outgoing-delivery-label";
 
-function formatMessageTime(value: string | null) {
-  if (!value) return "—";
-  return new Date(value).toLocaleTimeString("nb-NO", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+import { formatMessageBubbleTime } from "@/lib/chatter-list-time";
+
+import type { ChatPreview, InboxThread } from "./floating-chat-types";
 
 type FloatingChatThreadWindowProps = {
   thread: InboxThread;
@@ -349,32 +348,49 @@ export function FloatingChatThreadWindow({
           {selectedThread.messages.length === 0 ? (
             <p className="text-xs text-zinc-600">Ingen meldinger ennå.</p>
           ) : (
-            selectedThread.messages.map((message) => {
-              const isOwn = String(message.senderId) === uid;
-              return (
-                <div
-                  key={message.id}
-                  className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-3 py-1.5 text-xs ${
-                      isOwn
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "border border-zinc-200/80 bg-white text-zinc-900 shadow-sm"
-                    }`}
-                  >
-                    <p className="whitespace-pre-wrap">{message.body}</p>
-                    <p
-                      className={`mt-1 text-[10px] ${
-                        isOwn ? "text-blue-100" : "text-zinc-500"
-                      }`}
-                    >
-                      {formatMessageTime(message.createdAt)}
-                    </p>
-                  </div>
-                </div>
+            (() => {
+              const latestOwnIdx = indexOfLatestOwnMessage(
+                selectedThread.messages,
+                uid,
               );
-            })
+              return selectedThread.messages.map((message, index) => {
+                const isOwn = String(message.senderId) === uid;
+                const showDelivery =
+                  isOwn &&
+                  latestOwnIdx >= 0 &&
+                  index === latestOwnIdx;
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`flex max-w-[85%] flex-col ${isOwn ? "items-end" : "items-start"}`}
+                    >
+                      <div
+                        className={`rounded-2xl px-3 py-1.5 text-xs ${
+                          isOwn
+                            ? "bg-blue-600 text-white shadow-sm"
+                            : "border border-zinc-200/80 bg-white text-zinc-900 shadow-sm"
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap">{message.body}</p>
+                        <p className="mt-1 text-xs text-zinc-400">
+                          {formatMessageBubbleTime(message.createdAt)}
+                        </p>
+                      </div>
+                      {showDelivery ? (
+                        <OutgoingDeliveryLabel
+                          readAt={
+                            isDealThread ? undefined : message.readAt
+                          }
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              });
+            })()
           )}
           <div
             ref={threadMessagesEndRef ?? undefined}

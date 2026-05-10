@@ -231,7 +231,9 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
           [id]: { ...p[id], unreadCount: 0 },
         }));
       }
-      void markConversationThreadRead(id).then(() => router.refresh());
+      if (row?.kind === "chat") {
+        void markConversationThreadRead(id).then(() => router.refresh());
+      }
     };
     window.addEventListener(OPEN_CHAT_THREAD_EVENT, handler as EventListener);
     return () =>
@@ -426,6 +428,7 @@ export function FloatingChatBubble({ chats, currentUserId }: FloatingChatBubbleP
                 senderId: currentUserId,
                 body,
                 createdAt: new Date().toISOString(),
+                readAt: null,
               },
             ],
           },
