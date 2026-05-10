@@ -257,7 +257,7 @@ export default async function DashboardPage() {
     );
   }
 
-  let ownedActiveAuctions: OwnedAuctionListingRow[] = (
+  const ownedActiveAuctions: OwnedAuctionListingRow[] = (
     ownedAuctionRowsRaw ?? []
   ).filter((row) => {
     const phase = auctionTimingPhaseNo(
