@@ -66,14 +66,14 @@ function previewText(body: string | null | undefined) {
   return `${text.slice(0, 42)}...`;
 }
 
-function formatWhen(value: string | null | undefined) {
-  if (!value) return "—";
-  return new Date(value).toLocaleString("nb-NO", {
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-  });
+/** ISO timestamp for client-side Chatter list formatting (`formatChatterListTime`). */
+function chatterListTimestamp(
+  primary: string | null | undefined,
+  fallback: string | null | undefined,
+): string {
+  const v = primary ?? fallback;
+  if (v == null || String(v).trim() === "") return "";
+  return String(v);
 }
 
 export async function FloatingChatBubbleServer() {
@@ -149,7 +149,7 @@ export async function FloatingChatBubbleServer() {
         thread.status === "pending" && thread.requester_id === user.id
           ? "Venter på godkjenning"
           : previewText(last?.body),
-      when: formatWhen(last?.created_at ?? thread.updated_at),
+      when: chatterListTimestamp(last?.created_at, thread.updated_at),
       status: thread.status,
       requesterId: thread.requester_id,
       recipientId: thread.recipient_id,
@@ -159,6 +159,7 @@ export async function FloatingChatBubbleServer() {
         senderId: message.sender_id,
         body: message.body,
         createdAt: message.created_at,
+        readAt: message.read_at,
       })),
     };
   });
@@ -289,7 +290,7 @@ export async function FloatingChatBubbleServer() {
           ? `/my-auctions/${listingId}?buyer=${encodeURIComponent(dealBidderId)}`
           : `/my-auctions/${listingId}`,
       preview: previewText(last?.body),
-      when: formatWhen(last?.created_at ?? deal.completed_at),
+      when: chatterListTimestamp(last?.created_at, deal.completed_at),
       statusBadge: group === "deal_fullfort" ? "Solgt" : badge.text,
       statusTone:
         badge.className.includes("red-") ? "action" : badge.className.includes("green-") ? "wait" : "neutral",

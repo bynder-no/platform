@@ -254,6 +254,10 @@ export async function toggleFavorite(
     revalidatePath("/following");
     redirect("/following");
   }
+  if (returnTo === "/favorites") {
+    revalidatePath("/favorites");
+    redirect("/favorites");
+  }
 
   redirect(`/listings/${listingId}`);
 }

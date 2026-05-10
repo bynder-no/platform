@@ -300,6 +300,7 @@ export default async function MyAuctionDealRoomPage({
     }
 
     const fixedDealMessages = fixedDealMessageRows ?? [];
+
     const sellerDecision = String(fixedDeal.seller_decision ?? "pending");
     const bidderDecision = String(fixedDeal.bidder_decision ?? "pending");
     const buyerReceivedCard = isPgBoolTrue(fixedDeal.buyer_received_card);
